@@ -1,8 +1,11 @@
 # Userscript configuration
 [userscript]
-icon      = "https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/download.svg"
-match     = ["https://www.uscardforum.com/t/*/*"]
-namespace = "https://github.com/isandrel/Markify"
+homepageURL = "https://github.com/isandrel/Markify"
+icon        = "https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/download.svg"
+license     = "AGPL-3.0-or-later"
+match       = ["https://www.uscardforum.com/t/*/*"]
+namespace   = "https://github.com/isandrel/Markify"
+supportURL  = "https://github.com/isandrel/Markify/issues"
 
 [userscript.grant]
 permissions = [
@@ -15,3 +18,6 @@ permissions = [
     "GM.setClipboard",
     "GM.setValue",
 ]
+
+[userscript.compatible]
+browsers = ["chrome", "edge", "firefox", "opera", "safari"]
