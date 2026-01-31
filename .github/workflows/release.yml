@@ -39,6 +39,9 @@ jobs:
 
       - name: Commit static file to main for Greasy Fork webhook
         run: |
+          git fetch origin main
+          git checkout main
+          git pull origin main
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -f dist/markify.user.js
