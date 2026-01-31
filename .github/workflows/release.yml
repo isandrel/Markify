@@ -37,6 +37,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           name: Markify v${{ steps.version.outputs.VERSION }}
+          generate_release_notes: true
           files: |
             dist/markify-v${{ steps.version.outputs.VERSION }}.user.js
             dist/markify.user.js
