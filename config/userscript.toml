@@ -1,0 +1,17 @@
+# Userscript configuration
+[userscript]
+icon      = "https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/download.svg"
+match     = ["https://www.uscardforum.com/t/*/*"]
+namespace = "https://github.com/isandrel/Markify"
+
+[userscript.grant]
+permissions = [
+    "GM.deleteValue",
+    "GM.getValue",
+    "GM.listValues",
+    "GM.notification",
+    "GM.openInTab",
+    "GM.registerMenuCommand",
+    "GM.setClipboard",
+    "GM.setValue",
+]

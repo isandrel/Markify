@@ -1,0 +1,38 @@
+# Document-level template (wraps everything)
+[document]
+enabled = true
+# Variables: {frontmatter}, {content}, {title}, {url}, {date}, {author}
+template = """{frontmatter}
+
+{content}
+"""
+
+# Frontmatter configuration
+[frontmatter]
+enabled = true
+fields = [
+    "author",
+    "date",
+    "description",
+    "downloaded",
+    "source",
+    "tags",
+    "title",
+]
+
+# Content formatting
+[content]
+separator = "\n\n---\n\n" # Between pages/sections
+# header = "# Content\n\n"  # Optional header before content
+# footer = "\n\n---\nEnd of content"  # Optional footer after content
+
+# Comment/post template (for forums)
+[comment]
+enabled = true
+# Variables: {author}, {date}, {content}, {index}
+template = """
+## Comment {index} - {author}
+**Posted:** {date}
+
+{content}
+"""

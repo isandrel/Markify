@@ -1,0 +1,41 @@
+# UI configuration
+[ui]
+button_color       = "#7c3aed"
+button_hover_color = "#6d28d9"
+button_offset_x    = 20
+button_offset_y    = 20
+button_position    = "bottom-right"
+button_text        = "📥 Markify"
+
+# Conversion settings
+[conversion]
+code_block_style = "fenced"  # "fenced" (```) or "indented" (4 spaces)
+em_delimiter     = "*"       # "*" or "_"
+heading_style    = "atx"     # "atx" (###) or "setext" (underline)
+link_style       = "inlined" # "inlined" or "referenced"
+strong_delimiter = "**"      # "**" or "__"
+
+[conversion.remove_elements]
+tags = ["aside", "footer", "header", "iframe", "nav", "script", "style"]
+
+[conversion.content_selectors]
+selectors = [
+    "#content",
+    ".article-content",
+    ".content",
+    ".entry-content",
+    ".post-content",
+    "[role='main']",
+    "article",
+    "main",
+]
+
+# Frontmatter defaults
+[frontmatter]
+default_tags       = ["web-clip"]
+include_author     = true
+include_date       = true
+include_downloaded = true
+include_tags       = true
+include_title      = true
+include_url        = true

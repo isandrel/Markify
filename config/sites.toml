@@ -1,0 +1,12 @@
+# Custom site adapters
+# Add your own site-specific extraction rules here
+
+# Example: Hacker News
+[[sites]]
+content_selectors = [".comment", ".fatitem"]
+name              = "Hacker News"
+remove_selectors  = [".navs", ".votelinks"]
+url_patterns      = ["https://news.ycombinator.com/item?id=*"]
+
+[sites.frontmatter]
+tags = ["hackernews", "tech"]
