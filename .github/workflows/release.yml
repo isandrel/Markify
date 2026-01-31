@@ -3,54 +3,54 @@ name: Release to GitHub and Greasy Fork
 on:
   push:
     tags:
-      - 'v*.*.*'  # Triggers on version tags like v0.0.1, v1.2.3
+      - "v*.*.*" # Triggers on version tags like v0.0.1, v1.2.3
 
 jobs:
   build-and-release:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Setup Bun
         uses: oven-sh/setup-bun@v1
         with:
           bun-version: latest
-      
+
       - name: Install dependencies
         run: bun install
-      
+
       - name: Build userscript
         run: bun run build
-      
+
       - name: Extract version from tag
         id: version
         run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
-      
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
-          files: dist/markify.user.js
+          files: dist/markify-v${{ steps.version.outputs.VERSION }}.user.js
           body: |
             ## 🚀 Markify ${{ steps.version.outputs.VERSION }}
-            
-            **Install:** [Click here](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/markify.user.js)
-            
+
+            **Install:** [Click here](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/markify-v${{ steps.version.outputs.VERSION }}.user.js)
+
             ### Changes
             See commit history for details.
-            
+
             ---
-            
+
             **Greasy Fork:** This release is automatically synced to Greasy Fork
           draft: false
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      
+
       - name: Notify success
         run: |
           echo "✅ Release created successfully!"
-          echo "📦 Userscript: dist/markify.user.js"
+          echo "📦 Userscript: dist/markify-v${{ steps.version.outputs.VERSION }}.user.js"
           echo "🔗 Release URL: https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}"
-          echo "🌐 Greasy Fork will sync from: https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/markify.user.js"
+          echo "🌐 Greasy Fork will sync from: https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/markify-v${{ steps.version.outputs.VERSION }}.user.js"

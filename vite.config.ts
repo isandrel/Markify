@@ -46,12 +46,11 @@ export default defineConfig({
                 match: config.userscript.match,
                 grant: config.userscript.grant.permissions,
                 icon: config.userscript.icon,
-                downloadURL: `${config.package.repository}/raw/main/dist/markify.user.js`,
-                updateURL: `${config.package.repository}/raw/main/dist/markify.user.js`,
+                downloadURL: `${config.package.repository}/raw/main/dist/markify-v${config.package.version}.user.js`,
+                updateURL: `${config.package.repository}/raw/main/dist/markify-v${config.package.version}.user.js`,
             },
             build: {
-                fileName: 'markify.user.js',
-                // Inject templates config into userscript
+                fileName: `markify-v${config.package.version}.user.js`,
                 externalGlobals: {},
                 metaFileName: false,
             },
