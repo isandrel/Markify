@@ -1,0 +1,462 @@
+import TurndownService from 'turndown';
+import {
+    sanitizeFilename,
+    formatDate,
+    extractMainContent,
+    generateFrontmatter,
+    type FrontmatterOptions,
+} from './utils';
+import {
+    findSiteAdapter,
+    builtInAdapters,
+    fetchUSCardForumContent,
+    type SiteAdapter,
+    type SiteMetadata,
+} from './adapters';
+import {
+    loadSettings,
+    showSettings,
+    type MarkifySettings,
+} from './settings';
+
+// Initialize Turndown service for HTML to Markdown conversion
+const turndownService = new TurndownService({
+    headingStyle: 'atx', // Use # style headings
+    codeBlockStyle: 'fenced', // Use ``` for code blocks
+    emDelimiter: '*', // Use * for emphasis
+    strongDelimiter: '**', // Use ** for strong
+    linkStyle: 'inlined', // Inline links instead of reference-style
+});
+
+// Configure Turndown rules for better Obsidian compatibility
+turndownService.addRule('strikethrough', {
+    filter: ['del', 's', 'strike'] as any,
+    replacement: (content: string) => `~~${content}~~`,
+});
+
+// Remove unwanted elements before conversion
+turndownService.remove(['script', 'style', 'nav', 'header', 'footer', 'aside', 'iframe']);
+
+/**
+ * Extract metadata from the current page using site adapter if available
+ */
+function extractMetadata(adapter: SiteAdapter | null): SiteMetadata {
+    const url = window.location.href;
+    const date = formatDate();
+
+    // Start with default metadata
+    let metadata: Partial<SiteMetadata> = {
+        title: document.title || 'Untitled',
+        url,
+        date,
+        downloaded: formatDate(), // When this was saved
+    };
+
+    // Try adapter-specific metadata extraction
+    if (adapter?.extractMetadata) {
+        const customMetadata = adapter.extractMetadata(document);
+        metadata = { ...metadata, ...customMetadata };
+    } else {
+        // Fallback to meta tags
+        const authorMeta = document.querySelector('meta[name="author"]') as HTMLMetaElement;
+        const descMeta = document.querySelector('meta[name="description"]') as HTMLMetaElement;
+        const keywordsMeta = document.querySelector('meta[name="keywords"]') as HTMLMetaElement;
+
+        if (authorMeta?.content) metadata.author = authorMeta.content;
+        if (descMeta?.content) metadata.description = descMeta.content;
+
+        const tags = keywordsMeta?.content
+            .split(',')
+            .map(tag => tag.trim())
+            .filter(tag => tag.length > 0) || ['web-clip'];
+
+        metadata.tags = tags;
+    }
+
+    // Merge adapter frontmatter fields
+    if (adapter?.frontmatterFields) {
+        metadata = { ...metadata, ...adapter.frontmatterFields };
+    }
+
+    return metadata as SiteMetadata;
+}
+
+/**
+ * Extract content element using site adapter if available
+ */
+function extractContent(adapter: SiteAdapter | null): Element {
+    // Try adapter-specific selectors first
+    if (adapter?.contentSelectors) {
+        for (const selector of adapter.contentSelectors) {
+            const element = document.querySelector(selector);
+            if (element) {
+                return element;
+            }
+        }
+    }
+
+    // Fallback to default extraction
+    return extractMainContent();
+}
+
+/**
+ * Convert current page to Markdown with YAML frontmatter
+ */
+async function convertToMarkdown(): Promise<string> {
+    // Find appropriate site adapter
+    const adapter = findSiteAdapter(window.location.href, builtInAdapters);
+
+    console.log(`[Markify] Using adapter: ${adapter?.name || 'None'}`);
+
+    let markdown: string;
+
+    // Special handling for US Card Forum (API-based)
+    if (adapter?.name === 'US Card Forum') {
+        const match = window.location.pathname.match(/\/t\/[^\/]+\/(\d+)/);
+        const topicId = match ? match[1] : null;
+
+        if (!topicId) {
+            throw new Error('Could not extract topic ID from URL');
+        }
+
+        GM.notification({
+            text: 'Fetching forum content via API...',
+            title: 'Markify',
+            timeout: 2000,
+        });
+
+        const rawMarkdown = await fetchUSCardForumContent(topicId);
+
+        if (!rawMarkdown) {
+            throw new Error('Failed to fetch forum content');
+        }
+
+        markdown = rawMarkdown;
+    } else {
+        // Standard HTML-to-Markdown conversion
+        let contentElement = extractContent(adapter);
+        let contentClone = contentElement.cloneNode(true) as HTMLElement;
+
+        // Remove unwanted elements based on adapter
+        if (adapter?.removeSelectors) {
+            for (const selector of adapter.removeSelectors) {
+                contentClone.querySelectorAll(selector).forEach(el => el.remove());
+            }
+        }
+
+        // Apply pre-processing if available
+        if (adapter?.preProcess) {
+            contentClone = adapter.preProcess(contentClone) as HTMLElement;
+        }
+
+        // Convert HTML to Markdown
+        markdown = turndownService.turndown(contentClone);
+
+        // Apply post-processing if available
+        if (adapter?.postProcess) {
+            markdown = adapter.postProcess(markdown);
+        }
+    }
+
+    // Generate frontmatter
+    const metadata = extractMetadata(adapter);
+    const frontmatter = generateFrontmatter(metadata);
+
+    // Load templates from settings
+    const templates = await GM.getValue('markify_templates', null) as any;
+
+    // Apply content template (header, footer)
+    let finalContent = markdown;
+    if (templates?.content?.header) {
+        finalContent = templates.content.header + finalContent;
+    }
+    if (templates?.content?.footer) {
+        finalContent = finalContent + templates.content.footer;
+    }
+
+    // Apply document template if enabled
+    if (templates?.document?.enabled && templates?.document?.template) {
+        const { applyDocumentTemplate } = await import('./templates');
+        return applyDocumentTemplate(templates.document.template, {
+            frontmatter,
+            content: finalContent,
+            ...metadata, // Spread all metadata (includes title, url, date, author, etc.)
+        });
+    }
+
+    // Default: combine frontmatter and content
+    return `${frontmatter}\n${finalContent}`;
+}
+
+/**
+ * Download markdown content as a file
+ */
+function downloadMarkdown(content: string, filename: string) {
+    const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.style.display = 'none';
+
+    document.body.appendChild(a);
+    a.click();
+
+    // Cleanup
+    setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }, 100);
+}
+
+/**
+ * Handle download button click
+ */
+async function handleDownload(mode: 'download' | 'clipboard' = 'download') {
+    try {
+        // Show loading notification
+        GM.notification({
+            text: 'Converting page to Markdown...',
+            title: 'Markify',
+            timeout: 2000,
+        });
+
+        // Convert to markdown
+        const markdown = await convertToMarkdown();
+
+        // Generate filename from page title
+        const title = document.title || 'untitled';
+        const filename = sanitizeFilename(title) + '.md';
+
+        if (mode === 'clipboard') {
+            // Copy to clipboard
+            await GM.setClipboard(markdown, 'text');
+            GM.notification({
+                text: 'Copied to clipboard!',
+                title: 'Markify',
+                timeout: 2000,
+            });
+        } else {
+            // Download the file
+            downloadMarkdown(markdown, filename);
+            GM.notification({
+                text: `Downloaded as ${filename}`,
+                title: 'Markify',
+                timeout: 3000,
+            });
+        }
+
+        // Track stats
+        const stats = await GM.getValue('markify_stats', 0) as number;
+        await GM.setValue('markify_stats', stats + 1);
+    } catch (error) {
+        console.error('Failed to convert page:', error);
+        GM.notification({
+            text: 'Failed to convert page. Check console for details.',
+            title: 'Markify',
+            timeout: 5000,
+        });
+    }
+}
+
+/**
+ * Create and inject download buttons
+ */
+async function createDownloadButton() {
+    const settings = await loadSettings();
+
+    // Container for both buttons
+    const container = document.createElement('div');
+    container.id = 'markify-container';
+
+    // Style container - default: 25% from top, right side
+    Object.assign(container.style, {
+        position: 'fixed',
+        top: '25%',
+        right: '20px',
+        zIndex: '10000',
+        display: 'flex',
+        gap: '10px',
+        flexDirection: 'row',
+        cursor: 'move',
+        userSelect: 'none',
+    });
+
+    // Make container draggable
+    let isDragging = false;
+    let currentX: number;
+    let currentY: number;
+    let initialX: number;
+    let initialY: number;
+
+    container.addEventListener('mousedown', (e) => {
+        // Don't drag if clicking on buttons
+        if ((e.target as HTMLElement).tagName === 'BUTTON') return;
+
+        isDragging = true;
+        const rect = container.getBoundingClientRect();
+        initialX = e.clientX - rect.left;
+        initialY = e.clientY - rect.top;
+
+        container.style.cursor = 'grabbing';
+    });
+
+    document.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+
+        e.preventDefault();
+        currentX = e.clientX - initialX;
+        currentY = e.clientY - initialY;
+
+        // Keep within viewport bounds
+        const maxX = window.innerWidth - container.offsetWidth;
+        const maxY = window.innerHeight - container.offsetHeight;
+
+        currentX = Math.max(0, Math.min(currentX, maxX));
+        currentY = Math.max(0, Math.min(currentY, maxY));
+
+        container.style.left = currentX + 'px';
+        container.style.top = currentY + 'px';
+        container.style.right = 'auto';
+        container.style.bottom = 'auto';
+    });
+
+    document.addEventListener('mouseup', () => {
+        if (isDragging) {
+            isDragging = false;
+            container.style.cursor = 'move';
+
+            // Save position to settings
+            const rect = container.getBoundingClientRect();
+            GM.setValue('markify_button_x', rect.left);
+            GM.setValue('markify_button_y', rect.top);
+        }
+    });
+
+    // Load saved position
+    const savedX = await GM.getValue('markify_button_x', null) as number | null;
+    const savedY = await GM.getValue('markify_button_y', null) as number | null;
+
+    if (savedX !== null && savedY !== null) {
+        container.style.left = savedX + 'px';
+        container.style.top = savedY + 'px';
+        container.style.right = 'auto';
+    }
+
+    // Common button styles
+    const baseButtonStyle = {
+        padding: '12px 20px',
+        border: 'none',
+        borderRadius: '8px',
+        fontSize: '14px',
+        fontWeight: '600',
+        cursor: 'pointer',
+        transition: 'all 0.2s ease',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+        color: 'white',
+    };
+
+    // Create Download button
+    const downloadBtn = document.createElement('button');
+    downloadBtn.textContent = '📥 Download';
+    downloadBtn.id = 'markify-download-btn';
+    Object.assign(downloadBtn.style, {
+        ...baseButtonStyle,
+        backgroundColor: '#7c3aed',
+        boxShadow: '0 4px 12px rgba(124, 58, 237, 0.4)',
+    });
+
+    downloadBtn.addEventListener('mouseenter', () => {
+        downloadBtn.style.backgroundColor = '#6d28d9';
+        downloadBtn.style.transform = 'translateY(-2px)';
+        downloadBtn.style.boxShadow = '0 6px 16px rgba(124, 58, 237, 0.5)';
+    });
+
+    downloadBtn.addEventListener('mouseleave', () => {
+        downloadBtn.style.backgroundColor = '#7c3aed';
+        downloadBtn.style.transform = 'translateY(0)';
+        downloadBtn.style.boxShadow = '0 4px 12px rgba(124, 58, 237, 0.4)';
+    });
+
+    downloadBtn.addEventListener('click', () => handleDownload('download'));
+
+    // Create Copy button
+    const copyBtn = document.createElement('button');
+    copyBtn.textContent = '📋 Copy';
+    copyBtn.id = 'markify-copy-btn';
+    Object.assign(copyBtn.style, {
+        ...baseButtonStyle,
+        backgroundColor: '#059669',
+        boxShadow: '0 4px 12px rgba(5, 150, 105, 0.4)',
+    });
+
+    copyBtn.addEventListener('mouseenter', () => {
+        copyBtn.style.backgroundColor = '#047857';
+        copyBtn.style.transform = 'translateY(-2px)';
+        copyBtn.style.boxShadow = '0 6px 16px rgba(5, 150, 105, 0.5)';
+    });
+
+    copyBtn.addEventListener('mouseleave', () => {
+        copyBtn.style.backgroundColor = '#059669';
+        copyBtn.style.transform = 'translateY(0)';
+        copyBtn.style.boxShadow = '0 4px 12px rgba(5, 150, 105, 0.4)';
+    });
+
+    copyBtn.addEventListener('click', () => handleDownload('clipboard'));
+
+    // Add buttons to container
+    container.appendChild(downloadBtn);
+    container.appendChild(copyBtn);
+
+    // Add container to page
+    document.body.appendChild(container);
+}
+
+/**
+ * Main entry point
+ */
+(async function main() {
+    // Wait for page to be ready
+    if (document.readyState === 'loading') {
+        await new Promise(resolve => {
+            document.addEventListener('DOMContentLoaded', resolve);
+        });
+    }
+
+    // Initialize templates from TOML config (if not already set)
+    const existingTemplates = await GM.getValue('markify_templates', null);
+    if (!existingTemplates && typeof __MARKIFY_TEMPLATES__ !== 'undefined') {
+        await GM.setValue('markify_templates', __MARKIFY_TEMPLATES__);
+        console.log('[Markify] Templates loaded from config');
+    }
+
+    // Register menu commands
+    GM.registerMenuCommand('⚙️ Settings', () => {
+        showSettings();
+    });
+
+    GM.registerMenuCommand('📊 View Stats', async () => {
+        const count = await GM.getValue('markify_stats', 0) as number;
+        GM.notification({
+            text: `You've converted ${count} ${count === 1 ? 'page' : 'pages'}!`,
+            title: 'Markify Stats',
+            timeout: 4000,
+        });
+    });
+
+    GM.registerMenuCommand('🔄 Reset Stats', async () => {
+        await GM.setValue('markify_stats', 0);
+        GM.notification({
+            text: 'Stats reset successfully',
+            title: 'Markify',
+            timeout: 2000,
+        });
+    });
+
+    // Create download button
+    await createDownloadButton();
+
+    console.log('[Markify] Ready! Click the button to download this page as Markdown.');
+    console.log('[Markify] Right-click the button to copy to clipboard instead.');
+})();

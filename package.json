@@ -1,0 +1,26 @@
+{
+  "name": "markify",
+  "version": "0.0.1",
+  "description": "Convert web pages to Obsidian-formatted Markdown with YAML frontmatter",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build"
+  },
+  "dependencies": {
+    "@violentmonkey/dom": "^2.2.1",
+    "file-saver": "^2.0.5",
+    "sonner": "^2.0.7",
+    "tippy.js": "^6.3.7",
+    "turndown": "^7.2.2"
+  },
+  "devDependencies": {
+    "@iarna/toml": "^2.2.5",
+    "@types/file-saver": "^2.0.7",
+    "@types/node": "^25.1.0",
+    "@types/tampermonkey": "^5.0.5",
+    "@types/turndown": "^5.0.6",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.1",
+    "vite-plugin-monkey": "^7.1.9"
+  }
+}

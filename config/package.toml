@@ -1,0 +1,7 @@
+# Package metadata
+[package]
+author      = "isandrel"
+description = "Convert web pages to Obsidian-formatted Markdown with YAML frontmatter"
+name        = "Markify"
+repository  = "https://github.com/isandrel/Markify"
+version     = "0.0.1"
