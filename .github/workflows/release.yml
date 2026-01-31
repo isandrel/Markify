@@ -30,14 +30,12 @@ jobs:
         id: version
         run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
 
-      - name: Create static filename build
+      - name: Create both versioned and static builds
         run: |
           # Build versioned file
           bun run build
-          # Rename for static filename
-          mv dist/markify-v${{ steps.version.outputs.VERSION }}.user.js dist/markify.user.js
-          # Rebuild for versioned filename (restore original)
-          bun run build
+          # Copy to static filename
+          cp dist/markify-v${{ steps.version.outputs.VERSION }}.user.js dist/markify.user.js
 
       - name: Commit static file to main for Greasy Fork webhook
         run: |
@@ -52,9 +50,7 @@ jobs:
         with:
           name: Markify v${{ steps.version.outputs.VERSION }}
           generate_release_notes: true
-          files: |
-            dist/markify-v${{ steps.version.outputs.VERSION }}.user.js
-            dist/markify.user.js
+          files: dist/markify-v${{ steps.version.outputs.VERSION }}.user.js
           body: |
             ## 🚀 Markify ${{ steps.version.outputs.VERSION }}
 
