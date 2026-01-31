@@ -30,8 +30,22 @@ jobs:
         id: version
         run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
 
-      - name: Create static filename for updates
-        run: cp dist/markify-v${{ steps.version.outputs.VERSION }}.user.js dist/markify.user.js
+      - name: Create static filename build
+        run: |
+          # Build versioned file
+          bun run build
+          # Rename for static filename
+          mv dist/markify-v${{ steps.version.outputs.VERSION }}.user.js dist/markify.user.js
+          # Rebuild for versioned filename (restore original)
+          bun run build
+
+      - name: Commit static file to main for Greasy Fork webhook
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add dist/markify.user.js
+          git commit -m "🤖 chore: update dist/markify.user.js for v${{ steps.version.outputs.VERSION }}" || echo "No changes"
+          git push origin main
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
