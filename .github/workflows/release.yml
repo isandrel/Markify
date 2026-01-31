@@ -30,11 +30,16 @@ jobs:
         id: version
         run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
 
+      - name: Create static filename for updates
+        run: cp dist/markify-v${{ steps.version.outputs.VERSION }}.user.js dist/markify.user.js
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
           name: Markify v${{ steps.version.outputs.VERSION }}
-          files: dist/markify-v${{ steps.version.outputs.VERSION }}.user.js
+          files: |
+            dist/markify-v${{ steps.version.outputs.VERSION }}.user.js
+            dist/markify.user.js
           body: |
             ## 🚀 Markify ${{ steps.version.outputs.VERSION }}
 

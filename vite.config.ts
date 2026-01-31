@@ -46,8 +46,8 @@ export default defineConfig({
                 match: config.userscript.match,
                 grant: config.userscript.grant.permissions,
                 icon: config.userscript.icon,
-                downloadURL: `${config.package.repository}/raw/main/dist/markify-v${config.package.version}.user.js`,
-                updateURL: `${config.package.repository}/raw/main/dist/markify-v${config.package.version}.user.js`,
+                downloadURL: `${config.package.repository}/releases/latest/download/markify.user.js`,
+                updateURL: `${config.package.repository}/releases/latest/download/markify.user.js`,
             },
             build: {
                 fileName: `markify-v${config.package.version}.user.js`,
