@@ -41,7 +41,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add dist/markify.user.js
+          git add -f dist/markify.user.js
           git commit -m "🤖 chore: update dist/markify.user.js for v${{ steps.version.outputs.VERSION }}" || echo "No changes"
           git push origin main
 
