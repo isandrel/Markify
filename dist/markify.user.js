@@ -1,10 +1,13 @@
 // ==UserScript==
 // @name         Markify
 // @namespace    https://github.com/isandrel/Markify
-// @version      0.0.2
+// @version      0.0.3
 // @author       isandrel
 // @description  Convert web pages to Obsidian-formatted Markdown with YAML frontmatter
+// @license      AGPL-3.0-or-later
 // @icon         https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/download.svg
+// @homepageURL  https://github.com/isandrel/Markify
+// @supportURL   https://github.com/isandrel/Markify/issues
 // @downloadURL  https://github.com/isandrel/Markify/raw/main/dist/markify.user.js
 // @updateURL    https://github.com/isandrel/Markify/raw/main/dist/markify.user.js
 // @match        https://www.uscardforum.com/t/*/*
