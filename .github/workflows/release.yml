@@ -33,6 +33,7 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
+          name: Markify v${{ steps.version.outputs.VERSION }}
           files: dist/markify-v${{ steps.version.outputs.VERSION }}.user.js
           body: |
             ## 🚀 Markify ${{ steps.version.outputs.VERSION }}
