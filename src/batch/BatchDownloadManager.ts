@@ -7,6 +7,7 @@ import { downloadZip } from 'client-zip';
 import { sanitizeFilename } from '../utils';
 import { batchLogger as logger } from '../utils/logger';
 import type { FilenameContext } from '../utils/filename';
+import { theme, notifications, ui, pkg } from '../config';
 
 /**
  * Interface for sites that support batch downloading
@@ -177,11 +178,11 @@ export class BatchDownloadManager {
 
             if (downloaded) {
                 const indicator = document.createElement('span');
-                indicator.textContent = '✓';
-                indicator.title = 'Already downloaded';
+                indicator.textContent = ui.ui.indicators.downloaded_icon.trim();
+                indicator.title = ui.ui.indicators.downloaded_tooltip;
                 indicator.style.cssText = `
-                    color: #22c55e;
-                    font-size: 16px;
+                    color: ${theme.colors.success};
+                    font-size: ${ui.ui.indicators.font_size};
                     margin-left: 6px;
                     font-weight: bold;
                 `;
@@ -320,14 +321,14 @@ export class BatchDownloadManager {
         this.batchButton.disabled = true;
         this.batchButton.style.cssText = `
             padding: 10px 18px;
-            background: #7c3aed;
+            background: ${theme.colors.primary};
             color: white;
             border: none;
-            border-radius: 8px;
-            font-size: 14px;
-            font-weight: 600;
+            border-radius: ${ui.ui.style.border_radius};
+            font-size: ${ui.ui.style.font_size};
+            font-weight: ${ui.ui.style.font_weight};
             cursor: pointer;
-            transition: all 0.2s ease;
+            transition: ${ui.ui.animations.transition};
             opacity: 0.5;
         `;
 
@@ -397,7 +398,7 @@ export class BatchDownloadManager {
             }
 
             // Small delay to avoid rate limiting
-            await new Promise(resolve => setTimeout(resolve, 300));
+            await new Promise(resolve => setTimeout(resolve, notifications.delays.batch_item));
         }
 
         // Check if we have any files to zip
@@ -409,9 +410,9 @@ export class BatchDownloadManager {
                 this.batchButton.textContent = '❌ No Files';
             }
             GM.notification({
-                text: 'No files were successfully downloaded',
-                title: 'Markify Batch Download',
-                timeout: 3000,
+                text: notifications.messages.no_files,
+                title: pkg.package.strings.app_title_batch,
+                timeout: notifications.timeouts.medium,
             });
             return;
         }
@@ -452,16 +453,16 @@ export class BatchDownloadManager {
             const { markAsDownloaded } = await import('../utils/download-history');
             const siteName = context.site || 'unknown';
 
-            for (const item of selectedItems) {
+            for (const item of items) {
                 await markAsDownloaded(item.id, siteName, item.title, 'batch');
             }
-            logger.info(`Marked ${selectedItems.length} items as downloaded`);
+            logger.info(`Marked ${items.length} items as downloaded`);
 
             setTimeout(() => {
                 document.body.removeChild(a);
                 URL.revokeObjectURL(url);
                 logger.debug('Cleaned up download link');
-            }, 100);
+            }, notifications.delays.cleanup);
 
             logger.info('ZIP download initiated');
         } catch (error) {
@@ -472,8 +473,8 @@ export class BatchDownloadManager {
             }
             GM.notification({
                 text: `Failed to create ZIP: ${errorMessage}`,
-                title: 'Markify Batch Download Error',
-                timeout: 5000,
+                title: pkg.package.strings.app_title_error,
+                timeout: notifications.timeouts.long,
             });
             return;
         }
@@ -488,14 +489,14 @@ export class BatchDownloadManager {
         if (errors.length > 0) {
             GM.notification({
                 text: `Downloaded ${total - errors.length}/${total} items. ${errors.length} failed.`,
-                title: 'Markify Batch Download',
-                timeout: 5000,
+                title: pkg.package.strings.app_title_batch,
+                timeout: notifications.timeouts.long,
             });
         } else {
             GM.notification({
                 text: `Successfully downloaded all ${total} items!`,
-                title: 'Markify Batch Download',
-                timeout: 3000,
+                title: pkg.package.strings.app_title_batch,
+                timeout: notifications.timeouts.medium,
             });
         }
     }
