@@ -89,21 +89,27 @@ export class BatchDownloadManager {
     /**
      * Add checkboxes to thread items
      */
-    private addCheckboxes(items: BatchItem[]): void {
+    private async addCheckboxes(items: BatchItem[]): Promise<void> {
         logger.debug(`Adding checkboxes to ${items.length} items`);
 
         let successCount = 0;
-        items.forEach((item, index) => {
+
+        // Load download history check once
+        const { isDownloaded } = await import('../utils/download-history');
+        const context = await this.adapter.getFilenameContext();
+        const siteName = context.site || 'unknown';
+
+        for (const [index, item] of items.entries()) {
             // Skip if already processed
             if (this.processedItems.has(item.id)) {
-                return;
+                continue;
             }
 
             // Find the thread element by its URL
             const linkElement = document.querySelector(`a[href*="${item.id}"]`);
             if (!linkElement) {
                 logger.warn(`Could not find link for item ${item.id}`);
-                return;
+                continue;
             }
 
             // Find parent container - try multiple possible selectors
@@ -115,7 +121,7 @@ export class BatchDownloadManager {
 
             if (!container) {
                 logger.warn(`Could not find container for item ${item.id}`);
-                return;
+                continue;
             }
 
             // Make container position relative for absolute positioning
@@ -166,6 +172,22 @@ export class BatchDownloadManager {
             checkboxWrapper.appendChild(checkbox);
             container.appendChild(checkboxWrapper);
 
+            // Add download indicator right of checkbox (if already downloaded)
+            const downloaded = await isDownloaded(item.id, siteName);
+
+            if (downloaded) {
+                const indicator = document.createElement('span');
+                indicator.textContent = '✓';
+                indicator.title = 'Already downloaded';
+                indicator.style.cssText = `
+                    color: #22c55e;
+                    font-size: 16px;
+                    margin-left: 6px;
+                    font-weight: bold;
+                `;
+                checkboxWrapper.appendChild(indicator);
+            }
+
             // Add left padding to container content to make room for checkbox
             const containerElement = container as HTMLElement;
             const currentPadding = window.getComputedStyle(containerElement).paddingLeft;
@@ -179,7 +201,7 @@ export class BatchDownloadManager {
             if (index === 0) {
                 logger.debug('Successfully added first checkbox');
             }
-        });
+        }
 
         logger.info(`Successfully added ${successCount}/${items.length} checkboxes`);
     }
@@ -425,6 +447,15 @@ export class BatchDownloadManager {
             a.style.display = 'none';
             document.body.appendChild(a);
             a.click();
+
+            // Track download history for all items
+            const { markAsDownloaded } = await import('../utils/download-history');
+            const siteName = context.site || 'unknown';
+
+            for (const item of selectedItems) {
+                await markAsDownloaded(item.id, siteName, item.title, 'batch');
+            }
+            logger.info(`Marked ${selectedItems.length} items as downloaded`);
 
             setTimeout(() => {
                 document.body.removeChild(a);
