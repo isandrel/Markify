@@ -316,6 +316,14 @@ async function handleDownload(mode: 'download' | 'clipboard' = 'download') {
                 title: 'Markify',
                 timeout: 3000,
             });
+
+            // Track download history
+            const id = extractIdFromUrl();
+            if (id && adapter) {
+                const { markAsDownloaded } = await import('./utils/download-history');
+                await markAsDownloaded(id, adapter.name, metadata.title || document.title || 'untitled', 'single');
+                logger.info(`Marked ${id} as downloaded`);
+            }
         }
 
         // Track stats
@@ -328,6 +336,52 @@ async function handleDownload(mode: 'download' | 'clipboard' = 'download') {
             title: 'Markify',
             timeout: 5000,
         });
+    }
+}
+
+/**
+ * Show download status indicator on current post page
+ */
+async function showDownloadStatus() {
+    // Extract ID from URL (site-specific)
+    const extractIdFromUrl = (): string | undefined => {
+        // 1Point3Acres: /bbs/thread-{id}-1-1.html or /home/pins/{id}
+        const threadMatch = window.location.pathname.match(/thread-(\d+)/);
+        const pinsMatch = window.location.pathname.match(/\/pins\/(\d+)/);
+        if (threadMatch) return threadMatch[1];
+        if (pinsMatch) return pinsMatch[1];
+
+        // USCardForum: /t/{slug}/{id}
+        const uscfMatch = window.location.pathname.match(/\/t\/[^\/]+\/(\d+)/);
+        if (uscfMatch) return uscfMatch[1];
+
+        return undefined;
+    };
+
+    const id = extractIdFromUrl();
+    const adapter = findSiteAdapter(window.location.href, builtInAdapters);
+    if (!id || !adapter) return;
+
+    const { isDownloaded } = await import('./utils/download-history');
+    const downloaded = await isDownloaded(id, adapter.name);
+
+    if (downloaded) {
+        // Find title element - check for h1 in bg-card container first (1Point3Acres style)
+        const titleElement = document.querySelector('h1.text-xl, h1.font-bold, h1') as HTMLElement;
+        if (titleElement) {
+            const indicator = document.createElement('span');
+            indicator.textContent = '✓ ';
+            indicator.title = 'Already downloaded';
+            indicator.style.cssText = `
+                color: #22c55e;
+                font-size: 1.2em;
+                margin-right: 6px;
+                font-weight: bold;
+            `;
+            // Insert BEFORE title text (at the start)
+            titleElement.insertBefore(indicator, titleElement.firstChild);
+            logger.info('Download status indicator added to post page');
+        }
     }
 }
 
@@ -517,11 +571,34 @@ async function createDownloadButton() {
 
     GM.registerMenuCommand('📊 View Stats', async () => {
         const count = await GM.getValue('markify_stats', 0) as number;
+        const { getDownloadStats } = await import('./utils/download-history');
+        const stats = await getDownloadStats();
+
         GM.notification({
-            text: `You've converted ${count} ${count === 1 ? 'page' : 'pages'}!`,
+            text: `Downloaded: ${count} total\n${stats.single} single | ${stats.batch} batch\nHistory: ${stats.total} tracked`,
             title: 'Markify Stats',
-            timeout: 4000,
+            timeout: 5000,
         });
+    });
+
+    GM.registerMenuCommand('📜 Download History', async () => {
+        const { getDownloadHistory } = await import('./utils/download-history');
+        const history = await getDownloadHistory();
+        const recent = history.slice(-10).reverse();
+        const summary = recent.map(r => `${r.title} (${r.site})`).join('\n');
+        alert(`Download History (${history.length} items)\n\nRecent:\n${summary || 'No history yet'}`);
+    });
+
+    GM.registerMenuCommand('🗑️ Clear History', async () => {
+        if (confirm('Clear all download history? This cannot be undone.')) {
+            const { clearHistory } = await import('./utils/download-history');
+            await clearHistory();
+            GM.notification({
+                text: 'Download history cleared',
+                title: 'Markify',
+                timeout: 2000,
+            });
+        }
     });
 
     GM.registerMenuCommand('🔄 Reset Stats', async () => {
@@ -535,6 +612,9 @@ async function createDownloadButton() {
 
     // Create download button
     createDownloadButton();
+
+    // Show download status indicator on post pages
+    await showDownloadStatus();
 
     // Initialize batch download if on a listing page
     // Add a small delay to ensure DOM is fully loaded (for dynamic content)
