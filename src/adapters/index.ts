@@ -9,6 +9,8 @@ export { githubAdapter } from './github';
 export { redditAdapter } from './reddit';
 export { devtoAdapter } from './devto';
 export { usCardForumAdapter, fetchUSCardForumContent } from './uscardforum';
+export { onePoint3AcresAdapter, fetch1Point3AcresContent } from './1point3acres';
+export { OnePoint3AcresBatchCapability } from './1point3acres-batch';
 export { defaultAdapter } from './default';
 
 // Import for array export
@@ -19,6 +21,7 @@ import { githubAdapter } from './github';
 import { redditAdapter } from './reddit';
 import { devtoAdapter } from './devto';
 import { usCardForumAdapter } from './uscardforum';
+import { onePoint3AcresAdapter } from './1point3acres';
 import { defaultAdapter } from './default';
 import type { SiteAdapter } from './base';
 
@@ -33,5 +36,6 @@ export const builtInAdapters: SiteAdapter[] = [
     redditAdapter,
     devtoAdapter,
     usCardForumAdapter,
+    onePoint3AcresAdapter,
     defaultAdapter, // Always last as fallback
 ];

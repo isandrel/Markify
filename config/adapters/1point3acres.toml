@@ -1,0 +1,68 @@
+# 1Point3Acres Adapter Configuration
+
+# API configuration for fetching comments
+[api]
+max_pages = 100        # Maximum pages to fetch (safety limit)
+order     = "time_asc" # Sort order: "time_asc", "time_desc", or "hot_desc"
+page_size = 20         # Number of comments per page (ps parameter, API default is 20)
+
+# Delimiter for separating sections
+delimiter = "---"
+
+# YAML frontmatter template
+# Variables: {title}, {author}, {posted_at}, {updated_at}, {downloaded_at}, {url}, {views}, {replies}, {favorites}
+[frontmatter]
+template = """---
+title: "{title}"
+author: {author}
+posted_at: {posted_at}
+updated_at: {updated_at}
+downloaded_at: {downloaded_at}
+source: {url}
+views: {views}
+replies: {replies}
+favorites: {favorites}
+tags:
+  - 1point3acres
+  - forum
+---
+"""
+
+# Complete Markdown layout template
+# Variables: {frontmatter}, {title}, {author}, {date}, {content}, {views}, {replies}, {favorites}, {comments}
+[document]
+template = """{frontmatter}
+# {title}
+
+**Author:** {author} | **Date:** {date}
+
+---
+
+{content}
+
+---
+
+**Views:** {views} | **Replies:** {replies} | **Favorites:** {favorites}
+
+{comments}"""
+
+# Individual comment template (used to build {comments} variable)
+# Variables: {author}, {date}, {content}, {index}, {delimiter}
+[comment]
+template = """
+**{author}** - *{date}*
+
+{content}
+
+{delimiter}
+"""
+
+# Comments section header (prepended to all comments)
+# Variables: {count}, {delimiter}
+[comments_header]
+template = """
+
+{delimiter}
+
+## Comments ({count})
+"""

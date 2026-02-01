@@ -36,7 +36,6 @@ export function waitElement(selector: string, timeout = 10000): Promise<Element>
 export function sanitizeFilename(filename: string): string {
     return filename
         .replace(/[<>:"/\\|?*\x00-\x1F]/g, '-') // Replace invalid characters
-        .replace(/\s+/g, '-') // Replace spaces with hyphens
         .replace(/-+/g, '-') // Remove duplicate hyphens
         .replace(/^-|-$/g, '') // Remove leading/trailing hyphens
         .substring(0, 200); // Limit length

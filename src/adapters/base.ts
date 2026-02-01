@@ -16,13 +16,16 @@ export interface SiteAdapter {
     removeSelectors?: string[];
 
     /** Custom metadata extraction */
-    extractMetadata?: (doc: Document) => Partial<SiteMetadata>;
+    extractMetadata?: (doc: Document) => Partial<SiteMetadata> | Promise<Partial<SiteMetadata>>;
 
     /** Pre-processing hook before conversion */
     preProcess?: (element: Element) => Element;
 
     /** Post-processing hook after markdown conversion */
     postProcess?: (markdown: string) => string;
+
+    /** Indicates adapter already includes frontmatter in output */
+    includesFrontmatter?: boolean;
 
     /** Custom frontmatter fields */
     frontmatterFields?: Record<string, string | string[]>;
