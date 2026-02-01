@@ -267,9 +267,38 @@ async function handleDownload(mode: 'download' | 'clipboard' = 'download') {
         // Convert to markdown
         const markdown = await convertToMarkdown();
 
-        // Generate filename from page title
-        const title = document.title || 'untitled';
-        const filename = sanitizeFilename(title) + '.md';
+        // Find adapter and extract metadata for filename context
+        const adapter = findSiteAdapter(window.location.href, builtInAdapters);
+        const metadata = await extractMetadata(adapter);
+
+        // Extract ID from URL (site-specific)
+        const extractIdFromUrl = (): string | undefined => {
+            // 1Point3Acres: /bbs/thread-{id}-1-1.html or /home/pins/{id}
+            const threadMatch = window.location.pathname.match(/thread-(\d+)/);
+            const pinsMatch = window.location.pathname.match(/\/pins\/(\d+)/);
+            if (threadMatch) return threadMatch[1];
+            if (pinsMatch) return pinsMatch[1];
+
+            // USCardForum: /t/{slug}/{id}
+            const uscfMatch = window.location.pathname.match(/\/t\/[^\/]+\/(\d+)/);
+            if (uscfMatch) return uscfMatch[1];
+
+            return undefined;
+        };
+
+        // Load filename template from settings (default: {title})
+        const templates = await GM.getValue('markify_templates', null) as any;
+        const filenameTemplate = templates?.filename?.single || '{title}';
+
+        // Apply template
+        const { applyFilenameTemplate } = await import('./utils/filename');
+        const filename = applyFilenameTemplate(filenameTemplate, {
+            title: metadata.title || document.title || 'untitled',
+            id: extractIdFromUrl(),
+            author: metadata.author,
+            site: adapter?.name,
+            date: formatDate(),
+        }) + '.md';
 
         if (mode === 'clipboard') {
             // Copy to clipboard
@@ -509,14 +538,22 @@ async function createDownloadButton() {
 
     // Initialize batch download if on a listing page
     // Add a small delay to ensure DOM is fully loaded (for dynamic content)
-    setTimeout(() => {
-        const batchCapability = new OnePoint3AcresBatchCapability();
-        if (batchCapability.isListingPage()) {
-            logger.info('Forum/tag listing page detected - initializing batch download');
-            const batchManager = new BatchDownloadManager(batchCapability);
+    setTimeout(async () => {
+        // Check 1Point3Acres
+        const batchCapability1p3a = new OnePoint3AcresBatchCapability();
+        if (batchCapability1p3a.isListingPage()) {
+            logger.info('1Point3Acres listing page detected - initializing batch download');
+            const batchManager = new BatchDownloadManager(batchCapability1p3a);
             batchManager.initializeUI();
-        } else {
-            logger.debug('Not a listing page, skipping batch download initialization');
+        }
+
+        // Check USCardForum
+        const { USCardForumBatchCapability } = await import('./adapters/uscardforum-batch');
+        const batchCapabilityUSCF = new USCardForumBatchCapability();
+        if (batchCapabilityUSCF.isListingPage()) {
+            logger.info('USCardForum listing page detected - initializing batch download');
+            const batchManager = new BatchDownloadManager(batchCapabilityUSCF);
+            batchManager.initializeUI();
         }
     }, 1000); // 1 second delay for DOM to stabilize
 

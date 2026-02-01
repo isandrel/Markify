@@ -11,6 +11,7 @@ export { devtoAdapter } from './devto';
 export { usCardForumAdapter, fetchUSCardForumContent } from './uscardforum';
 export { onePoint3AcresAdapter, fetch1Point3AcresContent } from './1point3acres';
 export { OnePoint3AcresBatchCapability } from './1point3acres-batch';
+export { USCardForumBatchCapability } from './uscardforum-batch';
 export { defaultAdapter } from './default';
 
 // Import for array export
