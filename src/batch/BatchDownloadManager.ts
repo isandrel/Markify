@@ -6,6 +6,7 @@
 import { downloadZip } from 'client-zip';
 import { sanitizeFilename } from '../utils';
 import { batchLogger as logger } from '../utils/logger';
+import type { FilenameContext } from '../utils/filename';
 
 /**
  * Interface for sites that support batch downloading
@@ -27,9 +28,10 @@ export interface BatchCapability {
     fetchItem(itemId: string, onProgress?: (message: string) => void): Promise<string | null>;
 
     /**
-     * Get the name for the ZIP file (without .zip extension)
+     * Get filename context for template rendering
+     * Can be async to fetch additional data like tag/category names
      */
-    getArchiveName(): string;
+    getFilenameContext(): FilenameContext | Promise<FilenameContext>;
 }
 
 export interface BatchItem {
@@ -44,8 +46,10 @@ export interface BatchItem {
  */
 export class BatchDownloadManager {
     private selectedItems: Set<string> = new Set();
+    private processedItems: Set<string> = new Set(); // Track items that already have checkboxes
     private adapter: BatchCapability;
     private batchButton: HTMLButtonElement | null = null;
+    private mutationObserver: MutationObserver | null = null;
 
     constructor(adapter: BatchCapability) {
         this.adapter = adapter;
@@ -75,6 +79,10 @@ export class BatchDownloadManager {
 
         // Create batch download panel
         this.createBatchPanel();
+
+        // Start observing for dynamically loaded items
+        this.observeNewItems();
+
         logger.info('UI initialization complete');
     }
 
@@ -86,6 +94,11 @@ export class BatchDownloadManager {
 
         let successCount = 0;
         items.forEach((item, index) => {
+            // Skip if already processed
+            if (this.processedItems.has(item.id)) {
+                return;
+            }
+
             // Find the thread element by its URL
             const linkElement = document.querySelector(`a[href*="${item.id}"]`);
             if (!linkElement) {
@@ -159,6 +172,8 @@ export class BatchDownloadManager {
             const currentPaddingValue = parseInt(currentPadding) || 0;
             containerElement.style.paddingLeft = `${currentPaddingValue + 32}px`;
 
+            // Mark as processed
+            this.processedItems.add(item.id);
             successCount++;
 
             if (index === 0) {
@@ -167,6 +182,59 @@ export class BatchDownloadManager {
         });
 
         logger.info(`Successfully added ${successCount}/${items.length} checkboxes`);
+    }
+
+    /**
+     * Observe DOM for dynamically loaded items
+     */
+    private observeNewItems(): void {
+        logger.debug('Setting up MutationObserver for dynamic content');
+
+        this.mutationObserver = new MutationObserver((mutations) => {
+            // Check if any new thread links were added
+            let hasNewItems = false;
+            for (const mutation of mutations) {
+                if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
+                    // Check if any added nodes contain thread links
+                    for (const node of Array.from(mutation.addedNodes)) {
+                        if (node instanceof HTMLElement) {
+                            const hasThreadLink = node.querySelector('a[href*="/home/pins/"]') ||
+                                node.matches('a[href*="/home/pins/"]');
+                            if (hasThreadLink) {
+                                hasNewItems = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (hasNewItems) break;
+                }
+            }
+
+            if (hasNewItems) {
+                logger.debug('Detected new items in DOM, adding checkboxes');
+                const newItems = this.adapter.extractItems();
+                this.addCheckboxes(newItems);
+            }
+        });
+
+        // Observe the entire document body for new items
+        this.mutationObserver.observe(document.body, {
+            childList: true,
+            subtree: true,
+        });
+
+        logger.info('MutationObserver started watching for new items');
+    }
+
+    /**
+     * Clean up resources
+     */
+    destroy(): void {
+        if (this.mutationObserver) {
+            this.mutationObserver.disconnect();
+            this.mutationObserver = null;
+            logger.debug('MutationObserver disconnected');
+        }
     }
 
     /**
@@ -339,7 +407,15 @@ export class BatchDownloadManager {
 
             logger.info(`ZIP created successfully (${(zipBlob.size / 1024 / 1024).toFixed(2)} MB)`);
 
-            const zipFilename = this.adapter.getArchiveName() + '.zip';
+            // Load filename template from settings
+            const templates = await GM.getValue('markify_templates', null) as any;
+            const filenameTemplate = templates?.filename?.batch || '{site}-{type}-{id}-{date}';
+
+            // Get context from adapter and apply template (await in case it's async)
+            const context = await this.adapter.getFilenameContext();
+            const { applyFilenameTemplate } = await import('../utils/filename');
+            const zipFilename = applyFilenameTemplate(filenameTemplate, context) + '.zip';
+
             logger.info(`Downloading as: ${zipFilename}`);
 
             const url = URL.createObjectURL(zipBlob);
