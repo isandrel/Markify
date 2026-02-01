@@ -10,6 +10,8 @@ import {
     findSiteAdapter,
     builtInAdapters,
     fetchUSCardForumContent,
+    fetch1Point3AcresContent,
+    OnePoint3AcresBatchCapability,
     type SiteAdapter,
     type SiteMetadata,
 } from './adapters';
@@ -18,6 +20,13 @@ import {
     showSettings,
     type MarkifySettings,
 } from './settings';
+import { BatchDownloadManager } from './batch/BatchDownloadManager';
+import { logger } from './utils/logger';
+
+// Global button references for progress updates
+let downloadButton: HTMLButtonElement | null = null;
+let copyButton: HTMLButtonElement | null = null;
+let activeButton: HTMLButtonElement | null = null; // Track which button was clicked
 
 // Initialize Turndown service for HTML to Markdown conversion
 const turndownService = new TurndownService({
@@ -40,7 +49,7 @@ turndownService.remove(['script', 'style', 'nav', 'header', 'footer', 'aside', '
 /**
  * Extract metadata from the current page using site adapter if available
  */
-function extractMetadata(adapter: SiteAdapter | null): SiteMetadata {
+async function extractMetadata(adapter: SiteAdapter | null): Promise<SiteMetadata> {
     const url = window.location.href;
     const date = formatDate();
 
@@ -54,7 +63,7 @@ function extractMetadata(adapter: SiteAdapter | null): SiteMetadata {
 
     // Try adapter-specific metadata extraction
     if (adapter?.extractMetadata) {
-        const customMetadata = adapter.extractMetadata(document);
+        const customMetadata = await adapter.extractMetadata(document);
         metadata = { ...metadata, ...customMetadata };
     } else {
         // Fallback to meta tags
@@ -132,6 +141,42 @@ async function convertToMarkdown(): Promise<string> {
         }
 
         markdown = rawMarkdown;
+    } else if (adapter?.name === '1Point3Acres') {
+        // Special handling for 1Point3Acres (API-based)
+        // Format 1: /bbs/thread-{tid}-1-1.html
+        // Format 2: /home/pins/{tid}
+        let threadId: string | null = null;
+
+        const threadMatch = window.location.pathname.match(/thread-(\d+)/);
+        const pinsMatch = window.location.pathname.match(/\/pins\/(\d+)/);
+
+        if (threadMatch) {
+            threadId = threadMatch[1];
+        } else if (pinsMatch) {
+            threadId = pinsMatch[1];
+        }
+
+        if (!threadId) {
+            throw new Error('Could not extract thread ID from URL');
+        }
+
+        const markdownContent = await fetch1Point3AcresContent(threadId, (progress) => {
+            // Update only the clicked button's text with progress
+            if (activeButton) activeButton.textContent = progress;
+        });
+
+        // Restore button text after completion
+        if (activeButton) {
+            activeButton.textContent = activeButton === downloadButton ? '📥 Download' : '📋 Copy';
+            activeButton = null;
+        }
+
+        if (!markdownContent) {
+            throw new Error('Failed to fetch thread content from API');
+        }
+
+        // Content is already Markdown from templates, no need for Turndown
+        markdown = markdownContent;
     } else {
         // Standard HTML-to-Markdown conversion
         let contentElement = extractContent(adapter);
@@ -158,34 +203,38 @@ async function convertToMarkdown(): Promise<string> {
         }
     }
 
-    // Generate frontmatter
-    const metadata = extractMetadata(adapter);
-    const frontmatter = generateFrontmatter(metadata);
-
-    // Load templates from settings
-    const templates = await GM.getValue('markify_templates', null) as any;
-
-    // Apply content template (header, footer)
+    // Generate frontmatter (skip if adapter already includes it)
     let finalContent = markdown;
-    if (templates?.content?.header) {
-        finalContent = templates.content.header + finalContent;
-    }
-    if (templates?.content?.footer) {
-        finalContent = finalContent + templates.content.footer;
+    let frontmatter = '';
+
+    if (!adapter?.includesFrontmatter) {
+        const metadata = await extractMetadata(adapter);
+        frontmatter = generateFrontmatter(metadata);
+
+        // Load templates from settings
+        const templates = await GM.getValue('markify_templates', null) as any;
+
+        // Apply content template (header, footer)
+        if (templates?.content?.header) {
+            finalContent = templates.content.header + finalContent;
+        }
+        if (templates?.content?.footer) {
+            finalContent = finalContent + templates.content.footer;
+        }
+
+        // Apply document template if enabled
+        if (templates?.document?.enabled && templates?.document?.template) {
+            const { applyDocumentTemplate } = await import('./templates');
+            return applyDocumentTemplate(templates.document.template, {
+                frontmatter,
+                content: finalContent,
+                ...metadata, // Spread all metadata (includes title, url, date, author, etc.)
+            });
+        }
     }
 
-    // Apply document template if enabled
-    if (templates?.document?.enabled && templates?.document?.template) {
-        const { applyDocumentTemplate } = await import('./templates');
-        return applyDocumentTemplate(templates.document.template, {
-            frontmatter,
-            content: finalContent,
-            ...metadata, // Spread all metadata (includes title, url, date, author, etc.)
-        });
-    }
-
-    // Default: combine frontmatter and content
-    return `${frontmatter}\n${finalContent}`;
+    // Default: combine frontmatter and content (or just return markdown if adapter includes frontmatter)
+    return frontmatter ? `${frontmatter}\n${finalContent}` : markdown;
 }
 
 /**
@@ -215,13 +264,6 @@ function downloadMarkdown(content: string, filename: string) {
  */
 async function handleDownload(mode: 'download' | 'clipboard' = 'download') {
     try {
-        // Show loading notification
-        GM.notification({
-            text: 'Converting page to Markdown...',
-            title: 'Markify',
-            timeout: 2000,
-        });
-
         // Convert to markdown
         const markdown = await convertToMarkdown();
 
@@ -360,6 +402,7 @@ async function createDownloadButton() {
     // Create Download button
     const downloadBtn = document.createElement('button');
     downloadBtn.textContent = '📥 Download';
+    downloadButton = downloadBtn;  // Store global reference
     downloadBtn.id = 'markify-download-btn';
     Object.assign(downloadBtn.style, {
         ...baseButtonStyle,
@@ -379,11 +422,15 @@ async function createDownloadButton() {
         downloadBtn.style.boxShadow = '0 4px 12px rgba(124, 58, 237, 0.4)';
     });
 
-    downloadBtn.addEventListener('click', () => handleDownload('download'));
+    downloadBtn.addEventListener('click', () => {
+        activeButton = downloadBtn;
+        handleDownload('download');
+    });
 
     // Create Copy button
     const copyBtn = document.createElement('button');
     copyBtn.textContent = '📋 Copy';
+    copyButton = copyBtn;  // Store global reference
     copyBtn.id = 'markify-copy-btn';
     Object.assign(copyBtn.style, {
         ...baseButtonStyle,
@@ -403,7 +450,10 @@ async function createDownloadButton() {
         copyBtn.style.boxShadow = '0 4px 12px rgba(5, 150, 105, 0.4)';
     });
 
-    copyBtn.addEventListener('click', () => handleDownload('clipboard'));
+    copyBtn.addEventListener('click', () => {
+        activeButton = copyBtn;
+        handleDownload('clipboard');
+    });
 
     // Add buttons to container
     container.appendChild(downloadBtn);
@@ -455,7 +505,20 @@ async function createDownloadButton() {
     });
 
     // Create download button
-    await createDownloadButton();
+    createDownloadButton();
+
+    // Initialize batch download if on a listing page
+    // Add a small delay to ensure DOM is fully loaded (for dynamic content)
+    setTimeout(() => {
+        const batchCapability = new OnePoint3AcresBatchCapability();
+        if (batchCapability.isListingPage()) {
+            logger.info('Forum/tag listing page detected - initializing batch download');
+            const batchManager = new BatchDownloadManager(batchCapability);
+            batchManager.initializeUI();
+        } else {
+            logger.debug('Not a listing page, skipping batch download initialization');
+        }
+    }, 1000); // 1 second delay for DOM to stabilize
 
     console.log('[Markify] Ready! Click the button to download this page as Markdown.');
     console.log('[Markify] Right-click the button to copy to clipboard instead.');

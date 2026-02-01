@@ -1,11 +1,18 @@
 # Userscript configuration
 [userscript]
 homepageURL = "https://github.com/isandrel/Markify"
-icon        = "https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/download.svg"
-license     = "AGPL-3.0-or-later"
-match       = ["https://www.uscardforum.com/t/*/*"]
-namespace   = "https://github.com/isandrel/Markify"
-supportURL  = "https://github.com/isandrel/Markify/issues"
+icon = "https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/download.svg"
+license = "AGPL-3.0-or-later"
+match = [
+    "https://instant.1point3acres.com/thread/*",
+    "https://www.1point3acres.com/bbs/thread-*",
+    "https://www.1point3acres.com/home/forum/*",
+    "https://www.1point3acres.com/home/pins/*",
+    "https://www.1point3acres.com/home/tag/*",
+    "https://www.uscardforum.com/t/*/*",
+]
+namespace = "https://github.com/isandrel/Markify"
+supportURL = "https://github.com/isandrel/Markify/issues"
 
 [userscript.grant]
 permissions = [
@@ -17,6 +24,7 @@ permissions = [
     "GM.registerMenuCommand",
     "GM.setClipboard",
     "GM.setValue",
+    "GM.xmlHttpRequest",
 ]
 
 [userscript.compatible]

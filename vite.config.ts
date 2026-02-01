@@ -1,6 +1,6 @@
 import { defineConfig } from 'vite';
 import monkey from 'vite-plugin-monkey';
-import { readFileSync } from 'fs';
+import { readFileSync, readdirSync } from 'fs';
 import { parse } from '@iarna/toml';
 import { join } from 'path';
 import { fileURLToPath } from 'url';
@@ -31,6 +31,34 @@ for (const file of configFiles) {
     } catch (error) {
         console.warn(`Warning: Could not load ${file}`, error);
     }
+}
+
+// Load adapter-specific configs from config/adapters/
+const adaptersDir = join(configDir, 'adapters');
+try {
+    const adapterFiles = readdirSync(adaptersDir).filter(f => f.endsWith('.toml'));
+
+    if (!config.templates) {
+        config.templates = {};
+    }
+
+    for (const adapterFile of adapterFiles) {
+        const adapterName = adapterFile.replace('.toml', '');
+        const adapterPath = join(adaptersDir, adapterFile);
+
+        try {
+            const content = readFileSync(adapterPath, 'utf-8');
+            const parsed = parse(content);
+
+            // Merge adapter config under its name
+            config.templates[adapterName] = parsed;
+            console.log(`Loaded adapter config: ${adapterName}`);
+        } catch (error) {
+            console.warn(`Warning: Could not load adapter ${adapterFile}`, error);
+        }
+    }
+} catch (error) {
+    console.warn('Warning: Could not load adapter configs', error);
 }
 
 export default defineConfig({
