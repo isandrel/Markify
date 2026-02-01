@@ -1,6 +1,7 @@
 /**
  * Markify Settings Interface
  */
+import { theme, notifications, pkg, ui } from './config';
 export interface MarkifySettings {
   // UI Settings
   buttonPosition: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
@@ -31,8 +32,8 @@ export interface MarkifySettings {
 export const defaultSettings: MarkifySettings = {
   // UI Settings
   buttonPosition: 'bottom-right',
-  buttonText: '📥 Markify',
-  buttonColor: '#7c3aed',
+  buttonText: ui.ui.button_text,
+  buttonColor: theme.colors.primary,
 
   // Conversion Settings
   includeImages: true,
@@ -75,9 +76,9 @@ export async function loadSettings(): Promise<MarkifySettings> {
 export async function saveSettings(settings: MarkifySettings): Promise<void> {
   await GM.setValue('markify_settings', JSON.stringify(settings));
   GM.notification({
-    text: 'Settings saved successfully!',
-    title: 'Markify',
-    timeout: 2000,
+    text: notifications.messages.settings_saved,
+    title: pkg.package.strings.app_title,
+    timeout: notifications.timeouts.short,
   });
 }
 
@@ -87,9 +88,9 @@ export async function saveSettings(settings: MarkifySettings): Promise<void> {
 export async function resetSettings(): Promise<void> {
   await GM.deleteValue('markify_settings');
   GM.notification({
-    text: 'Settings reset to defaults',
-    title: 'Markify',
-    timeout: 2000,
+    text: notifications.messages.settings_reset,
+    title: pkg.package.strings.app_title,
+    timeout: notifications.timeouts.short,
   });
 }
 
@@ -133,7 +134,7 @@ export function createSettingsUI(): HTMLElement {
         margin: 0 0 24px 0;
         font-size: 24px;
         font-weight: 700;
-        color: #7c3aed;
+        color: ${theme.colors.primary};
       }
       
       .markify-setting-group {
@@ -144,7 +145,7 @@ export function createSettingsUI(): HTMLElement {
         font-size: 16px;
         font-weight: 600;
         margin: 0 0 12px 0;
-        color: #a78bfa;
+        color: ${theme.colors.text_secondary};
       }
       
       .markify-setting-item {
@@ -161,7 +162,7 @@ export function createSettingsUI(): HTMLElement {
       
       .markify-setting-item label {
         font-size: 14px;
-        color: #e5e7eb;
+        color: ${theme.colors.text_primary};
       }
       
       .markify-setting-item input[type="checkbox"] {
@@ -198,12 +199,12 @@ export function createSettingsUI(): HTMLElement {
       }
       
       .markify-btn-primary {
-        background: #7c3aed;
+        background: ${theme.colors.primary};
         color: white;
       }
       
       .markify-btn-primary:hover {
-        background: #6d28d9;
+        background: ${theme.colors.primary_hover};
       }
       
       .markify-btn-secondary {

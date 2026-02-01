@@ -1,0 +1,29 @@
+# Color scheme configuration
+[colors]
+# Primary colors
+primary = "#7c3aed"
+primary_hover = "#6d28d9"
+primary_active = "#5b21b6"
+
+# Secondary colors
+secondary = "#059669"
+secondary_hover = "#047857"
+secondary_active = "#065f46"
+
+# Status colors
+success = "#22c55e"
+error = "#ef4444"
+warning = "#f59e0b"
+info = "#3b82f6"
+
+# Neutral colors
+background = "#1a1a1a"
+surface = "#2a2a2a"
+text_primary = "#e5e7eb"
+text_secondary = "#a78bfa"
+text_muted = "#cdd6f4"
+
+# Opacity values
+overlay_alpha = 0.7
+shadow_alpha = 0.4
+shadow_alpha_hover = 0.5

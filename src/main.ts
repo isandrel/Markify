@@ -22,6 +22,7 @@ import {
 } from './settings';
 import { BatchDownloadManager } from './batch/BatchDownloadManager';
 import { logger } from './utils/logger';
+import { theme, notifications, ui, pkg, formatMessage } from './config';
 
 // Global button references for progress updates
 let downloadButton: HTMLButtonElement | null = null;
@@ -30,11 +31,11 @@ let activeButton: HTMLButtonElement | null = null; // Track which button was cli
 
 // Initialize Turndown service for HTML to Markdown conversion
 const turndownService = new TurndownService({
-    headingStyle: 'atx', // Use # style headings
-    codeBlockStyle: 'fenced', // Use ``` for code blocks
-    emDelimiter: '*', // Use * for emphasis
-    strongDelimiter: '**', // Use ** for strong
-    linkStyle: 'inlined', // Inline links instead of reference-style
+    headingStyle: ui.conversion.heading_style as any,
+    codeBlockStyle: ui.conversion.code_block_style as any,
+    emDelimiter: ui.conversion.em_delimiter as '_' | '*',
+    strongDelimiter: ui.conversion.strong_delimiter as '__' | '**',
+    linkStyle: ui.conversion.link_style as any,
 });
 
 // Configure Turndown rules for better Obsidian compatibility
@@ -44,7 +45,7 @@ turndownService.addRule('strikethrough', {
 });
 
 // Remove unwanted elements before conversion
-turndownService.remove(['script', 'style', 'nav', 'header', 'footer', 'aside', 'iframe']);
+turndownService.remove(ui.conversion.remove_elements.tags as any);
 
 /**
  * Extract metadata from the current page using site adapter if available
@@ -129,9 +130,9 @@ async function convertToMarkdown(): Promise<string> {
         }
 
         GM.notification({
-            text: 'Fetching forum content via API...',
-            title: 'Markify',
-            timeout: 2000,
+            text: notifications.messages.api_fetching,
+            title: pkg.package.strings.app_title,
+            timeout: notifications.timeouts.short,
         });
 
         const rawMarkdown = await fetchUSCardForumContent(topicId);
@@ -167,7 +168,7 @@ async function convertToMarkdown(): Promise<string> {
 
         // Restore button text after completion
         if (activeButton) {
-            activeButton.textContent = activeButton === downloadButton ? '📥 Download' : '📋 Copy';
+            activeButton.textContent = activeButton === downloadButton ? ui.ui.buttons.download_text : ui.ui.buttons.copy_text;
             activeButton = null;
         }
 
@@ -256,7 +257,7 @@ function downloadMarkdown(content: string, filename: string) {
     setTimeout(() => {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-    }, 100);
+    }, notifications.delays.cleanup);
 }
 
 /**
@@ -304,17 +305,17 @@ async function handleDownload(mode: 'download' | 'clipboard' = 'download') {
             // Copy to clipboard
             await GM.setClipboard(markdown, 'text');
             GM.notification({
-                text: 'Copied to clipboard!',
-                title: 'Markify',
-                timeout: 2000,
+                text: notifications.messages.clipboard_success,
+                title: pkg.package.strings.app_title,
+                timeout: notifications.timeouts.short,
             });
         } else {
             // Download the file
             downloadMarkdown(markdown, filename);
             GM.notification({
-                text: `Downloaded as ${filename}`,
-                title: 'Markify',
-                timeout: 3000,
+                text: formatMessage(notifications.messages.download_success, { filename }),
+                title: pkg.package.strings.app_title,
+                timeout: notifications.timeouts.medium,
             });
 
             // Track download history
@@ -332,9 +333,9 @@ async function handleDownload(mode: 'download' | 'clipboard' = 'download') {
     } catch (error) {
         console.error('Failed to convert page:', error);
         GM.notification({
-            text: 'Failed to convert page. Check console for details.',
-            title: 'Markify',
-            timeout: 5000,
+            text: notifications.messages.conversion_failed,
+            title: pkg.package.strings.app_title,
+            timeout: notifications.timeouts.long,
         });
     }
 }
@@ -370,11 +371,11 @@ async function showDownloadStatus() {
         const titleElement = document.querySelector('h1.text-xl, h1.font-bold, h1') as HTMLElement;
         if (titleElement) {
             const indicator = document.createElement('span');
-            indicator.textContent = '✓ ';
-            indicator.title = 'Already downloaded';
+            indicator.textContent = ui.ui.indicators.downloaded_icon;
+            indicator.title = ui.ui.indicators.downloaded_tooltip;
             indicator.style.cssText = `
-                color: #22c55e;
-                font-size: 1.2em;
+                color: ${theme.colors.success};
+                font-size: ${ui.ui.indicators.font_size_title};
                 margin-right: 6px;
                 font-weight: bold;
             `;
@@ -395,14 +396,14 @@ async function createDownloadButton() {
     const container = document.createElement('div');
     container.id = 'markify-container';
 
-    // Style container - default: 25% from top, right side
+    // Style container - default position from config
     Object.assign(container.style, {
         position: 'fixed',
-        top: '25%',
-        right: '20px',
-        zIndex: '10000',
+        top: ui.ui.position.default_top,
+        right: ui.ui.position.default_right,
+        zIndex: String(ui.ui.position.z_index),
         display: 'flex',
-        gap: '10px',
+        gap: ui.ui.buttons.gap,
         flexDirection: 'row',
         cursor: 'move',
         userSelect: 'none',
@@ -471,38 +472,38 @@ async function createDownloadButton() {
 
     // Common button styles
     const baseButtonStyle = {
-        padding: '12px 20px',
+        padding: ui.ui.style.padding,
         border: 'none',
-        borderRadius: '8px',
-        fontSize: '14px',
-        fontWeight: '600',
+        borderRadius: ui.ui.style.border_radius,
+        fontSize: ui.ui.style.font_size,
+        fontWeight: ui.ui.style.font_weight,
         cursor: 'pointer',
-        transition: 'all 0.2s ease',
-        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+        transition: ui.ui.animations.transition,
+        fontFamily: ui.ui.style.font_family,
         color: 'white',
     };
 
     // Create Download button
     const downloadBtn = document.createElement('button');
-    downloadBtn.textContent = '📥 Download';
+    downloadBtn.textContent = ui.ui.buttons.download_text;
     downloadButton = downloadBtn;  // Store global reference
     downloadBtn.id = 'markify-download-btn';
     Object.assign(downloadBtn.style, {
         ...baseButtonStyle,
-        backgroundColor: '#7c3aed',
-        boxShadow: '0 4px 12px rgba(124, 58, 237, 0.4)',
+        backgroundColor: theme.colors.primary,
+        boxShadow: ui.ui.shadows.button_default,
     });
 
     downloadBtn.addEventListener('mouseenter', () => {
-        downloadBtn.style.backgroundColor = '#6d28d9';
-        downloadBtn.style.transform = 'translateY(-2px)';
-        downloadBtn.style.boxShadow = '0 6px 16px rgba(124, 58, 237, 0.5)';
+        downloadBtn.style.backgroundColor = theme.colors.primary_hover;
+        downloadBtn.style.transform = ui.ui.animations.hover_transform;
+        downloadBtn.style.boxShadow = ui.ui.shadows.button_hover;
     });
 
     downloadBtn.addEventListener('mouseleave', () => {
-        downloadBtn.style.backgroundColor = '#7c3aed';
+        downloadBtn.style.backgroundColor = theme.colors.primary;
         downloadBtn.style.transform = 'translateY(0)';
-        downloadBtn.style.boxShadow = '0 4px 12px rgba(124, 58, 237, 0.4)';
+        downloadBtn.style.boxShadow = ui.ui.shadows.button_default;
     });
 
     downloadBtn.addEventListener('click', () => {
@@ -512,25 +513,25 @@ async function createDownloadButton() {
 
     // Create Copy button
     const copyBtn = document.createElement('button');
-    copyBtn.textContent = '📋 Copy';
+    copyBtn.textContent = ui.ui.buttons.copy_text;
     copyButton = copyBtn;  // Store global reference
     copyBtn.id = 'markify-copy-btn';
     Object.assign(copyBtn.style, {
         ...baseButtonStyle,
-        backgroundColor: '#059669',
-        boxShadow: '0 4px 12px rgba(5, 150, 105, 0.4)',
+        backgroundColor: theme.colors.secondary,
+        boxShadow: ui.ui.shadows.copy_default,
     });
 
     copyBtn.addEventListener('mouseenter', () => {
-        copyBtn.style.backgroundColor = '#047857';
-        copyBtn.style.transform = 'translateY(-2px)';
-        copyBtn.style.boxShadow = '0 6px 16px rgba(5, 150, 105, 0.5)';
+        copyBtn.style.backgroundColor = theme.colors.secondary_hover;
+        copyBtn.style.transform = ui.ui.animations.hover_transform;
+        copyBtn.style.boxShadow = ui.ui.shadows.copy_hover;
     });
 
     copyBtn.addEventListener('mouseleave', () => {
-        copyBtn.style.backgroundColor = '#059669';
+        copyBtn.style.backgroundColor = theme.colors.secondary;
         copyBtn.style.transform = 'translateY(0)';
-        copyBtn.style.boxShadow = '0 4px 12px rgba(5, 150, 105, 0.4)';
+        copyBtn.style.boxShadow = ui.ui.shadows.copy_default;
     });
 
     copyBtn.addEventListener('click', () => {
@@ -565,23 +566,28 @@ async function createDownloadButton() {
     }
 
     // Register menu commands
-    GM.registerMenuCommand('⚙️ Settings', () => {
+    GM.registerMenuCommand(pkg.package.menu.settings, () => {
         showSettings();
     });
 
-    GM.registerMenuCommand('📊 View Stats', async () => {
+    GM.registerMenuCommand(pkg.package.menu.stats, async () => {
         const count = await GM.getValue('markify_stats', 0) as number;
         const { getDownloadStats } = await import('./utils/download-history');
         const stats = await getDownloadStats();
 
         GM.notification({
-            text: `Downloaded: ${count} total\n${stats.single} single | ${stats.batch} batch\nHistory: ${stats.total} tracked`,
-            title: 'Markify Stats',
-            timeout: 5000,
+            text: formatMessage(notifications.messages.stats_summary, {
+                total: count,
+                single: stats.single,
+                batch: stats.batch,
+                tracked: stats.total,
+            }),
+            title: pkg.package.strings.app_title_stats,
+            timeout: notifications.timeouts.long,
         });
     });
 
-    GM.registerMenuCommand('📜 Download History', async () => {
+    GM.registerMenuCommand(pkg.package.menu.history, async () => {
         const { getDownloadHistory } = await import('./utils/download-history');
         const history = await getDownloadHistory();
         const recent = history.slice(-10).reverse();
@@ -589,24 +595,24 @@ async function createDownloadButton() {
         alert(`Download History (${history.length} items)\n\nRecent:\n${summary || 'No history yet'}`);
     });
 
-    GM.registerMenuCommand('🗑️ Clear History', async () => {
-        if (confirm('Clear all download history? This cannot be undone.')) {
+    GM.registerMenuCommand(pkg.package.menu.clear_history, async () => {
+        if (confirm(notifications.messages.clear_history_confirm)) {
             const { clearHistory } = await import('./utils/download-history');
             await clearHistory();
             GM.notification({
-                text: 'Download history cleared',
-                title: 'Markify',
-                timeout: 2000,
+                text: notifications.messages.history_cleared,
+                title: pkg.package.strings.app_title,
+                timeout: notifications.timeouts.short,
             });
         }
     });
 
-    GM.registerMenuCommand('🔄 Reset Stats', async () => {
+    GM.registerMenuCommand(pkg.package.menu.reset_stats, async () => {
         await GM.setValue('markify_stats', 0);
         GM.notification({
-            text: 'Stats reset successfully',
-            title: 'Markify',
-            timeout: 2000,
+            text: notifications.messages.stats_reset,
+            title: pkg.package.strings.app_title,
+            timeout: notifications.timeouts.short,
         });
     });
 
@@ -635,7 +641,7 @@ async function createDownloadButton() {
             const batchManager = new BatchDownloadManager(batchCapabilityUSCF);
             batchManager.initializeUI();
         }
-    }, 1000); // 1 second delay for DOM to stabilize
+    }, notifications.delays.dom_stabilize); // Delay from config for DOM to stabilize
 
     console.log('[Markify] Ready! Click the button to download this page as Markdown.');
     console.log('[Markify] Right-click the button to copy to clipboard instead.');

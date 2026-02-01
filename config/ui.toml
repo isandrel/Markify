@@ -7,6 +7,50 @@ button_offset_y    = 20
 button_position    = "bottom-right"
 button_text        = "📥 Markify"
 
+# Button configuration
+[ui.buttons]
+copy_color           = "#059669"
+copy_hover_color     = "#047857"
+copy_text            = "� Copy"
+download_color       = "#7c3aed"
+download_hover_color = "#6d28d9"
+download_text        = "📥 Download"
+gap                  = "10px"
+
+# Visual indicators
+[ui.indicators]
+downloaded_color   = "#22c55e"
+downloaded_icon    = "✓ "
+downloaded_tooltip = "Already downloaded"
+font_size          = "16px"
+font_size_title    = "1.2em"
+
+# Positioning
+[ui.position]
+default_right = "20px"
+default_top   = "25%"
+z_index       = 10000
+
+# Styling
+[ui.style]
+border_radius = "8px"
+font_family   = "-apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, sans-serif"
+font_size     = "14px"
+font_weight   = "600"
+padding       = "12px 20px"
+
+# Shadows
+[ui.shadows]
+button_default = "0 4px 12px rgba(124, 58, 237, 0.4)"
+button_hover   = "0 6px 16px rgba(124, 58, 237, 0.5)"
+copy_default   = "0 4px 12px rgba(5, 150, 105, 0.4)"
+copy_hover     = "0 6px 16px rgba(5, 150, 105, 0.5)"
+
+# Animations
+[ui.animations]
+hover_transform = "translateY(-2px)"
+transition      = "all 0.2s ease"
+
 # Filename templates (supports placeholders)
 [filename]
 # Single file download template

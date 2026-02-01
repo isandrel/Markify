@@ -5,3 +5,18 @@ description = "Convert web pages to Obsidian-formatted Markdown with YAML frontm
 name        = "Markify"
 repository  = "https://github.com/isandrel/Markify"
 version     = "0.0.3"
+
+# App-wide strings
+[package.strings]
+app_title       = "Markify"
+app_title_batch = "Markify Batch Download"
+app_title_error = "Markify Batch Download Error"
+app_title_stats = "Markify Stats"
+
+# Menu commands
+[package.menu]
+clear_history = "🗑️ Clear History"
+history       = "📜 Download History"
+reset_stats   = "� Reset Stats"
+settings      = "⚙️ Settings"
+stats         = "� View Stats"

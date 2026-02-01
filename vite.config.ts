@@ -12,7 +12,16 @@ const __dirname = dirname(__filename);
 
 // Load and merge all config files
 const configDir = join(__dirname, 'config');
-const configFiles = ['package.toml', 'userscript.toml', 'templates.toml', 'ui.toml', 'sites.toml'];
+const configFiles = [
+    'package.toml',
+    'userscript.toml',
+    'templates.toml',
+    'ui.toml',
+    'sites.toml',
+    'theme.toml',
+    'notifications.toml',
+];
+
 
 let config: any = {};
 
@@ -95,7 +104,11 @@ export default defineConfig({
         port: 5173,
     },
     define: {
-        // Make TOML templates available at runtime
+        // Make TOML configs available at runtime as global constants
         __MARKIFY_TEMPLATES__: JSON.stringify(config.templates || {}),
+        __MARKIFY_THEME__: JSON.stringify(config.theme || {}),
+        __MARKIFY_NOTIFICATIONS__: JSON.stringify(config.notifications || {}),
+        __MARKIFY_UI__: JSON.stringify(config.ui || {}),
+        __MARKIFY_PACKAGE__: JSON.stringify(config.package || {}),
     },
 });

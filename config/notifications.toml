@@ -1,0 +1,40 @@
+# Notification messages and timing configuration
+[messages]
+# Success messages
+clipboard_success = "Copied to clipboard!"
+download_success  = "Downloaded as {filename}"
+history_cleared   = "Download history cleared"
+settings_reset    = "Settings reset to defaults"
+settings_saved    = "Settings saved successfully!"
+stats_reset       = "Stats reset successfully"
+
+# Progress messages
+api_fetching = "Fetching forum content via API..."
+downloading  = "Downloading {current}/{total}..."
+processing   = "Processing {item}..."
+
+# Error messages
+conversion_failed = "Failed to convert page. Check console for details."
+download_failed   = "Failed to create ZIP: {error}"
+no_files          = "No files were successfully downloaded"
+
+# Batch messages
+batch_complete = "Successfully downloaded all {total} items!"
+batch_partial  = "Downloaded {success}/{total} items. {failed} failed."
+stats_summary  = "Downloaded: {total} total\\n{single} single | {batch} batch\\nHistory: {tracked} tracked"
+
+# Confirmation prompts
+clear_history_confirm = "Clear all download history? This cannot be undone."
+
+[timeouts]
+# Timeout durations in milliseconds
+long   = 5000 # Errors or detailed info
+medium = 3000 # Standard notifications
+short  = 2000 # Quick success messages
+
+[delays]
+# Delay durations in milliseconds
+batch_item    = 300  # Between batch downloads
+cleanup       = 100  # DOM cleanup after download
+dom_stabilize = 1000 # Wait for dynamic content to load
+rate_limit    = 100  # Rate limiting for API calls
