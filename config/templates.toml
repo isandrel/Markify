@@ -34,3 +34,14 @@ template = """
 
 {content}
 """
+
+# Filename templates
+[filename]
+# Single file download: {title}, {author}, {id}, {date}, {site}
+single = "[{id}] {title}"
+
+# Batch download - individual files: {title}, {author}, {id}, {index}, {site}
+batch_item = "{index} - [{id}] {title}"
+
+# Batch download - ZIP archive: {site}, {type}, {id}, {date}, {tagname}
+batch = "[{date}] [{site}] [{type}] [{id}] {tagname}"

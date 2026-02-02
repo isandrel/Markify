@@ -32,8 +32,8 @@ export interface MarkifySettings {
 export const defaultSettings: MarkifySettings = {
   // UI Settings
   buttonPosition: 'bottom-right',
-  buttonText: ui.ui.button_text,
-  buttonColor: theme.colors.primary,
+  buttonText: ui?.ui?.button_text || '📥 Markify',
+  buttonColor: theme?.colors?.primary || '#7c3aed',
 
   // Conversion Settings
   includeImages: true,
@@ -134,7 +134,7 @@ export function createSettingsUI(): HTMLElement {
         margin: 0 0 24px 0;
         font-size: 24px;
         font-weight: 700;
-        color: ${theme.colors.primary};
+        color: ${theme?.colors?.primary || '#7c3aed'};
       }
       
       .markify-setting-group {
@@ -145,7 +145,7 @@ export function createSettingsUI(): HTMLElement {
         font-size: 16px;
         font-weight: 600;
         margin: 0 0 12px 0;
-        color: ${theme.colors.text_secondary};
+        color: ${theme?.colors?.text_secondary || '#9ca3af'};
       }
       
       .markify-setting-item {
@@ -162,7 +162,7 @@ export function createSettingsUI(): HTMLElement {
       
       .markify-setting-item label {
         font-size: 14px;
-        color: ${theme.colors.text_primary};
+        color: ${theme?.colors?.text_primary || '#f3f4f6'};
       }
       
       .markify-setting-item input[type="checkbox"] {
@@ -199,12 +199,12 @@ export function createSettingsUI(): HTMLElement {
       }
       
       .markify-btn-primary {
-        background: ${theme.colors.primary};
+        background: ${theme?.colors?.primary || '#7c3aed'};
         color: white;
       }
       
       .markify-btn-primary:hover {
-        background: ${theme.colors.primary_hover};
+        background: ${theme?.colors?.primary_hover || '#6d28d9'};
       }
       
       .markify-btn-secondary {

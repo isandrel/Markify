@@ -66,3 +66,14 @@ template = """
 
 ## Comments ({count})
 """
+
+# Filename templates
+[filename]
+# Single file download: {title}, {author}, {id}, {date}, {site}
+single = "{title}"
+
+# Batch download - individual files: {title}, {author}, {id}, {index}, {site}
+batch_item = "{id} - {title}"
+
+# Batch download - ZIP archive: {site}, {type}, {id}, {date}, {tagname}
+batch = "{site}-{type}-{tagname}-{date}"
