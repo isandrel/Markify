@@ -7,7 +7,7 @@ import { downloadZip } from 'client-zip';
 import { sanitizeFilename } from '../utils';
 import { batchLogger as logger } from '../utils/logger';
 import type { FilenameContext } from '../utils/filename';
-import { theme, notifications, ui, pkg } from '../config';
+import { theme, notifications, ui, pkg, templates } from '../config';
 
 /**
  * Interface for sites that support batch downloading
@@ -178,11 +178,11 @@ export class BatchDownloadManager {
 
             if (downloaded) {
                 const indicator = document.createElement('span');
-                indicator.textContent = ui.ui.indicators.downloaded_icon.trim();
-                indicator.title = ui.ui.indicators.downloaded_tooltip;
+                indicator.textContent = ui?.ui?.indicators?.downloaded_icon?.trim() || '✓';
+                indicator.title = ui?.ui?.indicators?.downloaded_tooltip || 'Already downloaded';
                 indicator.style.cssText = `
-                    color: ${theme.colors.success};
-                    font-size: ${ui.ui.indicators.font_size};
+                    color: ${theme?.colors?.success || '#22c55e'};
+                    font-size: ${ui?.ui?.indicators?.font_size || '16px'};
                     margin-left: 6px;
                     font-weight: bold;
                 `;
@@ -321,14 +321,14 @@ export class BatchDownloadManager {
         this.batchButton.disabled = true;
         this.batchButton.style.cssText = `
             padding: 10px 18px;
-            background: ${theme.colors.primary};
+            background: ${theme?.colors?.primary || '#7c3aed'};
             color: white;
             border: none;
-            border-radius: ${ui.ui.style.border_radius};
-            font-size: ${ui.ui.style.font_size};
-            font-weight: ${ui.ui.style.font_weight};
+            border-radius: ${ui?.ui?.style?.border_radius || '8px'};
+            font-size: ${ui?.ui?.style?.font_size || '14px'};
+            font-weight: ${ui?.ui?.style?.font_weight || '600'};
             cursor: pointer;
-            transition: ${ui.ui.animations.transition};
+            transition: ${ui?.ui?.animations?.transition || 'all 0.2s ease'};
             opacity: 0.5;
         `;
 
@@ -386,8 +386,24 @@ export class BatchDownloadManager {
                     }
                 });
 
+
                 if (markdown) {
-                    const filename = sanitizeFilename(item.title) + '.md';
+                    // Load filename template from templates config
+                    const filenameTemplate = templates.filename.single;
+
+                    // Get context from adapter for additional variables
+                    const context = await this.adapter.getFilenameContext();
+
+                    // Prepare template variables
+                    const { applyFilenameTemplate } = await import('../utils/filename');
+                    const templateVars = {
+                        ...context,
+                        id: item.id,
+                        title: item.title,
+                        index: String(processed).padStart(3, '0'), // e.g., "001", "002"
+                    };
+
+                    const filename = applyFilenameTemplate(filenameTemplate, templateVars) + '.md';
                     files.push({ name: filename, input: markdown });
                 } else {
                     errors.push(item.title);
@@ -398,7 +414,7 @@ export class BatchDownloadManager {
             }
 
             // Small delay to avoid rate limiting
-            await new Promise(resolve => setTimeout(resolve, notifications.delays.batch_item));
+            await new Promise(resolve => setTimeout(resolve, notifications?.delays?.batch_item || 500));
         }
 
         // Check if we have any files to zip
@@ -410,9 +426,9 @@ export class BatchDownloadManager {
                 this.batchButton.textContent = '❌ No Files';
             }
             GM.notification({
-                text: notifications.messages.no_files,
-                title: pkg.package.strings.app_title_batch,
-                timeout: notifications.timeouts.medium,
+                text: notifications?.messages?.no_files || 'No files to download',
+                title: pkg?.package?.strings?.app_title_batch || 'Markify Batch Download',
+                timeout: notifications?.timeouts?.medium || 3000,
             });
             return;
         }
@@ -430,14 +446,13 @@ export class BatchDownloadManager {
 
             logger.info(`ZIP created successfully (${(zipBlob.size / 1024 / 1024).toFixed(2)} MB)`);
 
-            // Load filename template from settings
-            const templates = await GM.getValue('markify_templates', null) as any;
-            const filenameTemplate = templates?.filename?.batch || '{site}-{type}-{id}-{date}';
+            // Load batch filename template from templates config
+            const batchFilenameTemplate = templates.filename.batch;
 
             // Get context from adapter and apply template (await in case it's async)
             const context = await this.adapter.getFilenameContext();
             const { applyFilenameTemplate } = await import('../utils/filename');
-            const zipFilename = applyFilenameTemplate(filenameTemplate, context) + '.zip';
+            const zipFilename = applyFilenameTemplate(batchFilenameTemplate, context) + '.zip';
 
             logger.info(`Downloading as: ${zipFilename}`);
 
@@ -462,7 +477,7 @@ export class BatchDownloadManager {
                 document.body.removeChild(a);
                 URL.revokeObjectURL(url);
                 logger.debug('Cleaned up download link');
-            }, notifications.delays.cleanup);
+            }, notifications?.delays?.cleanup || 100);
 
             logger.info('ZIP download initiated');
         } catch (error) {
@@ -473,8 +488,8 @@ export class BatchDownloadManager {
             }
             GM.notification({
                 text: `Failed to create ZIP: ${errorMessage}`,
-                title: pkg.package.strings.app_title_error,
-                timeout: notifications.timeouts.long,
+                title: pkg?.package?.strings?.app_title_error || 'Markify Batch Download Error',
+                timeout: notifications?.timeouts?.long || 5000,
             });
             return;
         }
@@ -489,14 +504,14 @@ export class BatchDownloadManager {
         if (errors.length > 0) {
             GM.notification({
                 text: `Downloaded ${total - errors.length}/${total} items. ${errors.length} failed.`,
-                title: pkg.package.strings.app_title_batch,
-                timeout: notifications.timeouts.long,
+                title: pkg?.package?.strings?.app_title_batch || 'Markify Batch Download',
+                timeout: notifications?.timeouts?.long || 5000,
             });
         } else {
             GM.notification({
                 text: `Successfully downloaded all ${total} items!`,
-                title: pkg.package.strings.app_title_batch,
-                timeout: notifications.timeouts.medium,
+                title: pkg?.package?.strings?.app_title_batch || 'Markify Batch Download',
+                timeout: notifications?.timeouts?.medium || 3000,
             });
         }
     }
