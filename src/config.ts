@@ -10,6 +10,9 @@ export const ui = __MARKIFY_UI__;
 export const pkg = __MARKIFY_PACKAGE__;
 export const templates = __MARKIFY_TEMPLATES__;
 
+// Adapter-specific configs
+export const adapterUSCardForum = __MARKIFY_ADAPTER_USCARDFORUM__;
+
 /**
  * Helper to interpolate placeholders in notification messages
  */

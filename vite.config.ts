@@ -110,5 +110,6 @@ export default defineConfig({
         __MARKIFY_NOTIFICATIONS__: JSON.stringify(config.notifications || {}),
         __MARKIFY_UI__: JSON.stringify(config.ui || {}),
         __MARKIFY_PACKAGE__: JSON.stringify(config.package || {}),
+        __MARKIFY_ADAPTER_USCARDFORUM__: JSON.stringify(config.templates?.uscardforum || {}),
     },
 });
