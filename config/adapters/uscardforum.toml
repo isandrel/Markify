@@ -1,0 +1,51 @@
+# US Card Forum Adapter Configuration
+
+# Base URL for the site
+[site]
+base_url = "https://www.uscardforum.com"
+name     = "uscardforum"
+
+# Batch download configuration
+[batch]
+# URL patterns to detect listing pages (category, tag, search)
+listing_patterns = ["/c/", "/search", "/tag/", "/tags/"]
+# URL pattern to exclude (individual topics)
+exclude_pattern = "/t/"
+
+# DOM selectors for extracting items
+[batch.selectors]
+# Topic links on category/tag pages
+topic_links = "a.title[href*=\"/t/\"], a[href*=\"/t/\"].raw-topic-link"
+# Topic links on search results pages
+search_links = "a.search-link[href*=\"/t/\"]"
+# Title element for search results (nested in search link)
+search_title = ".topic-title > span"
+
+# Container selectors for attaching checkboxes (tried in order)
+[batch.selectors.containers]
+# Search results container
+search_result = ".fps-result"
+# Category/tag topic container  
+topic_row = "tr.topic-list-item"
+# Generic fallback
+generic = ".topic-list-item, .ember-view"
+
+# URL parsing patterns
+[batch.patterns]
+# Extract topic ID from URL: /t/{slug}/{id}
+topic_id = "/t/[^/]+/(\\d+)"
+# Extract category from URL
+category = "/c/([^/]+)"
+# Extract tag from URL
+tag = "/tag[s]?/([^/]+)"
+
+# Batch download type names (used in filenames)
+[batch.types]
+category = "category"
+listing  = "listing"
+search   = "search"
+tag      = "tag"
+
+# API endpoint for raw content
+[api]
+raw_endpoint = "/raw/{topicId}?page={page}"

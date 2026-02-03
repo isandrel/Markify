@@ -7,6 +7,7 @@ declare const __MARKIFY_THEME__: ThemeConfig;
 declare const __MARKIFY_NOTIFICATIONS__: NotificationConfig;
 declare const __MARKIFY_UI__: UIConfig;
 declare const __MARKIFY_PACKAGE__: PackageConfig;
+declare const __MARKIFY_ADAPTER_USCARDFORUM__: any;
 
 interface ThemeConfig {
     colors: {

@@ -33,6 +33,12 @@ export interface BatchCapability {
      * Can be async to fetch additional data like tag/category names
      */
     getFilenameContext(): FilenameContext | Promise<FilenameContext>;
+
+    /**
+     * Optional: Get site-specific container selectors for attaching checkboxes
+     * Returns array of CSS selectors to try (in order)
+     */
+    getContainerSelectors?(): string[];
 }
 
 export interface BatchItem {
@@ -113,11 +119,22 @@ export class BatchDownloadManager {
                 continue;
             }
 
-            // Find parent container - try multiple possible selectors
-            let container = linkElement.closest('[data-sentry-component="HomeThreadItem"]');
-            if (!container) {
-                // Fallback: look for common thread item container patterns
-                container = linkElement.closest('.border-b');
+            // Find parent container - try adapter-specific selectors first, then fallback
+            let container: Element | null = null;
+
+            if (this.adapter.getContainerSelectors) {
+                // Use adapter-provided selectors
+                const selectors = this.adapter.getContainerSelectors();
+                for (const selector of selectors) {
+                    container = linkElement.closest(selector);
+                    if (container) break;
+                }
+            } else {
+                // Fallback to default selectors (1Point3Acres)
+                container = linkElement.closest('[data-sentry-component="HomeThreadItem"]');
+                if (!container) {
+                    container = linkElement.closest('.border-b');
+                }
             }
 
             if (!container) {

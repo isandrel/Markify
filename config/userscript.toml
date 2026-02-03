@@ -9,7 +9,11 @@ match = [
     "https://www.1point3acres.com/home/forum/*",
     "https://www.1point3acres.com/home/pins/*",
     "https://www.1point3acres.com/home/tag/*",
+    "https://www.uscardforum.com/c/*",
+    "https://www.uscardforum.com/search*",
     "https://www.uscardforum.com/t/*/*",
+    "https://www.uscardforum.com/tag/*",
+    "https://www.uscardforum.com/tags/*",
 ]
 namespace = "https://github.com/isandrel/Markify"
 supportURL = "https://github.com/isandrel/Markify/issues"
