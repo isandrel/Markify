@@ -34,7 +34,23 @@ short  = 2000 # Quick success messages
 
 [delays]
 # Delay durations in milliseconds
-batch_item    = 300  # Between batch downloads
 cleanup       = 100  # DOM cleanup after download
 dom_stabilize = 1000 # Wait for dynamic content to load
-rate_limit    = 100  # Rate limiting for API calls
+
+# Human-like delays — randomized within range for natural behavior
+[delays.batch_item]
+min_ms  = 1000        # Minimum between batch downloads
+max_ms  = 3000        # Maximum between batch downloads
+jitter  = 0.25        # ±25% random jitter on top
+
+[delays.api_page]
+min_ms  = 500         # Minimum between paginated API calls
+max_ms  = 1500        # Maximum between paginated API calls
+jitter  = 0.2         # ±20% random jitter
+
+# HTTP request settings
+[http]
+# Default User-Agent for CLI/MCP requests.
+# In the browser (userscript), navigator.userAgent is used automatically.
+# Change this to match your actual browser if needed.
+user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"

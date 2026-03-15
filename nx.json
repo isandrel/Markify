@@ -1,0 +1,28 @@
+{
+  "targetDefaults": {
+    "build": {
+      "dependsOn": [
+        "^build"
+      ],
+      "cache": true
+    },
+    "dev": {
+      "cache": false
+    }
+  },
+  "namedInputs": {
+    "default": [
+      "{projectRoot}/**/*",
+      "!{projectRoot}/dist/**/*",
+      "!{projectRoot}/node_modules/**/*"
+    ],
+    "config": [
+      "{workspaceRoot}/config/**/*"
+    ],
+    "core": [
+      "default",
+      "config"
+    ]
+  },
+  "defaultBase": "main"
+}

@@ -1,51 +1,91 @@
 # US Card Forum Adapter Configuration
+# Platform: Discourse (https://docs.discourse.org)
 
-# Base URL for the site
 [site]
+name     = "US Card Forum"
 base_url = "https://www.uscardforum.com"
-name     = "uscardforum"
 
-# Batch download configuration
+# URL patterns that trigger this adapter
+url_patterns = [
+    "https://www.uscardforum.com/t/*/*",
+]
+
+# ─── API Configuration ───────────────────────────────────────────────
+# Discourse provides a JSON API for all its content.
+# We prefer the /raw/ endpoint for Markdown, with .json as fallback.
+
+[api]
+# Primary: raw Markdown endpoint (returns plain text Markdown)
+# Placeholders: {base_url}, {topic_id}, {page}
+raw_endpoint  = "{base_url}/raw/{topic_id}?page={page}"
+
+# Fallback: JSON API (returns structured data with cooked HTML)
+# Append ?print=true to get up to 1000 posts in one request
+json_endpoint = "{base_url}/t/{topic_id}.json?print=true&include_raw=true"
+
+# Pagination
+max_pages      = 100              # Safety limit for paginated fetching
+page_delay_ms  = 100              # Delay between page requests (rate limit)
+
+# Request configuration
+[api.request]
+credentials = true                # Send cookies for auth
+accept      = "text/plain"        # Accept header for raw endpoint
+
+# How to extract the topic ID from a URL
+[api.id_extraction]
+# Each pattern is tried in order; first capturing group is the ID
+patterns = [
+    '/t/[^/]+/(\d+)',             # /t/{slug}/{id}
+    '/t/(\d+)',                   # /t/{id}
+]
+
+# ─── Metadata Configuration ──────────────────────────────────────────
+# How to extract metadata from the page (for frontmatter)
+
+[metadata]
+# Regex to clean the page title (removes site name suffix)
+title_cleanup = '[\s\-]+(美国信用卡指南|US Card Forum)$'
+
+# Default tags
+tags = ["uscardforum", "forum", "credit-cards"]
+
+# Source URL template (canonical URL for frontmatter)
+source_url = "{base_url}/t/{topic_id}"
+
+# ─── Page separator ──────────────────────────────────────────────────
+page_separator = "\n\n---\n\n"
+
+# ─── Batch Download Configuration ────────────────────────────────────
+# (Used by @markify/userscript only)
+
 [batch]
-# URL patterns to detect listing pages (category, tag, search)
 listing_patterns = ["/c/", "/search", "/tag/", "/tags/"]
-# URL pattern to exclude (individual topics)
-exclude_pattern = "/t/"
+exclude_pattern  = "/t/"
 
-# DOM selectors for extracting items
 [batch.selectors]
-# Topic links on category/tag pages
-topic_links = "a.title[href*=\"/t/\"], a[href*=\"/t/\"].raw-topic-link"
-# Topic links on search results pages
-search_links = "a.search-link[href*=\"/t/\"]"
-# Title element for search results (nested in search link)
-search_title = ".topic-title > span"
+topic_links  = 'a.title[href*="/t/"], a[href*="/t/"].raw-topic-link'
+search_links = 'a.search-link[href*="/t/"]'
+search_title = '.topic-title > span'
 
-# Container selectors for attaching checkboxes (tried in order)
 [batch.selectors.containers]
-# Search results container
 search_result = ".fps-result"
-# Category/tag topic container  
-topic_row = "tr.topic-list-item"
-# Generic fallback
-generic = ".topic-list-item, .ember-view"
+topic_row     = "tr.topic-list-item"
+generic       = ".topic-list-item, .ember-view"
 
-# URL parsing patterns
 [batch.patterns]
-# Extract topic ID from URL: /t/{slug}/{id}
-topic_id = "/t/[^/]+/(\\d+)"
-# Extract category from URL
-category = "/c/([^/]+)"
-# Extract tag from URL
-tag = "/tag[s]?/([^/]+)"
+topic_id = '/t/[^/]+/(\d+)'
+category = '/c/([^/]+)'
+tag      = '/tag[s]?/([^/]+)'
 
-# Batch download type names (used in filenames)
 [batch.types]
 category = "category"
 listing  = "listing"
 search   = "search"
 tag      = "tag"
 
-# API endpoint for raw content
-[api]
-raw_endpoint = "/raw/{topicId}?page={page}"
+# ─── Filename Templates ──────────────────────────────────────────────
+[filename]
+single     = "{title}"
+batch_item = "{id} - {title}"
+batch      = "{site}-{type}-{tagname}-{date}"

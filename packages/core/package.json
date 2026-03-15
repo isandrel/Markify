@@ -1,0 +1,30 @@
+{
+  "name": "@markify/core",
+  "version": "0.0.3",
+  "description": "Markify shared conversion engine — platform-agnostic HTML to Obsidian Markdown",
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "build": "tsc --noEmit"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./adapters": "./src/adapters/index.ts",
+    "./config": "./src/config.ts",
+    "./templates": "./src/templates.ts",
+    "./utils": "./src/utils.ts",
+    "./utils/http": "./src/utils/http.ts"
+  },
+  "dependencies": {
+    "@bbob/html": "^4.3.1",
+    "@bbob/preset-html5": "^4.3.1",
+    "@iarna/toml": "^2.2.5",
+    "turndown": "^7.2.2"
+  },
+  "devDependencies": {
+    "@types/node": "^25.1.0",
+    "@types/turndown": "^5.0.6",
+    "typescript": "^5.9.3"
+  }
+}

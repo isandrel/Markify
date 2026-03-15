@@ -1,29 +1,20 @@
 {
   "name": "markify",
-  "version": "0.0.1",
+  "private": true,
+  "version": "0.0.3",
   "description": "Convert web pages to Obsidian-formatted Markdown with YAML frontmatter",
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
-    "dev": "vite",
-    "build": "vite build"
-  },
-  "dependencies": {
-    "@bbob/html": "^4.3.1",
-    "@bbob/preset-html5": "^4.3.1",
-    "@violentmonkey/dom": "^2.2.1",
-    "client-zip": "^2.5.0",
-    "file-saver": "^2.0.5",
-    "sonner": "^2.0.7",
-    "tippy.js": "^6.3.7",
-    "turndown": "^7.2.2"
+    "dev": "bun run --filter @markify/userscript dev",
+    "build": "bunx nx run-many --target=build --all --parallel=4",
+    "build:affected": "bunx nx affected --target=build --parallel=4",
+    "build:userscript": "bun run --filter @markify/userscript build",
+    "graph": "bunx nx graph"
   },
   "devDependencies": {
-    "@iarna/toml": "^2.2.5",
-    "@types/file-saver": "^2.0.7",
-    "@types/node": "^25.1.0",
-    "@types/tampermonkey": "^5.0.5",
-    "@types/turndown": "^5.0.6",
-    "typescript": "^5.9.3",
-    "vite": "^7.3.1",
-    "vite-plugin-monkey": "^7.1.9"
+    "nx": "^22.5.4",
+    "@nx/js": "^22.5.4"
   }
 }

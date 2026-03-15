@@ -1,16 +1,86 @@
 # 1Point3Acres Adapter Configuration
+# Chinese-speaking community for overseas education, jobs, immigration
 
-# API configuration for fetching comments
+[site]
+name     = "1Point3Acres"
+base_url = "https://www.1point3acres.com"
+
+# URL patterns that trigger this adapter
+url_patterns = [
+    "https://www.1point3acres.com/bbs/thread-*",
+    "https://www.1point3acres.com/home/pins/*",
+    "https://instant.1point3acres.com/thread/*",
+]
+
+# ─── API Configuration ───────────────────────────────────────────────
+# 1Point3Acres has an internal JSON API at api.1point3acres.com
+
 [api]
-max_pages = 100        # Maximum pages to fetch (safety limit)
-order     = "time_asc" # Sort order: "time_asc", "time_desc", or "hot_desc"
-page_size = 20         # Number of comments per page (ps parameter, API default is 20)
+# Thread data endpoint
+# Placeholders: {thread_id}
+thread_endpoint  = "https://api.1point3acres.com/api/v3/home-threads/{thread_id}"
 
-# Delimiter for separating sections
+# Comments/posts endpoint (paginated)
+# Placeholders: {thread_id}, {page_size}, {order}, {page}
+posts_endpoint   = "https://api.1point3acres.com/api/threads/{thread_id}/nested-posts?ps={page_size}&order={order}&pg={page}"
+
+# Pagination
+max_pages  = 100                 # Safety limit
+page_size  = 20                  # Comments per page (ps parameter)
+order      = "time_asc"          # Sort: "time_asc", "time_desc", "hot_desc"
+
+# Content format
+content_format = "bbcode"        # Thread content is in BBCode
+
+# Success check — JSON response field validation
+[api.response]
+success_field = "errno"          # Field name to check
+success_value = 0                # Expected value for success
+data_field    = "thread"         # Field containing the thread data
+
+# How to extract the thread ID from a URL
+[api.id_extraction]
+patterns = [
+    'thread-(\d+)',              # /bbs/thread-{id}-1-1.html
+    '/pins/(\d+)',               # /home/pins/{id}
+    '/thread/(\d+)',             # instant.1point3acres.com/thread/{id}
+]
+
+# ─── Response Field Mapping ──────────────────────────────────────────
+# Maps API response fields to internal variable names used in templates
+# Format: internal_name = "api_response_field"
+
+[api.fields]
+title      = "subject"
+author     = "author"
+content    = "message_bbcode"
+posted_at  = "dateline"          # Unix timestamp
+updated_at = "lastpost"          # Unix timestamp
+views      = "views"
+replies    = "replies"
+favorites  = "favtimes"
+
+# Post/comment field mapping
+[api.fields.post]
+author     = "author"
+content    = "message_bbcode"
+posted_at  = "dateline"          # Unix timestamp
+
+# ─── Metadata Configuration ──────────────────────────────────────────
+
+[metadata]
+tags       = ["1point3acres", "forum"]
+source_url = "https://www.1point3acres.com/bbs/thread-{thread_id}-1-1.html"
+
+# ─── Templates ────────────────────────────────────────────────────────
+# These templates define how the API data is assembled into final Markdown
+
+# Section delimiter
 delimiter = "---"
 
 # YAML frontmatter template
-# Variables: {title}, {author}, {posted_at}, {updated_at}, {downloaded_at}, {url}, {views}, {replies}, {favorites}
+# Variables: {title}, {author}, {posted_at}, {updated_at}, {downloaded_at},
+#            {url}, {views}, {replies}, {favorites}
 [frontmatter]
 template = """---
 title: "{title}"
@@ -28,8 +98,9 @@ tags:
 ---
 """
 
-# Complete Markdown layout template
-# Variables: {frontmatter}, {title}, {author}, {date}, {content}, {views}, {replies}, {favorites}, {comments}
+# Complete Markdown layout
+# Variables: {frontmatter}, {title}, {author}, {date}, {content},
+#            {views}, {replies}, {favorites}, {comments}
 [document]
 template = """{frontmatter}
 # {title}
@@ -46,7 +117,7 @@ template = """{frontmatter}
 
 {comments}"""
 
-# Individual comment template (used to build {comments} variable)
+# Individual comment template (builds {comments} variable)
 # Variables: {author}, {date}, {content}, {index}, {delimiter}
 [comment]
 template = """
@@ -67,13 +138,17 @@ template = """
 ## Comments ({count})
 """
 
-# Filename templates
+# ─── Filename Templates ──────────────────────────────────────────────
 [filename]
-# Single file download: {title}, {author}, {id}, {date}, {site}
-single = "{title}"
-
-# Batch download - individual files: {title}, {author}, {id}, {index}, {site}
+single     = "{title}"
 batch_item = "{id} - {title}"
+batch      = "{site}-{type}-{tagname}-{date}"
 
-# Batch download - ZIP archive: {site}, {type}, {id}, {date}, {tagname}
-batch = "{site}-{type}-{tagname}-{date}"
+# ─── Batch Download Configuration ────────────────────────────────────
+# (Used by @markify/userscript only)
+
+[batch]
+listing_patterns = [
+    "/bbs/forum-",
+    "/home/explore",
+]
