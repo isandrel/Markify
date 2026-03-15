@@ -1,23 +1,9 @@
 {
-    "compilerOptions": {
-        "target": "ES2020",
-        "module": "ESNext",
-        "lib": [
-            "ES2020",
-            "DOM"
-        ],
-        "moduleResolution": "bundler",
-        "strict": true,
-        "esModuleInterop": true,
-        "skipLibCheck": true,
-        "forceConsistentCasingInFileNames": true,
-        "resolveJsonModule": true,
-        "types": [
-            "tampermonkey"
-        ],
-        "outDir": "./dist"
-    },
-    "include": [
-        "src/**/*"
-    ]
+  "files": [],
+  "references": [
+    { "path": "packages/core" },
+    { "path": "packages/userscript" },
+    { "path": "packages/cli" },
+    { "path": "packages/mcp" }
+  ]
 }

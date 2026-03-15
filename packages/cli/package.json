@@ -1,0 +1,21 @@
+{
+  "name": "@markify/cli",
+  "version": "0.0.3",
+  "description": "Markify CLI — convert web pages to Markdown from the terminal",
+  "type": "module",
+  "main": "src/index.ts",
+  "bin": {
+    "markify": "src/index.ts"
+  },
+  "scripts": {
+    "dev": "bun run src/index.ts",
+    "build": "bun build src/index.ts --outdir dist --target bun"
+  },
+  "dependencies": {
+    "@markify/core": "workspace:*",
+    "linkedom": "^0.18.9"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}

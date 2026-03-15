@@ -1,0 +1,20 @@
+{
+  "name": "@markify/mcp",
+  "version": "0.0.3",
+  "description": "Markify MCP Server — expose page-to-markdown conversion to AI agents",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "bun run src/index.ts",
+    "build": "bun build src/index.ts --outdir dist --target bun"
+  },
+  "dependencies": {
+    "@markify/core": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "linkedom": "^0.18.9",
+    "zod": "^3.24.3"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}
