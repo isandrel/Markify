@@ -35,7 +35,7 @@
 // ==/UserScript==
 
 
-System.register("./__entry.js", ['./main-JT_1PqFi-BEs5AMbq.js'], (function (exports, module) {
+System.register("./__entry.js", ['./main-jf4ClCT1-KuUFdNvO.js'], (function (exports, module) {
 	'use strict';
 	return {
 		setters: [null],
@@ -47,7 +47,7 @@ System.register("./__entry.js", ['./main-JT_1PqFi-BEs5AMbq.js'], (function (expo
 	};
 }));
 
-System.register("./main-JT_1PqFi-BEs5AMbq.js", [], (function (exports, module) {
+System.register("./main-jf4ClCT1-KuUFdNvO.js", [], (function (exports, module) {
   'use strict';
   return {
     execute: (function () {
@@ -3740,10 +3740,9 @@ enabledAdapters: ["all"],
             document.addEventListener("DOMContentLoaded", resolve);
           });
         }
-        const existingTemplates = await GM.getValue("markify_templates", null);
-        if (!existingTemplates && typeof define_MARKIFY_TEMPLATES_default !== "undefined") {
+        if (typeof define_MARKIFY_TEMPLATES_default !== "undefined") {
           await GM.setValue("markify_templates", define_MARKIFY_TEMPLATES_default);
-          console.log("[Markify] Templates loaded from config");
+          console.log("[Markify] Templates synced from config");
         }
         GM.registerMenuCommand(pkg?.package?.menu?.settings || "⚙️ Settings", () => {
           showSettings();
@@ -3805,28 +3804,28 @@ ${summary || "No history yet"}`);
         await showDownloadStatus();
         setTimeout(async () => {
           const { OnePoint3AcresBatchCapability } = await __vitePreload(async () => {
-            const { OnePoint3AcresBatchCapability: OnePoint3AcresBatchCapability2 } = await module.import('./1point3acres-batch-ChFQOU_e-oC4WZemO.js');
+            const { OnePoint3AcresBatchCapability: OnePoint3AcresBatchCapability2 } = await module.import('./1point3acres-batch-2qgkBMNk-g-w9wwPI.js');
             return { OnePoint3AcresBatchCapability: OnePoint3AcresBatchCapability2 };
           }, void 0 );
           const batchCapability1p3a = new OnePoint3AcresBatchCapability();
           if (batchCapability1p3a.isListingPage()) {
             logger.info("1Point3Acres listing page detected - initializing batch download");
             const { BatchDownloadManager } = await __vitePreload(async () => {
-              const { BatchDownloadManager: BatchDownloadManager2 } = await module.import('./BatchDownloadManager-BrHbaN0L-1lksZJqR.js');
+              const { BatchDownloadManager: BatchDownloadManager2 } = await module.import('./BatchDownloadManager-qeYJd6kA-D08rz72E.js');
               return { BatchDownloadManager: BatchDownloadManager2 };
             }, void 0 );
             const batchManager = new BatchDownloadManager(batchCapability1p3a);
             batchManager.initializeUI();
           }
           const { USCardForumBatchCapability } = await __vitePreload(async () => {
-            const { USCardForumBatchCapability: USCardForumBatchCapability2 } = await module.import('./uscardforum-batch-z2trcuDT-DLRjjlxj.js');
+            const { USCardForumBatchCapability: USCardForumBatchCapability2 } = await module.import('./uscardforum-batch-BNFjT1W6-CnA7xMbn.js');
             return { USCardForumBatchCapability: USCardForumBatchCapability2 };
           }, void 0 );
           const batchCapabilityUSCF = new USCardForumBatchCapability();
           if (batchCapabilityUSCF.isListingPage()) {
             logger.info("USCardForum listing page detected - initializing batch download");
             const { BatchDownloadManager } = await __vitePreload(async () => {
-              const { BatchDownloadManager: BatchDownloadManager2 } = await module.import('./BatchDownloadManager-BrHbaN0L-1lksZJqR.js');
+              const { BatchDownloadManager: BatchDownloadManager2 } = await module.import('./BatchDownloadManager-qeYJd6kA-D08rz72E.js');
               return { BatchDownloadManager: BatchDownloadManager2 };
             }, void 0 );
             const batchManager = new BatchDownloadManager(batchCapabilityUSCF);
@@ -3901,7 +3900,7 @@ System.register("./download-history-W88f4QTw-DAx0nYVv.js", [], (function (export
   };
 }));
 
-System.register("./1point3acres-batch-ChFQOU_e-oC4WZemO.js", ['./main-JT_1PqFi-BEs5AMbq.js'], (function (exports, module) {
+System.register("./1point3acres-batch-2qgkBMNk-g-w9wwPI.js", ['./main-jf4ClCT1-KuUFdNvO.js'], (function (exports, module) {
   'use strict';
   var adapterLogger, fetchForumApiContent;
   return {
@@ -3955,8 +3954,15 @@ System.register("./1point3acres-batch-ChFQOU_e-oC4WZemO.js", ['./main-JT_1PqFi-B
               });
             }
           };
-          const templates = globalThis.__MARKIFY_TEMPLATES__;
-          return fetchForumApiContent(itemId, fetcher, templates, onProgress);
+          const templates = await GM.getValue("markify_templates", null);
+          if (!templates) {
+            throw new Error("Markify templates not loaded. Please reload the page.");
+          }
+          const adapterConfig = templates["1point3acres"] || templates["1Point3Acres"];
+          if (!adapterConfig?.api) {
+            throw new Error("1Point3Acres adapter config not found in templates. Please reinstall the userscript.");
+          }
+          return fetchForumApiContent(itemId, fetcher, adapterConfig, onProgress);
         }
         async getFilenameContext() {
           const tagMatch = window.location.pathname.match(/\/tag\/(\d+)/);
@@ -4005,7 +4011,7 @@ async fetchForumName(forumId) {
   };
 }));
 
-System.register("./BatchDownloadManager-BrHbaN0L-1lksZJqR.js", ['./main-JT_1PqFi-BEs5AMbq.js'], (function (exports, module) {
+System.register("./BatchDownloadManager-qeYJd6kA-D08rz72E.js", ['./main-jf4ClCT1-KuUFdNvO.js'], (function (exports, module) {
   'use strict';
   var batchLogger, __vitePreload, ui, theme, templates, notifications, pkg;
   return {
@@ -4452,7 +4458,7 @@ async downloadSelected() {
                 const filenameTemplate = templates.filename.single;
                 const context = await this.adapter.getFilenameContext();
                 const { applyFilenameTemplate } = await __vitePreload(async () => {
-                  const { applyFilenameTemplate: applyFilenameTemplate2 } = await module.import('./main-JT_1PqFi-BEs5AMbq.js').then((n2) => n2.i);
+                  const { applyFilenameTemplate: applyFilenameTemplate2 } = await module.import('./main-jf4ClCT1-KuUFdNvO.js').then((n2) => n2.i);
                   return { applyFilenameTemplate: applyFilenameTemplate2 };
                 }, true ? void 0 : void 0);
                 const templateVars = {
@@ -4471,7 +4477,7 @@ async downloadSelected() {
               batchLogger.error(`Error downloading ${item.title}:`, error);
             }
             const { humanDelay } = await __vitePreload(async () => {
-              const { humanDelay: humanDelay2 } = await module.import('./main-JT_1PqFi-BEs5AMbq.js').then((n2) => n2.h);
+              const { humanDelay: humanDelay2 } = await module.import('./main-jf4ClCT1-KuUFdNvO.js').then((n2) => n2.h);
               return { humanDelay: humanDelay2 };
             }, void 0 );
             const delayConfig = notifications?.delays?.batch_item ?? { min_ms: 1e3, max_ms: 3e3, jitter: 0.25 };
@@ -4500,7 +4506,7 @@ async downloadSelected() {
             const batchFilenameTemplate = templates.filename.batch;
             const context = await this.adapter.getFilenameContext();
             const { applyFilenameTemplate } = await __vitePreload(async () => {
-              const { applyFilenameTemplate: applyFilenameTemplate2 } = await module.import('./main-JT_1PqFi-BEs5AMbq.js').then((n2) => n2.i);
+              const { applyFilenameTemplate: applyFilenameTemplate2 } = await module.import('./main-jf4ClCT1-KuUFdNvO.js').then((n2) => n2.i);
               return { applyFilenameTemplate: applyFilenameTemplate2 };
             }, true ? void 0 : void 0);
             const zipFilename = applyFilenameTemplate(batchFilenameTemplate, context) + ".zip";
@@ -4564,7 +4570,7 @@ async downloadSelected() {
   };
 }));
 
-System.register("./uscardforum-batch-z2trcuDT-DLRjjlxj.js", ['./main-JT_1PqFi-BEs5AMbq.js'], (function (exports, module) {
+System.register("./uscardforum-batch-BNFjT1W6-CnA7xMbn.js", ['./main-jf4ClCT1-KuUFdNvO.js'], (function (exports, module) {
   'use strict';
   var adapterUSCardForum, batchLogger, fetchDiscourseRawContent;
   return {

@@ -61,8 +61,17 @@ export class OnePoint3AcresBatchCapability implements BatchCapability {
                 });
             },
         };
-        const templates = (globalThis as any).__MARKIFY_TEMPLATES__;
-        return fetch1Point3AcresContent(itemId, fetcher, templates, onProgress);
+        const templates = await GM.getValue('markify_templates', null) as any;
+        if (!templates) {
+            throw new Error('Markify templates not loaded. Please reload the page.');
+        }
+        // Extract adapter-specific config from the top-level templates object
+        // Templates shape: { '1point3acres': { api: {...}, frontmatter: {...}, ... }, ... }
+        const adapterConfig = templates['1point3acres'] || templates['1Point3Acres'];
+        if (!adapterConfig?.api) {
+            throw new Error('1Point3Acres adapter config not found in templates. Please reinstall the userscript.');
+        }
+        return fetch1Point3AcresContent(itemId, fetcher, adapterConfig, onProgress);
     }
 
     async getFilenameContext(): Promise<FilenameContext> {
