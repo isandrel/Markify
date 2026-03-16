@@ -431,11 +431,12 @@ async function createDownloadButton() {
         });
     }
 
-    // Initialize templates from TOML config (if not already set)
-    const existingTemplates = await GM.getValue('markify_templates', null);
-    if (!existingTemplates && typeof __MARKIFY_TEMPLATES__ !== 'undefined') {
+    // Always sync templates from build-time TOML config into GM storage.
+    // This ensures adapter configs (API endpoints, field mappings, etc.)
+    // stay current with each userscript update.
+    if (typeof __MARKIFY_TEMPLATES__ !== 'undefined') {
         await GM.setValue('markify_templates', __MARKIFY_TEMPLATES__);
-        console.log('[Markify] Templates loaded from config');
+        console.log('[Markify] Templates synced from config');
     }
 
     // Register menu commands
