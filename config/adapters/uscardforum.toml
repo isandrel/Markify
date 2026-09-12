@@ -1,18 +1,74 @@
-# US Card Forum Adapter Configuration
-# Platform: Discourse (https://docs.discourse.org)
+schema_version = 1
+engine = "discourse-raw"
+transport = "fetch"
+page_separator = "\n\n---\n\n"
 
 [site]
-name     = "US Card Forum"
+id = "uscardforum"
+name = "US Card Forum"
 base_url = "https://www.uscardforum.com"
+origins = ["https://www.uscardforum.com"]
+aliases = ["USCardForum"]
 
-# URL patterns that trigger this adapter
-url_patterns = [
-    "https://www.uscardforum.com/t/*/*",
-]
+[activation]
+matches = ["https://www.uscardforum.com/*"]
+connect = ["self"]
 
-# ─── API Configuration ───────────────────────────────────────────────
-# Discourse provides a JSON API for all its content.
-# We prefer the /raw/ endpoint for Markdown, with .json as fallback.
+[[routes]]
+name = "thread"
+kind = "thread"
+pattern = '^/t/(?:[^/]+/)?(\d+)(?:/\d+)?/?$'
+id_group = 1
+
+[[routes]]
+name = "category"
+kind = "listing"
+pattern = '^/c/([^/]+)(?:/[^/]+)*/?$'
+id_group = 1
+query_keys = ["page", "order", "ascending", "status", "q"]
+
+[[routes]]
+name = "tag"
+kind = "listing"
+pattern = '^/tags?/([^/]+)/?$'
+id_group = 1
+query_keys = ["page", "order", "ascending"]
+
+[[routes]]
+name = "search"
+kind = "listing"
+pattern = '^/search/?$'
+query_keys = ["q", "page", "expanded"]
+
+[[routes]]
+name = "home"
+kind = "entry"
+pattern = '^/(?:latest|top|categories)?/?$'
+
+[runtime]
+poll_ms = 500
+debounce_ms = 100
+timeout_ms = 30000
+
+[batch]
+label_selector = "h1"
+
+[[batch.layouts]]
+name = "topic-list"
+route_names = ["category", "tag"]
+root_selector = "#main-outlet"
+row_selector = "tr.topic-list-item"
+link_selector = 'a.title[href*="/t/"], a.raw-topic-link[href*="/t/"]'
+exclude_selectors = ["aside"]
+
+[[batch.layouts]]
+name = "search-results"
+route_names = ["search"]
+root_selector = "#main-outlet"
+row_selector = ".fps-result"
+link_selector = 'a.search-link[href*="/t/"]'
+title_selector = ".topic-title"
+exclude_selectors = ["aside"]
 
 [api]
 # Primary: raw Markdown endpoint (returns plain text Markdown)
@@ -25,7 +81,7 @@ json_endpoint = "{base_url}/t/{topic_id}.json?print=true&include_raw=true"
 
 # Pagination
 max_pages      = 100              # Safety limit for paginated fetching
-page_delay_ms  = 100              # Delay between page requests (rate limit)
+page_delay = { min_ms = 100, max_ms = 100, jitter = 0 }
 
 # Request configuration
 [api.request]
@@ -54,35 +110,7 @@ tags = ["uscardforum", "forum", "credit-cards"]
 source_url = "{base_url}/t/{topic_id}"
 
 # ─── Page separator ──────────────────────────────────────────────────
-page_separator = "\n\n---\n\n"
 
-# ─── Batch Download Configuration ────────────────────────────────────
-# (Used by @markify/userscript only)
-
-[batch]
-listing_patterns = ["/c/", "/search", "/tag/", "/tags/"]
-exclude_pattern  = "/t/"
-
-[batch.selectors]
-topic_links  = 'a.title[href*="/t/"], a[href*="/t/"].raw-topic-link'
-search_links = 'a.search-link[href*="/t/"]'
-search_title = '.topic-title > span'
-
-[batch.selectors.containers]
-search_result = ".fps-result"
-topic_row     = "tr.topic-list-item"
-generic       = ".topic-list-item, .ember-view"
-
-[batch.patterns]
-topic_id = '/t/[^/]+/(\d+)'
-category = '/c/([^/]+)'
-tag      = '/tag[s]?/([^/]+)'
-
-[batch.types]
-category = "category"
-listing  = "listing"
-search   = "search"
-tag      = "tag"
 
 # ─── Filename Templates ──────────────────────────────────────────────
 [filename]

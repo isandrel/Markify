@@ -5,6 +5,7 @@ import { parse } from '@iarna/toml';
 import { join } from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
+import { profileMetadata, resolveProfiles } from '../core/src/config/schema.ts';
 
 // Get __dirname equivalent in ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -42,33 +43,16 @@ for (const file of configFiles) {
     }
 }
 
-// Load adapter-specific configs from config/adapters/
-const adaptersDir = join(configDir, 'adapters');
-try {
-    const adapterFiles = readdirSync(adaptersDir).filter(f => f.endsWith('.toml'));
-
-    if (!config.templates) {
-        config.templates = {};
-    }
-
-    for (const adapterFile of adapterFiles) {
-        const adapterName = adapterFile.replace('.toml', '');
-        const adapterPath = join(adaptersDir, adapterFile);
-
-        try {
-            const content = readFileSync(adapterPath, 'utf-8');
-            const parsed = parse(content);
-
-            // Merge adapter config under its name
-            config.templates[adapterName] = parsed;
-            console.log(`Loaded adapter config: ${adapterName}`);
-        } catch (error) {
-            console.warn(`Warning: Could not load adapter ${adapterFile}`, error);
-        }
-    }
-} catch (error) {
-    console.warn('Warning: Could not load adapter configs', error);
-}
+// Adapter profiles have one validated loader shared with CLI/MCP.
+const rawProfiles = Object.fromEntries(
+    readdirSync(join(configDir, 'adapters'))
+        .filter(file => file.endsWith('.toml'))
+        .sort()
+        .map(file => [file, parse(readFileSync(join(configDir, 'adapters', file), 'utf-8'))]),
+);
+const compiledConfig = { adapters: resolveProfiles(rawProfiles) };
+const adapterMetadata = profileMetadata(compiledConfig.adapters);
+const userscriptMatches = [...new Set([...(config.userscript.match ?? []), ...adapterMetadata.matches])].sort();
 
 export default defineConfig({
     plugins: [
@@ -81,7 +65,8 @@ export default defineConfig({
                 description: config.package.description,
                 author: config.package.author,
                 license: config.userscript.license,
-                match: config.userscript.match,
+                match: userscriptMatches,
+                connect: adapterMetadata.connect,
                 grant: config.userscript.grant.permissions,
                 icon: config.userscript.icon,
                 supportURL: config.userscript.supportURL,
@@ -110,6 +95,6 @@ export default defineConfig({
         __MARKIFY_NOTIFICATIONS__: JSON.stringify(config.notifications || {}),
         __MARKIFY_UI__: JSON.stringify(config.ui || {}),
         __MARKIFY_PACKAGE__: JSON.stringify(config.package || {}),
-        __MARKIFY_ADAPTER_USCARDFORUM__: JSON.stringify(config.templates?.uscardforum || {}),
+        __MARKIFY_CONFIG__: JSON.stringify({ adapters: compiledConfig.adapters, templates: config.templates || {} }),
     },
 });

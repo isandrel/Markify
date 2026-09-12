@@ -37,16 +37,19 @@ export function applyFilenameTemplate(
     template: string,
     context: FilenameContext
 ): string {
-    let result = template;
-
-    // Replace placeholders with context values or defaults
-    result = result.replace(/{date}/g, context.date || formatDate());
-    result = result.replace(/{title}/g, context.title || 'untitled');
-    result = result.replace(/{id}/g, context.id || '');
-    result = result.replace(/{author}/g, context.author || '');
-    result = result.replace(/{site}/g, context.site || '');
-    result = result.replace(/{type}/g, context.type || '');
-    result = result.replace(/{tagname}/g, context.tagname || '');
+    const values: Record<string, string> = {
+        date: context.date || formatDate(),
+        title: context.title || 'untitled',
+        id: context.id || '',
+        author: context.author || '',
+        site: context.site || '',
+        type: context.type || '',
+        tagname: context.tagname || '',
+        index: context.index || '',
+    };
+    // One callback pass preserves literal dollar tokens and braces in user text.
+    let result = template.replace(/\{(\w+)\}/g, (match, key: string) =>
+        Object.prototype.hasOwnProperty.call(values, key) ? values[key] : match);
 
     // Remove any empty placeholder remnants (e.g., " - " when id is empty)
     result = result.replace(/\s*-\s*-\s*/g, ' - '); // Collapse multiple separators

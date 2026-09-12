@@ -1,19 +1,104 @@
-# 1Point3Acres Adapter Configuration
-# Chinese-speaking community for overseas education, jobs, immigration
+# Validated site profile. Selectors and route changes belong here.
+schema_version = 1
+engine = "forum-json"
+transport = "gm"
+delimiter = "---"
 
 [site]
-name     = "1Point3Acres"
+id = "1point3acres"
+name = "1Point3Acres"
 base_url = "https://www.1point3acres.com"
+origins = ["https://www.1point3acres.com", "https://instant.1point3acres.com"]
+aliases = ["1point3acres"]
 
-# URL patterns that trigger this adapter
-url_patterns = [
-    "https://www.1point3acres.com/bbs/thread-*",
-    "https://www.1point3acres.com/home/pins/*",
-    "https://instant.1point3acres.com/thread/*",
-]
+[activation]
+matches = ["https://www.1point3acres.com/home/*", "https://www.1point3acres.com/bbs/thread-*", "https://instant.1point3acres.com/thread/*"]
+connect = ["api.1point3acres.com"]
 
-# ─── API Configuration ───────────────────────────────────────────────
-# 1Point3Acres has an internal JSON API at api.1point3acres.com
+[[routes]]
+name = "discover"
+kind = "listing"
+pattern = '^/home/discover/([^/]+)/?$'
+id_group = 1
+origins = ["https://www.1point3acres.com"]
+query_keys = ["page", "sort", "order", "tab", "type"]
+
+[[routes]]
+name = "forum"
+kind = "listing"
+pattern = '^/home/forum/([^/]+)/?$'
+id_group = 1
+origins = ["https://www.1point3acres.com"]
+query_keys = ["page", "sort", "order", "tab", "type"]
+
+[[routes]]
+name = "tag"
+kind = "listing"
+pattern = '^/home/tag/([^/]+)/?$'
+id_group = 1
+origins = ["https://www.1point3acres.com"]
+query_keys = ["page", "sort", "order", "tab", "type"]
+
+[[routes]]
+name = "thread"
+kind = "thread"
+pattern = '^/home/thread/(\d+)/?$'
+id_group = 1
+origins = ["https://www.1point3acres.com"]
+
+[[routes]]
+name = "pins"
+kind = "thread"
+pattern = '^/home/pins/(\d+)/?$'
+id_group = 1
+origins = ["https://www.1point3acres.com"]
+
+[[routes]]
+name = "bbs-thread"
+kind = "thread"
+pattern = '^/bbs/thread-(\d+)-\d+-\d+\.html$'
+id_group = 1
+origins = ["https://www.1point3acres.com"]
+
+[[routes]]
+name = "instant-thread"
+kind = "thread"
+pattern = '^/thread/(\d+)/?$'
+id_group = 1
+origins = ["https://instant.1point3acres.com"]
+
+[[routes]]
+name = "home"
+kind = "entry"
+pattern = '^/home/?$'
+origins = ["https://www.1point3acres.com"]
+
+[runtime]
+poll_ms = 500
+debounce_ms = 100
+timeout_ms = 30000
+
+[batch]
+label_selector = "main h1"
+
+[[batch.layouts]]
+name = "forum-thread-items"
+route_names = ["discover", "forum", "tag"]
+root_selector = "main"
+row_selector = '[data-sentry-component="ForumThreadItem"]'
+link_selector = 'a[href*="/home/thread/"]:has(h3), a[href*="/home/pins/"]:has(h3)'
+title_selector = "h3"
+title_attribute = "title"
+exclude_selectors = ["aside", "[data-ad]"]
+
+[[batch.layouts]]
+name = "legacy-home-thread-items"
+route_names = ["forum", "tag"]
+root_selector = "main"
+row_selector = '[data-sentry-component="HomeThreadItem"]'
+link_selector = 'a[href*="/home/pins/"]'
+title_selector = "h3"
+exclude_selectors = ["aside", "[data-ad]"]
 
 [api]
 # Thread data endpoint
@@ -36,6 +121,7 @@ content_format = "bbcode"        # Thread content is in BBCode
 [api.response]
 success_field = "errno"          # Field name to check
 success_value = 0                # Expected value for success
+posts_field   = "posts"
 data_field    = "thread"         # Field containing the thread data
 
 # How to extract the thread ID from a URL
@@ -62,6 +148,7 @@ favorites  = "favtimes"
 
 # Post/comment field mapping
 [api.fields.post]
+id         = "pid"
 author     = "author"
 content    = "message_bbcode"
 posted_at  = "dateline"          # Unix timestamp
@@ -76,7 +163,7 @@ source_url = "https://www.1point3acres.com/bbs/thread-{thread_id}-1-1.html"
 # These templates define how the API data is assembled into final Markdown
 
 # Section delimiter
-delimiter = "---"
+
 
 # YAML frontmatter template
 # Variables: {title}, {author}, {posted_at}, {updated_at}, {downloaded_at},
@@ -143,12 +230,3 @@ template = """
 single     = "{title}"
 batch_item = "{id} - {title}"
 batch      = "{site}-{type}-{tagname}-{date}"
-
-# ─── Batch Download Configuration ────────────────────────────────────
-# (Used by @markify/userscript only)
-
-[batch]
-listing_patterns = [
-    "/bbs/forum-",
-    "/home/explore",
-]

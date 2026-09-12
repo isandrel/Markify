@@ -10,7 +10,7 @@
 
 import TurndownService from 'turndown';
 import type { ConvertOptions, ConvertResult, ConversionConfig, ConvertStrategy, SiteMetadata } from './types';
-import { findSiteAdapter, builtInAdapters } from './adapters';
+import { findSiteAdapter, getBuiltInAdapters } from './adapters';
 import type { SiteAdapter } from './adapters/base';
 import { generateFrontmatter, formatDate, extractMainContent } from './utils';
 import { applyDocumentTemplate } from './templates';
@@ -84,6 +84,10 @@ export async function convert(options: ConvertOptions): Promise<ConvertResult> {
         includeFrontmatter = true,
         templates,
         fetcher,
+        signal,
+        onProgress,
+        metadataSnapshot,
+        adapterConfig,
         conversion,
         strategy = 'dom-only', // Default preserves existing behavior
         readerConfig,
@@ -91,20 +95,22 @@ export async function convert(options: ConvertOptions): Promise<ConvertResult> {
 
     // Find appropriate adapter
     let adapter: SiteAdapter | null = null;
+    const adapters = getBuiltInAdapters();
     if (adapterName) {
-        adapter = builtInAdapters.find(a => a.name.toLowerCase() === adapterName.toLowerCase()) ?? null;
+        adapter = adapters.find(a => a.name.toLowerCase() === adapterName.toLowerCase() || a.id === adapterName) ?? null;
     }
     if (!adapter) {
-        adapter = findSiteAdapter(url, builtInAdapters);
+        adapter = findSiteAdapter(url, adapters);
     }
 
     logger.info(`Using adapter: ${adapter?.name || 'Default'}, strategy: ${strategy}`);
 
     // ─── Step 1: Try site-specific API (all strategies) ───────────────
 
-    const siteApiResult = await trySiteApi(adapter, url, fetcher, templates);
+    const siteApiResult = await trySiteApi(adapter, url, fetcher, adapterConfig, signal, onProgress);
     if (siteApiResult !== null) {
-        return buildResult(siteApiResult, adapter, url, templates, includeFrontmatter, adapter?.includesFrontmatter ?? false);
+        return buildResult(siteApiResult.markdown, adapter, url, templates, includeFrontmatter,
+            adapter?.includesFrontmatter ?? false, { ...metadataSnapshot, ...siteApiResult.metadata }, adapterConfig);
     }
 
     // ─── Step 2: Try Jina Reader (api-first / api-only) ──────────────
@@ -189,8 +195,10 @@ async function trySiteApi(
     adapter: SiteAdapter | null,
     url: string,
     fetcher?: import('./types').HttpFetcher,
-    templates?: any,
-): Promise<string | null> {
+    adapterConfig?: import('./config').AdapterConfig,
+    signal?: AbortSignal,
+    onProgress?: (message: string) => void,
+): Promise<{ markdown: string; metadata: Partial<SiteMetadata> } | null> {
     // Only try if adapter declares it has an API and provides a fetcher function
     if (!adapter?.hasApi || !adapter?.fetchViaApi) {
         return null;
@@ -203,6 +211,7 @@ async function trySiteApi(
                 const res = await fetch(fetchUrl, {
                     credentials: opts?.credentials ? 'include' : 'same-origin',
                     headers: opts?.headers,
+                    signal: opts?.signal,
                 });
                 return { status: res.status, ok: res.ok, text: await res.text() };
             },
@@ -211,19 +220,13 @@ async function trySiteApi(
 
     logger.info(`Trying site API for ${adapter.name}...`);
 
-    // Look up adapter-specific config from TOML
     const { getAdapterConfig } = await import('./config');
-    const adapterConfig = getAdapterConfig(adapter.name);
-
-    // Merge TOML config with any templates passed in (from userscript)
-    const mergedConfig = {
-        ...adapterConfig,
-        ...(templates?.[adapter.name.toLowerCase()] || {}),
-        ...(templates?.[adapter.name.toLowerCase().replace(/\s+/g, '')] || {}),
-    };
-
-    const result = await adapter.fetchViaApi(url, fetcher, mergedConfig);
-    return result;
+    const resolvedConfig = adapterConfig ?? adapter.config ?? getAdapterConfig(adapter.id ?? adapter.name);
+    let metadata: Partial<SiteMetadata> = {};
+    const result = await adapter.fetchViaApi(url, fetcher, resolvedConfig, {
+        signal, onProgress, onMetadata: value => { metadata = { ...metadata, ...value }; },
+    });
+    return result === null ? null : { markdown: result, metadata };
 }
 
 /**
@@ -329,12 +332,15 @@ async function buildResult(
     templates: any,
     includeFrontmatter: boolean,
     adapterIncludesFrontmatter: boolean,
+    metadataSnapshot: Partial<SiteMetadata> = {},
+    adapterConfig?: import('./config').AdapterConfig,
 ): Promise<ConvertResult> {
     const metadata: SiteMetadata = {
         title: 'Untitled',
         url,
         date: formatDate(),
         downloaded: formatDate(),
+        ...metadataSnapshot,
     };
 
     let finalContent = rawMarkdown;
@@ -348,7 +354,7 @@ async function buildResult(
         markdown: finalContent,
         metadata,
         adapter: adapter?.name || 'API',
-        filename: buildFilename(metadata, adapter, templates),
+        filename: buildFilename(metadata, adapter, templates, adapterConfig),
     };
 }
 
@@ -359,13 +365,15 @@ function buildFilename(
     metadata: Record<string, any>,
     adapter: SiteAdapter | null,
     templates?: any,
+    adapterConfig?: import('./config').AdapterConfig,
 ): string {
     return applyFilenameTemplate(
-        templates?.filename?.single || '{title}',
+        adapterConfig?.filename.single ?? adapter?.config?.filename.single ?? templates?.filename?.single ?? '{title}',
         {
             title: metadata.title || 'untitled',
+            id: metadata.id,
             author: metadata.author,
-            site: adapter?.name,
+            site: adapter?.id ?? adapter?.name,
             date: formatDate(),
         },
     );

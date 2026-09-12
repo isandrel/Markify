@@ -1,536 +1,285 @@
-/**
- * Generic Batch Download System
- * Works with any adapter that implements the BatchCapability interface
- */
-
 import { downloadZip } from 'client-zip';
-import { sanitizeFilename, batchLogger as logger } from '@markify/core';
+import { applyFilenameTemplate } from '@markify/core';
 import type { FilenameContext } from '@markify/core';
-import { theme, notifications, ui, pkg, templates } from '../config';
+import { getDownloadHistory, markManyAsDownloaded } from '../utils/download-history';
 
-/**
- * Interface for sites that support batch downloading
- */
+export interface BatchItem { id: string; title: string; url: string }
+export interface BatchRow extends BatchItem { element: HTMLElement; link: HTMLAnchorElement }
 export interface BatchCapability {
-    /**
-     * Check if current page is a listing page that supports batch download
-     */
+    readonly siteId: string;
+    readonly pageKey: string;
+    readonly debounceMs: number;
+    readonly filename: { single: string; batch_item: string; batch: string };
     isListingPage(): boolean;
-
-    /**
-     * Extract thread/post items from the current listing page
-     */
-    extractItems(): BatchItem[];
-
-    /**
-     * Fetch content for a single item
-     */
-    fetchItem(itemId: string, onProgress?: (message: string) => void): Promise<string | null>;
-
-    /**
-     * Get filename context for template rendering
-     * Can be async to fetch additional data like tag/category names
-     */
+    extractRows(): BatchRow[];
+    fetchItem(id: string, progress?: (message: string) => void, signal?: AbortSignal, item?: BatchItem): Promise<string | null>;
     getFilenameContext(): FilenameContext | Promise<FilenameContext>;
+}
+export interface BatchFile { name: string; input: string }
+export interface BatchServices {
+    document: Document;
+    history: () => Promise<readonly { id: string; site: string }[]>;
+    saveHistory: (items: readonly BatchItem[], site: string, active: () => boolean) => Promise<void>;
+    zip: (files: BatchFile[]) => Promise<Blob>;
+    download: (blob: Blob, filename: string) => void;
+    delay: (signal: AbortSignal) => Promise<void>;
+    notify: (message: string) => void;
+}
+interface OwnedRow { host: HTMLElement; row: BatchRow; wrapper: HTMLElement; checkbox: HTMLInputElement; position: string; padding: string }
 
-    /**
-     * Optional: Get site-specific container selectors for attaching checkboxes
-     * Returns array of CSS selectors to try (in order)
-     */
-    getContainerSelectors?(): string[];
+/** Always release the object URL, including click failures. History has a separate failure boundary. */
+export function initiateDownload(blob: Blob, filename: string, doc: Document = document): void {
+    const url = URL.createObjectURL(blob);
+    const anchor = doc.createElement('a');
+    try {
+        anchor.href = url;
+        anchor.download = filename;
+        anchor.style.display = 'none';
+        doc.body.appendChild(anchor);
+        anchor.click();
+    } finally {
+        anchor.remove();
+        // Allow the browser to consume the click before releasing the blob URL.
+        setTimeout(() => URL.revokeObjectURL(url), 100);
+    }
 }
 
-export interface BatchItem {
-    id: string;
-    title: string;
-    url: string;
-}
-
-/**
- * Generic Batch Download Manager
- * Handles UI, ZIP creation, and download orchestration for any site
- */
+/** Owns exactly one listing generation. Adapters supply rows, never selector hints. */
 export class BatchDownloadManager {
-    private selectedItems: Set<string> = new Set();
-    private processedItems: Set<string> = new Set(); // Track items that already have checkboxes
-    private adapter: BatchCapability;
-    private batchButton: HTMLButtonElement | null = null;
-    private mutationObserver: MutationObserver | null = null;
+    private readonly services: BatchServices;
+    private readonly startKey: string;
+    private readonly rows = new Map<string, OwnedRow>();
+    private readonly selected = new Set<string>();
+    private panel: HTMLElement | null = null;
+    private selectAll: HTMLInputElement | null = null;
+    private button: HTMLButtonElement | null = null;
+    private observer: MutationObserver | null = null;
+    private timer: ReturnType<typeof setTimeout> | undefined;
+    private generation = 0;
+    private destroyed = false;
+    private running = false;
+    private refreshPromise: Promise<void> | null = null;
+    private refreshAgain = false;
+    private readonly abort = new AbortController();
 
-    constructor(adapter: BatchCapability) {
-        this.adapter = adapter;
+    constructor(private readonly adapter: BatchCapability, services: Partial<BatchServices> = {}) {
+        const doc = services.document ?? document;
+        this.startKey = adapter.pageKey;
+        this.services = {
+            document: doc,
+            history: getDownloadHistory,
+            saveHistory: (items, site, active) => markManyAsDownloaded(items, site, 'batch', active),
+            zip: files => downloadZip(files).blob(),
+            download: (blob, filename) => initiateDownload(blob, filename, doc),
+            delay: async () => undefined,
+            notify: message => { GM.notification({ title: 'Markify Batch Download', text: message, timeout: 5000 }); },
+            ...services,
+        };
     }
 
-    /**
-     * Initialize batch download UI on the page
-     */
+    private active(generation = this.generation): boolean {
+        return !this.destroyed && generation === this.generation && this.adapter.pageKey === this.startKey;
+    }
+
     initializeUI(): void {
-        logger.debug('initializeUI called');
-
-        if (!this.adapter.isListingPage()) {
-            logger.debug('Not a listing page');
-            return;
-        }
-
-        const items = this.adapter.extractItems();
-        logger.info(`Found ${items.length} items`);
-
-        if (items.length === 0) {
-            logger.warn('No items found, aborting');
-            return;
-        }
-
-        // Add checkboxes to each item
-        this.addCheckboxes(items);
-
-        // Create batch download panel
-        this.createBatchPanel();
-
-        // Start observing for dynamically loaded items
-        this.observeNewItems();
-
-        logger.info('UI initialization complete');
-    }
-
-    /**
-     * Add checkboxes to thread items
-     */
-    private async addCheckboxes(items: BatchItem[]): Promise<void> {
-        logger.debug(`Adding checkboxes to ${items.length} items`);
-
-        let successCount = 0;
-
-        // Load download history check once
-        const { isDownloaded } = await import('../utils/download-history');
-        const context = await this.adapter.getFilenameContext();
-        const siteName = context.site || 'unknown';
-
-        for (const [index, item] of items.entries()) {
-            // Skip if already processed
-            if (this.processedItems.has(item.id)) {
-                continue;
-            }
-
-            // Find the thread element by its URL
-            const linkElement = document.querySelector(`a[href*="${item.id}"]`);
-            if (!linkElement) {
-                logger.warn(`Could not find link for item ${item.id}`);
-                continue;
-            }
-
-            // Find parent container - try adapter-specific selectors first, then fallback
-            let container: Element | null = null;
-
-            if (this.adapter.getContainerSelectors) {
-                // Use adapter-provided selectors
-                const selectors = this.adapter.getContainerSelectors();
-                for (const selector of selectors) {
-                    container = linkElement.closest(selector);
-                    if (container) break;
-                }
-            } else {
-                // Fallback to default selectors (1Point3Acres)
-                container = linkElement.closest('[data-sentry-component="HomeThreadItem"]');
-                if (!container) {
-                    container = linkElement.closest('.border-b');
-                }
-            }
-
-            if (!container) {
-                logger.warn(`Could not find container for item ${item.id}`);
-                continue;
-            }
-
-            // Make container position relative for absolute positioning
-            (container as HTMLElement).style.position = 'relative';
-
-            // Create checkbox wrapper with absolute positioning
-            const checkboxWrapper = document.createElement('div');
-            checkboxWrapper.className = 'markify-checkbox-wrapper';
-            checkboxWrapper.style.cssText = `
-                position: absolute;
-                left: 8px;
-                top: 50%;
-                transform: translateY(-50%);
-                z-index: 10;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-            `;
-
-            // Create checkbox
-            const checkbox = document.createElement('input');
-            checkbox.type = 'checkbox';
-            checkbox.id = `markify-batch-${item.id}`;
-            checkbox.className = 'markify-batch-checkbox';
-            checkbox.style.cssText = `
-                width: 18px;
-                height: 18px;
-                cursor: pointer;
-                margin: 0;
-            `;
-
-            // Prevent click from propagating to parent link (but allow checkbox to work)
-            checkbox.addEventListener('click', (e) => {
-                e.stopPropagation();
+        if (!this.active() || !this.adapter.isListingPage() || this.panel) return;
+        this.createPanel();
+        const Observer = this.services.document.defaultView?.MutationObserver;
+        if (Observer) {
+            this.observer = new Observer(mutations => {
+                const owned = (node: Node): boolean => {
+                    const element = node.nodeType === 1 ? node as Element : node.parentElement;
+                    return !!element?.closest('[data-markify-owned]');
+                };
+                if (mutations.every(m => owned(m.target) || (m.type === 'childList' && [...m.addedNodes, ...m.removedNodes].every(owned)))) return;
+                clearTimeout(this.timer);
+                this.timer = setTimeout(() => { void this.refresh().catch(error => this.report(error)); }, this.adapter.debounceMs);
             });
-
-            checkbox.addEventListener('change', (e) => {
-                e.stopPropagation();
-                if (checkbox.checked) {
-                    this.selectedItems.add(item.id);
-                } else {
-                    this.selectedItems.delete(item.id);
-                }
-                this.updateBatchButton();
-            });
-
-            // Add checkbox to wrapper and wrapper to container
-            checkboxWrapper.appendChild(checkbox);
-            container.appendChild(checkboxWrapper);
-
-            // Add download indicator right of checkbox (if already downloaded)
-            const downloaded = await isDownloaded(item.id, siteName);
-
-            if (downloaded) {
-                const indicator = document.createElement('span');
-                indicator.textContent = ui?.ui?.indicators?.downloaded_icon?.trim() || '✓';
-                indicator.title = ui?.ui?.indicators?.downloaded_tooltip || 'Already downloaded';
-                indicator.style.cssText = `
-                    color: ${theme?.colors?.success || '#22c55e'};
-                    font-size: ${ui?.ui?.indicators?.font_size || '16px'};
-                    margin-left: 6px;
-                    font-weight: bold;
-                `;
-                checkboxWrapper.appendChild(indicator);
-            }
-
-            // Add left padding to container content to make room for checkbox
-            const containerElement = container as HTMLElement;
-            const currentPadding = window.getComputedStyle(containerElement).paddingLeft;
-            const currentPaddingValue = parseInt(currentPadding) || 0;
-            containerElement.style.paddingLeft = `${currentPaddingValue + 32}px`;
-
-            // Mark as processed
-            this.processedItems.add(item.id);
-            successCount++;
-
-            if (index === 0) {
-                logger.debug('Successfully added first checkbox');
-            }
+            this.observer.observe(this.services.document.body, { childList: true, subtree: true, attributes: true, characterData: true, attributeFilter: ['href', 'data-sentry-component', 'aria-busy'] });
         }
-
-        logger.info(`Successfully added ${successCount}/${items.length} checkboxes`);
+        void this.refresh().catch(error => this.report(error));
     }
 
-    /**
-     * Observe DOM for dynamically loaded items
-     */
-    private observeNewItems(): void {
-        logger.debug('Setting up MutationObserver for dynamic content');
+    refresh(): Promise<void> {
+        if (!this.active()) return Promise.resolve();
+        this.refreshAgain = true;
+        if (this.refreshPromise) return this.refreshPromise;
+        this.refreshPromise = this.reconcile().finally(() => { this.refreshPromise = null; });
+        return this.refreshPromise;
+    }
 
-        this.mutationObserver = new MutationObserver((mutations) => {
-            // Check if any new thread links were added
-            let hasNewItems = false;
-            for (const mutation of mutations) {
-                if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
-                    // Check if any added nodes contain thread links
-                    for (const node of Array.from(mutation.addedNodes)) {
-                        if (node instanceof HTMLElement) {
-                            const hasThreadLink = node.querySelector('a[href*="/home/pins/"]') ||
-                                node.matches('a[href*="/home/pins/"]');
-                            if (hasThreadLink) {
-                                hasNewItems = true;
-                                break;
-                            }
-                        }
-                    }
-                    if (hasNewItems) break;
+    private async reconcile(): Promise<void> {
+        const generation = this.generation;
+        while (this.refreshAgain && this.active(generation)) {
+            this.refreshAgain = false;
+            const discovered = this.adapter.extractRows();
+            const records = await this.services.history();
+            if (!this.active(generation)) return;
+            const current = new Map(discovered.filter(row => row.element.isConnected).map(row => [row.id, row]));
+            for (const [id, owned] of this.rows) {
+                if (current.get(id)?.element !== owned.row.element || !owned.wrapper.isConnected) {
+                    this.detach(owned);
+                    this.rows.delete(id);
                 }
+                if (!current.has(id)) this.selected.delete(id);
             }
-
-            if (hasNewItems) {
-                logger.debug('Detected new items in DOM, adding checkboxes');
-                const newItems = this.adapter.extractItems();
-                this.addCheckboxes(newItems);
+            for (const row of current.values()) {
+                const existing = this.rows.get(row.id);
+                if (existing) { existing.row = row; continue; }
+                const downloaded = records.some(record => record.site === this.adapter.siteId && record.id === row.id);
+                this.rows.set(row.id, this.attach(row, downloaded));
             }
-        });
-
-        // Observe the entire document body for new items
-        this.mutationObserver.observe(document.body, {
-            childList: true,
-            subtree: true,
-        });
-
-        logger.info('MutationObserver started watching for new items');
+            this.updateControls();
+        }
     }
 
-    /**
-     * Clean up resources
-     */
+    private attach(row: BatchRow, downloaded: boolean): OwnedRow {
+        const doc = this.services.document;
+        const wrapper = doc.createElement('div');
+        wrapper.className = 'markify-checkbox-wrapper';
+        wrapper.dataset.markifyOwned = 'row';
+        wrapper.style.cssText = 'position:absolute;left:8px;top:50%;transform:translateY(-50%);z-index:20;display:flex;align-items:center;pointer-events:auto;';
+        const checkbox = doc.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.className = 'markify-batch-checkbox';
+        checkbox.dataset.itemId = row.id;
+        checkbox.setAttribute('aria-label', `Select ${row.title}`);
+        checkbox.style.cssText = 'width:18px;height:18px;margin:0;cursor:pointer;';
+        checkbox.checked = this.selected.has(row.id);
+        for (const event of ['click', 'pointerdown', 'keydown']) wrapper.addEventListener(event, e => e.stopPropagation());
+        checkbox.addEventListener('change', e => {
+            e.stopPropagation();
+            if (this.running || !this.active()) { checkbox.checked = this.selected.has(row.id); return; }
+            if (checkbox.checked) this.selected.add(row.id); else this.selected.delete(row.id);
+            this.updateControls();
+        });
+        wrapper.appendChild(checkbox);
+        if (downloaded) {
+            const indicator = doc.createElement('span');
+            indicator.textContent = '✓';
+            indicator.title = 'Already downloaded';
+            indicator.style.cssText = 'color:#22c55e;margin-left:4px;';
+            wrapper.appendChild(indicator);
+        }
+        const host = row.element.tagName === 'TR' ? row.link.closest<HTMLElement>('td, th') ?? row.element : row.element;
+        const owned = { host, row, wrapper, checkbox, position: host.style.position, padding: host.style.paddingLeft };
+        const padding = Number.parseFloat(doc.defaultView?.getComputedStyle?.(host).paddingLeft ?? '') || 0;
+        host.style.position = 'relative';
+        host.style.paddingLeft = `${padding + 36}px`;
+        host.appendChild(wrapper);
+        return owned;
+    }
+    private detach(owned: OwnedRow): void {
+        owned.wrapper.remove();
+        owned.host.style.position = owned.position;
+        owned.host.style.paddingLeft = owned.padding;
+    }
     destroy(): void {
-        if (this.mutationObserver) {
-            this.mutationObserver.disconnect();
-            this.mutationObserver = null;
-            logger.debug('MutationObserver disconnected');
-        }
+        if (this.destroyed) return;
+        this.destroyed = true;
+        this.generation++;
+        this.abort.abort();
+        this.observer?.disconnect();
+        clearTimeout(this.timer);
+        for (const owned of this.rows.values()) this.detach(owned);
+        this.rows.clear();
+        this.selected.clear();
+        this.panel?.remove();
+        this.panel = this.button = this.selectAll = null;
     }
 
-    /**
-     * Create the batch download panel
-     */
-    private createBatchPanel(): void {
-        const panel = document.createElement('div');
-        panel.id = 'markify-batch-panel';
-        panel.style.cssText = `
-            position: fixed;
-            bottom: 80px;
-            right: 20px;
-            z-index: 10001;
-            background: rgba(30, 30, 46, 0.95);
-            backdrop-filter: blur(10px);
-            border-radius: 12px;
-            padding: 16px 20px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-            display: flex;
-            gap: 12px;
-            align-items: center;
-            transition: all 0.3s ease;
-        `;
-
-        // Select All checkbox
-        const selectAll = document.createElement('input');
-        selectAll.type = 'checkbox';
-        selectAll.id = 'markify-select-all';
-        selectAll.style.cssText = `
-            width: 18px;
-            height: 18px;
-            cursor: pointer;
-        `;
-        selectAll.addEventListener('change', () => {
-            const checkboxes = document.querySelectorAll('.markify-batch-checkbox') as NodeListOf<HTMLInputElement>;
-            checkboxes.forEach(cb => {
-                cb.checked = selectAll.checked;
-                if (selectAll.checked) {
-                    const id = cb.id.replace('markify-batch-', '');
-                    this.selectedItems.add(id);
-                } else {
-                    this.selectedItems.clear();
-                }
-            });
-            this.updateBatchButton();
+    private createPanel(): void {
+        const doc = this.services.document;
+        this.panel = doc.createElement('div');
+        this.panel.id = 'markify-batch-panel';
+        this.panel.dataset.markifyOwned = 'panel';
+        this.panel.style.cssText = 'position:fixed;bottom:80px;right:20px;z-index:10001;background:#1e1e2e;color:#cdd6f4;border-radius:12px;padding:16px 20px;display:flex;gap:12px;align-items:center;';
+        this.selectAll = doc.createElement('input');
+        this.selectAll.type = 'checkbox';
+        this.selectAll.id = 'markify-select-all';
+        this.selectAll.addEventListener('change', () => {
+            if (this.running || !this.active()) return;
+            this.selected.clear();
+            if (this.selectAll?.checked) for (const id of this.rows.keys()) this.selected.add(id);
+            this.updateControls();
         });
-
-        const selectAllLabel = document.createElement('label');
-        selectAllLabel.htmlFor = 'markify-select-all';
-        selectAllLabel.textContent = 'Select All';
-        selectAllLabel.style.cssText = `
-            color: #cdd6f4;
-            font-size: 14px;
-            cursor: pointer;
-            user-select: none;
-        `;
-
-        // Batch download button
-        this.batchButton = document.createElement('button');
-        this.batchButton.textContent = '📥 Download Selected (0)';
-        this.batchButton.disabled = true;
-        this.batchButton.style.cssText = `
-            padding: 10px 18px;
-            background: ${theme?.colors?.primary || '#7c3aed'};
-            color: white;
-            border: none;
-            border-radius: ${ui?.ui?.style?.border_radius || '8px'};
-            font-size: ${ui?.ui?.style?.font_size || '14px'};
-            font-weight: ${ui?.ui?.style?.font_weight || '600'};
-            cursor: pointer;
-            transition: ${ui?.ui?.animations?.transition || 'all 0.2s ease'};
-            opacity: 0.5;
-        `;
-
-        this.batchButton.addEventListener('click', () => {
-            this.downloadSelected();
-        });
-
-        panel.appendChild(selectAll);
-        panel.appendChild(selectAllLabel);
-        panel.appendChild(this.batchButton);
-        document.body.appendChild(panel);
+        const label = doc.createElement('label');
+        label.htmlFor = this.selectAll.id;
+        label.textContent = 'Select All';
+        this.button = doc.createElement('button');
+        this.button.style.cssText = 'background:#7c3aed;color:white;border:0;border-radius:8px;padding:10px 18px;';
+        this.button.addEventListener('click', () => { void this.downloadSelected(); });
+        this.panel.append(this.selectAll, label, this.button);
+        doc.body.append(this.panel);
+        this.updateControls();
+    }
+    private updateControls(): void {
+        if (this.button) {
+            if (!this.running) this.button.textContent = `📥 Download Selected (${this.selected.size})`;
+            this.button.disabled = this.running || !this.selected.size || !this.active();
+        }
+        if (this.selectAll) {
+            this.selectAll.checked = this.rows.size > 0 && this.selected.size === this.rows.size;
+            this.selectAll.indeterminate = this.selected.size > 0 && this.selected.size < this.rows.size;
+            this.selectAll.disabled = this.running || !this.rows.size;
+        }
+        for (const [id, owned] of this.rows) {
+            owned.checkbox.checked = this.selected.has(id);
+            owned.checkbox.disabled = this.running;
+        }
+    }
+    private report(error: unknown): void {
+        if (this.active()) this.services.notify(error instanceof Error ? error.message : String(error));
     }
 
-    /**
-     * Update batch button state
-     */
-    private updateBatchButton(): void {
-        if (!this.batchButton) return;
-
-        const count = this.selectedItems.size;
-        this.batchButton.textContent = `📥 Download Selected (${count})`;
-        this.batchButton.disabled = count === 0;
-        this.batchButton.style.opacity = count === 0 ? '0.5' : '1';
-        this.batchButton.style.cursor = count === 0 ? 'not-allowed' : 'pointer';
-    }
-
-    /**
-     * Download selected items as ZIP
-     */
-    private async downloadSelected(): Promise<void> {
-        const items = this.adapter.extractItems().filter(item => this.selectedItems.has(item.id));
-
-        if (items.length === 0) {
-            return;
-        }
-
-        const total = items.length;
-        let processed = 0;
-        const errors: string[] = [];
-        const files: { name: string; input: string }[] = [];
-
-        for (const item of items) {
-            processed++;
-
-            if (this.batchButton) {
-                this.batchButton.textContent = `📥 Processing ${processed}/${total}...`;
-            }
-
-            try {
-                logger.info(`Downloading ${processed}/${total}: ${item.title}`);
-
-                const markdown = await this.adapter.fetchItem(item.id, (msg) => {
-                    if (this.batchButton) {
-                        this.batchButton.textContent = `${msg} (${processed}/${total})`;
-                    }
-                });
-
-
-                if (markdown) {
-                    // Load filename template from templates config
-                    const filenameTemplate = templates.filename.single;
-
-                    // Get context from adapter for additional variables
-                    const context = await this.adapter.getFilenameContext();
-
-                    // Prepare template variables
-                    const { applyFilenameTemplate } = await import('@markify/core');
-                    const templateVars = {
-                        ...context,
-                        id: item.id,
-                        title: item.title,
-                        index: String(processed).padStart(3, '0'), // e.g., "001", "002"
-                    };
-
-                    const filename = applyFilenameTemplate(filenameTemplate, templateVars) + '.md';
-                    files.push({ name: filename, input: markdown });
-                } else {
-                    errors.push(item.title);
-                }
-            } catch (error) {
-                errors.push(item.title);
-                logger.error(`Error downloading ${item.title}:`, error);
-            }
-
-            // Human-like delay between downloads
-            const { humanDelay } = await import('@markify/core/utils/http');
-            const delayConfig = notifications?.delays?.batch_item ?? { min_ms: 1000, max_ms: 3000, jitter: 0.25 };
-            await humanDelay(delayConfig);
-        }
-
-        // Check if we have any files to zip
-        logger.info(`Finished downloading. Got ${files.length} files`);
-
-        if (files.length === 0) {
-            logger.warn('No files to zip, aborting');
-            if (this.batchButton) {
-                this.batchButton.textContent = '❌ No Files';
-            }
-            GM.notification({
-                text: notifications?.messages?.no_files || 'No files to download',
-                title: pkg?.package?.strings?.app_title_batch || 'Markify Batch Download',
-                timeout: notifications?.timeouts?.medium || 3000,
-            });
-            return;
-        }
-
-        // Generate and download ZIP
+    async downloadSelected(): Promise<void> {
+        if (this.running || !this.active()) return;
+        const items = this.adapter.extractRows().filter(row => this.selected.has(row.id)).map(({ id, title, url }) => Object.freeze({ id, title, url }));
+        if (!items.length) return;
+        this.running = true;
+        this.updateControls();
+        const generation = this.generation;
+        const active = (): boolean => this.active(generation);
+        const filenames = { ...this.adapter.filename };
+        const successful: BatchItem[] = [];
+        const failures: string[] = [];
         try {
-            logger.info(`Creating ZIP with ${files.length} files using client-zip...`);
-            if (this.batchButton) {
-                this.batchButton.textContent = '📦 Creating ZIP...';
+            const context = { ...await this.adapter.getFilenameContext() };
+            if (!active()) return;
+            const files: BatchFile[] = [];
+            const usedNames = new Set<string>();
+            for (const [index, item] of items.entries()) {
+                if (!active()) return;
+                if (this.button) this.button.textContent = `Processing ${index + 1}/${items.length}`;
+                try {
+                    const markdown = await this.adapter.fetchItem(item.id, message => { if (active() && this.button) this.button.textContent = message; }, this.abort.signal, item);
+                    if (!active()) return;
+                    if (!markdown?.trim()) throw new Error('No complete content returned');
+                    const base = applyFilenameTemplate(filenames.batch_item, { ...context, id: item.id, title: item.title, index: String(index + 1).padStart(3, '0') });
+                    let name = `${base}.md`;
+                    let suffix = 1;
+                    while (usedNames.has(name.toLowerCase())) name = `${base} [${item.id}${suffix++ > 1 ? `-${suffix - 1}` : ''}].md`;
+                    usedNames.add(name.toLowerCase());
+                    files.push({ name, input: markdown });
+                    successful.push(item);
+                } catch (error) {
+                    if (!active()) return;
+                    failures.push(`${item.title}: ${error instanceof Error ? error.message : String(error)}`);
+                }
+                if (index < items.length - 1) await this.services.delay(this.abort.signal);
             }
-
-
-            // client-zip works instantly in userscript environments
-            const zipBlob = await downloadZip(files).blob();
-
-            logger.info(`ZIP created successfully (${(zipBlob.size / 1024 / 1024).toFixed(2)} MB)`);
-
-            // Load batch filename template from templates config
-            const batchFilenameTemplate = templates.filename.batch;
-
-            // Get context from adapter and apply template (await in case it's async)
-            const context = await this.adapter.getFilenameContext();
-            const { applyFilenameTemplate } = await import('@markify/core');
-            const zipFilename = applyFilenameTemplate(batchFilenameTemplate, context) + '.zip';
-
-            logger.info(`Downloading as: ${zipFilename}`);
-
-            const url = URL.createObjectURL(zipBlob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = zipFilename;
-            a.style.display = 'none';
-            document.body.appendChild(a);
-            a.click();
-
-            // Track download history for all items
-            const { markAsDownloaded } = await import('../utils/download-history');
-            const siteName = context.site || 'unknown';
-
-            for (const item of items) {
-                await markAsDownloaded(item.id, siteName, item.title, 'batch');
-            }
-            logger.info(`Marked ${items.length} items as downloaded`);
-
-            setTimeout(() => {
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-                logger.debug('Cleaned up download link');
-            }, notifications?.delays?.cleanup || 100);
-
-            logger.info('ZIP download initiated');
-        } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-            logger.error('Failed to generate or download ZIP:', error);
-            if (this.batchButton) {
-                this.batchButton.textContent = '❌ ZIP Failed';
-            }
-            GM.notification({
-                text: `Failed to create ZIP: ${errorMessage}`,
-                title: pkg?.package?.strings?.app_title_error || 'Markify Batch Download Error',
-                timeout: notifications?.timeouts?.long || 5000,
-            });
-            return;
-        }
-
-        // Reset UI
-        this.selectedItems.clear();
-        const checkboxes = document.querySelectorAll('.markify-batch-checkbox') as NodeListOf<HTMLInputElement>;
-        checkboxes.forEach(cb => cb.checked = false);
-        this.updateBatchButton();
-
-        // Show result
-        if (errors.length > 0) {
-            GM.notification({
-                text: `Downloaded ${total - errors.length}/${total} items. ${errors.length} failed.`,
-                title: pkg?.package?.strings?.app_title_batch || 'Markify Batch Download',
-                timeout: notifications?.timeouts?.long || 5000,
-            });
-        } else {
-            GM.notification({
-                text: `Successfully downloaded all ${total} items!`,
-                title: pkg?.package?.strings?.app_title_batch || 'Markify Batch Download',
-                timeout: notifications?.timeouts?.medium || 3000,
-            });
-        }
+            if (!active()) return;
+            if (!files.length) { this.services.notify(`No files downloaded. ${failures.join('; ')}`); return; }
+            const blob = await this.services.zip(files);
+            if (!active()) return;
+            this.services.download(blob, `${applyFilenameTemplate(filenames.batch, context)}.zip`);
+            if (!active()) return;
+            try { await this.services.saveHistory(successful, this.adapter.siteId, active); }
+            catch (error) { if (active()) this.services.notify(`ZIP download started, but history could not be saved: ${error instanceof Error ? error.message : String(error)}`); }
+            if (!active()) return;
+            for (const item of successful) this.selected.delete(item.id);
+            this.services.notify(`Download started for ${successful.length}/${items.length} items.${failures.length ? ` ${failures.length} failed and remain selected. ${failures.join('; ')}` : ''}`);
+        } catch (error) { this.report(error); }
+        finally { this.running = false; if (active()) this.updateControls(); }
     }
 }

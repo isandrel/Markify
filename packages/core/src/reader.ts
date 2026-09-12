@@ -12,6 +12,7 @@
 
 import type { HttpFetcher } from './types';
 import { logger } from './utils/logger';
+import { findSiteAdapter, getBuiltInAdapters } from './adapters';
 
 /**
  * Configuration for reader services
@@ -131,20 +132,7 @@ export async function fetchViaJinaReader(
  * Dynamically checks the adapter registry — no hardcoded site names.
  */
 export function hasSiteApi(url: string): boolean {
-    // Lazy import to avoid circular dependency
-    const { builtInAdapters, matchesPattern } = require('./adapters');
-
-    for (const adapter of builtInAdapters) {
-        if (!adapter.hasApi) continue;
-
-        for (const pattern of adapter.urlPatterns) {
-            if (matchesPattern(url, pattern)) {
-                return true;
-            }
-        }
-    }
-
-    return false;
+    return findSiteAdapter(url, getBuiltInAdapters())?.hasApi === true;
 }
 
 /**

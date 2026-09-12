@@ -21,27 +21,26 @@ jobs:
           bun-version: latest
 
       - name: Install dependencies
-        run: bun install
-
-      - name: Build userscript
-        run: bun run build
+        run: bun install --frozen-lockfile
 
       - name: Extract version from tag
         id: version
         run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
 
-      - name: Create both versioned and static builds
+      - name: Validate and stage release artifacts
         run: |
-          # Build versioned file
-          bun run build
-          # Copy to static filename
-          cp dist/markify-v${{ steps.version.outputs.VERSION }}.user.js dist/markify.user.js
+          bun run validate
+          bun run stage:release -- ${{ steps.version.outputs.VERSION }}
+          cp packages/userscript/dist/markify-v${{ steps.version.outputs.VERSION }}.user.js "${RUNNER_TEMP}/markify-v${{ steps.version.outputs.VERSION }}.user.js"
+          cp dist/markify.user.js "${RUNNER_TEMP}/markify.user.js"
 
       - name: Commit static file to main for Greasy Fork webhook
         run: |
           git fetch origin main
           git checkout main
           git pull origin main
+          mkdir -p dist
+          cp "${RUNNER_TEMP}/markify.user.js" dist/markify.user.js
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -f dist/markify.user.js
@@ -53,7 +52,7 @@ jobs:
         with:
           name: Markify v${{ steps.version.outputs.VERSION }}
           generate_release_notes: true
-          files: dist/markify-v${{ steps.version.outputs.VERSION }}.user.js
+          files: ${{ runner.temp }}/markify-v${{ steps.version.outputs.VERSION }}.user.js
           body: |
             ## 🚀 Markify ${{ steps.version.outputs.VERSION }}
 
@@ -73,6 +72,6 @@ jobs:
       - name: Notify success
         run: |
           echo "✅ Release created successfully!"
-          echo "📦 Userscript: dist/markify-v${{ steps.version.outputs.VERSION }}.user.js"
+          echo "📦 Userscript: packages/userscript/dist/markify-v${{ steps.version.outputs.VERSION }}.user.js"
           echo "🔗 Release URL: https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}"
           echo "🌐 Greasy Fork will sync from: https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/markify-v${{ steps.version.outputs.VERSION }}.user.js"

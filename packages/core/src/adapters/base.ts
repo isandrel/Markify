@@ -5,7 +5,8 @@
  * Adapters can work via DOM selectors (userscript) or API endpoints (CLI/MCP).
  */
 
-import type { MinimalDocument, MinimalElement, HttpFetcher, SiteMetadata } from '../types';
+import type { MinimalDocument, MinimalElement, HttpFetcher, SiteMetadata, ApiConversionContext } from '../types';
+import type { AdapterConfig } from '../config';
 
 export interface SiteAdapter {
     /** Site name for identification */
@@ -13,6 +14,11 @@ export interface SiteAdapter {
 
     /** URL patterns to match (supports wildcards and regex) */
     urlPatterns: (string | RegExp)[];
+    /** A configured adapter uses exact origins and compiled thread routes. */
+    matchesUrl?: (url: string) => boolean;
+    /** Resolved job configuration for profile-backed adapters. */
+    config?: AdapterConfig;
+    id?: string;
 
     /** Selectors for main content (DOM-based strategy) */
     contentSelectors?: string[];
@@ -49,7 +55,7 @@ export interface SiteAdapter {
 
     /**
      * Fetch content via the site's API.
-     * Returns raw markdown, or null if the API call fails.
+     * Returns Markdown, or null only when unsupported. Attempted failures throw.
      *
      * @param url - The page URL
      * @param fetcher - HTTP fetcher implementation
@@ -59,6 +65,7 @@ export interface SiteAdapter {
         url: string,
         fetcher: HttpFetcher,
         config?: Record<string, any>,
+        context?: ApiConversionContext,
     ) => Promise<string | null>;
 }
 
@@ -87,6 +94,10 @@ export function matchesPattern(url: string, pattern: string | RegExp): boolean {
  */
 export function findSiteAdapter(url: string, adapters: SiteAdapter[]): SiteAdapter | null {
     for (const adapter of adapters) {
+        if (adapter.matchesUrl) {
+            if (adapter.matchesUrl(url)) return adapter;
+            continue;
+        }
         for (const pattern of adapter.urlPatterns) {
             if (matchesPattern(url, pattern)) {
                 return adapter;

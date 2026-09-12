@@ -1,11 +1,13 @@
 {
   "name": "@markify/userscript",
-  "version": "0.0.3",
-  "description": "Markify Tampermonkey userscript — browser interface",
+  "version": "0.0.4",
+  "description": "Markify Tampermonkey userscript \u2014 browser interface",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build"
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test tests"
   },
   "dependencies": {
     "@markify/core": "workspace:*",
@@ -17,9 +19,11 @@
   },
   "devDependencies": {
     "@iarna/toml": "^2.2.5",
+    "@types/bun": "^1.4.2",
     "@types/file-saver": "^2.0.7",
     "@types/node": "^25.1.0",
     "@types/tampermonkey": "^5.0.5",
+    "linkedom": "^0.18.13",
     "typescript": "^5.9.3",
     "vite": "^7.3.1",
     "vite-plugin-monkey": "^7.1.9"

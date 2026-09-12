@@ -4,6 +4,7 @@
     "outDir": "./dist",
     "rootDir": "./src",
     "lib": ["ES2022"],
+    "types": ["bun"],
     "declaration": false,
     "declarationMap": false,
     "composite": false

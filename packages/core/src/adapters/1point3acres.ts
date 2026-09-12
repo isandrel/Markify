@@ -1,306 +1,147 @@
-/**
- * 1Point3Acres adapter
- *
- * Config-driven forum API adapter.
- * ALL values come from config/adapters/1point3acres.toml — nothing hardcoded here.
- * This file contains only the logic (how to fetch, parse, assemble).
- */
-
+/** Configured forum JSON protocol. Site endpoints and mappings live in profiles. */
 import type { SiteAdapter } from './base';
-import type { HttpFetcher } from '../types';
-import { logger } from '../utils/logger';
-import { humanDelay, buildHeaders } from '../utils/http';
-import { getAdapterConfig, extractIdFromUrl, interpolate, type AdapterConfig } from '../config';
-import bbob from '@bbob/html';
-import presetHTML5 from '@bbob/preset-html5';
+import type { ApiConversionContext, HttpFetcher } from '../types';
+import { getAdapterConfig, interpolate } from '../config';
+import { classifyRoute } from './routes';
+import { ConversionError, assertNotAborted } from '../errors';
+import { bodyToMarkdown, renderFrontmatter, renderTemplate } from '../markdown';
+import {
+    field, readPath, record, textField, numberField, dateField, parseJson,
+    requestOptions, request, requireOk, pageDelay, type JsonRecord,
+} from './protocol';
 
-/**
- * Load adapter config from TOML (required — no inline defaults)
- */
-function cfg(): AdapterConfig | undefined {
-    return getAdapterConfig('1Point3Acres') ?? getAdapterConfig('1point3acres');
-}
-
-/**
- * Read a field value from an API response using the TOML field mapping.
- *
- * Example TOML:
- *   [api.fields]
- *   title = "subject"      ← maps internal "title" to API's "subject" field
- *
- * If no mapping exists, uses the field name as-is.
- */
-function readField(
-    data: Record<string, unknown>,
-    fieldName: string,
-    fieldConfig: Record<string, unknown>,
-): unknown {
-    const apiField = typeof fieldConfig[fieldName] === 'string'
-        ? fieldConfig[fieldName] as string
-        : fieldName;
-    return data[apiField];
-}
-
-/**
- * 1Point3Acres adapter definition.
- * URL patterns are also in TOML but duplicated here for static registration.
- */
+/** Compatibility export; dynamic registry uses the same protocol for every profile. */
 export const onePoint3AcresAdapter: SiteAdapter = {
     name: '1Point3Acres',
-    // These must match config/adapters/1point3acres.toml [site] url_patterns
-    urlPatterns: [
-        'https://www.1point3acres.com/bbs/thread-*',
-        'https://www.1point3acres.com/home/pins/*',
-        'https://instant.1point3acres.com/thread/*',
-    ],
+    get urlPatterns() { return getAdapterConfig('1point3acres')?.activation.matches ?? []; },
+    matchesUrl(url) {
+        const config = getAdapterConfig('1point3acres');
+        return !!config && classifyRoute(url, config)?.kind === 'thread';
+    },
     hasApi: true,
     includesFrontmatter: true,
-    preProcess: (element) => element,
-
-    fetchViaApi: async (url, fetcher, configOverride) => {
-        const config = configOverride ?? cfg();
-        if (!config?.api) {
-            throw new Error('1Point3Acres adapter requires TOML config (config/adapters/1point3acres.toml)');
-        }
-
-        const idPatterns = config.api.id_extraction?.patterns;
-        if (!idPatterns?.length) {
-            throw new Error('1Point3Acres config missing api.id_extraction.patterns');
-        }
-
-        const threadId = extractIdFromUrl(url, idPatterns);
-        if (!threadId) {
-            throw new Error(`Could not extract thread ID from URL: ${url}`);
-        }
-
-        return fetchForumApiContent(threadId, fetcher, config);
+    async fetchViaApi(url, fetcher, override, context) {
+        const config = override ?? getAdapterConfig('1point3acres');
+        if (!config) throw new ConversionError('CONFIG_INVALID', 'Missing forum profile');
+        const route = classifyRoute(url, config as import('../config').AdapterConfig);
+        if (route?.kind !== 'thread' || !route.id) throw new ConversionError('UNSUPPORTED_ROUTE', 'Expected a thread route');
+        return fetchForumApiContent(route.id, fetcher, config, context?.onProgress, context);
     },
 };
 
 /**
- * Fetch thread content from a forum JSON API.
- *
- * This function is fully config-driven:
- * - Endpoints come from TOML (api.thread_endpoint, api.posts_endpoint)
- * - Field names come from TOML (api.fields.title → "subject", etc.)
- * - Templates come from TOML (frontmatter.template, document.template, etc.)
- * - Delays come from TOML (api.page_delay)
- *
- * No hardcoded URLs, field names, or templates exist in this file.
+ * Exports only after every page validates and pagination terminates. Reply totals
+ * are metadata, not a stopping condition: nested replies can affect their meaning.
+ * The optional fourth callback is retained for existing callers.
  */
 export async function fetchForumApiContent(
     threadId: string,
     fetcher: HttpFetcher,
     config: Record<string, unknown>,
     onProgress?: (message: string) => void,
-): Promise<string | null> {
-    try {
-        const api = config.api as Record<string, unknown>;
-        const fields = (api.fields ?? {}) as Record<string, unknown>;
-        const postFields = (typeof fields.post === 'object' && fields.post !== null
-            ? fields.post
-            : fields) as Record<string, unknown>;
-        const responseConfig = (api.response ?? {}) as Record<string, unknown>;
+    context: ApiConversionContext = {},
+): Promise<string> {
+    const api = record(config.api, 'api');
+    const fields = record(api.fields, 'api.fields');
+    const postFields = record(fields.post, 'api.fields.post');
+    const responseConfig = record(api.response, 'api.response');
+    const options = requestOptions(config, context);
+    const progress = onProgress ?? context.onProgress;
+    const endpoint = textField(api.thread_endpoint, 'api.thread_endpoint');
+    const response = await request(fetcher, interpolate(endpoint, { thread_id: threadId }), options, { stage: 'thread' });
+    requireOk(response, 'thread');
+    const parsed = parseJson(response.text, responseConfig, 'thread');
+    const dataPath = textField(responseConfig.data_field, 'api.response.data_field');
+    const thread = record(readPath(parsed, dataPath), dataPath);
+    const title = textField(field(thread, 'title', fields), 'thread.title');
+    const author = textField(field(thread, 'author', fields), 'thread.author');
+    const content = textField(field(thread, 'content', fields), 'thread.content');
+    const postedAt = dateField(field(thread, 'posted_at', fields), 'thread.posted_at');
+    const updatedAt = dateField(field(thread, 'updated_at', fields), 'thread.updated_at');
+    const views = numberField(field(thread, 'views', fields), 'thread.views');
+    const replies = numberField(field(thread, 'replies', fields), 'thread.replies');
+    const favorites = numberField(field(thread, 'favorites', fields) ?? 0, 'thread.favorites');
+    const format = textField(api.content_format, 'api.content_format');
+    const delimiter = typeof config.delimiter === 'string' ? config.delimiter : '---';
+    const metadata = record(config.metadata, 'metadata');
+    const site = record(config.site, 'site');
+    const source = interpolate(textField(metadata.source_url, 'metadata.source_url'), {
+        thread_id: threadId, base_url: String(site.base_url),
+    });
+    const allPosts: JsonRecord[] = [];
+    const seen = new Set<string>();
+    const signatures = new Set<string>();
+    let complete = replies === 0;
+    let pageCount = 0;
 
-        // ─── Fetch thread data ───────────────────────────────────────
-
-        const threadEndpoint = api.thread_endpoint as string;
-        if (!threadEndpoint) {
-            throw new Error('Config missing api.thread_endpoint');
-        }
-
-        const apiUrl = interpolate(threadEndpoint, { thread_id: threadId });
-        logger.info(`Fetching thread content from: ${apiUrl}`);
-
-        const headers = buildHeaders({}, config.http as Record<string, string> | undefined);
-        const response = await fetcher.get(apiUrl, { headers });
-
-        if (!response.ok) {
-            throw new Error(`API request failed: ${response.status}`);
-        }
-
-        const parsed = JSON.parse(response.text);
-
-        // Validate response using config-defined checks
-        const successField = responseConfig.success_field as string;
-        const successValue = responseConfig.success_value as number;
-        const dataField = responseConfig.data_field as string;
-
-        if (successField && parsed[successField] !== successValue) {
-            throw new Error(`Invalid API response: ${successField}=${parsed[successField]}`);
-        }
-
-        const thread = dataField ? parsed[dataField] : parsed;
-        if (!thread) {
-            throw new Error(`API response missing data field: ${dataField}`);
-        }
-
-        // Read fields using TOML mapping
-        const title = readField(thread, 'title', fields) as string;
-        const author = readField(thread, 'author', fields) as string;
-        const contentRaw = readField(thread, 'content', fields) as string;
-        const postedAt = readField(thread, 'posted_at', fields) as number;
-        const updatedAt = readField(thread, 'updated_at', fields) as number;
-        const views = readField(thread, 'views', fields) as number;
-        const replies = readField(thread, 'replies', fields) as number;
-        const favorites = (readField(thread, 'favorites', fields) as number) ?? 0;
-
-        // Get templates from config
-        const delimiter = config.delimiter as string ?? '---';
-        const frontmatterTpl = (config.frontmatter as Record<string, string>)?.template;
-        const docTpl = (config.document as Record<string, string>)?.template;
-        const commentTpl = (config.comment as Record<string, string>)?.template;
-        const commentsHeaderTpl = (config.comments_header as Record<string, string>)?.template;
-        const sourceUrlTpl = (config.metadata as Record<string, string>)?.source_url;
-
-        if (!frontmatterTpl || !docTpl) {
-            throw new Error('Config missing frontmatter.template or document.template');
-        }
-
-        // Convert content based on format from config
-        const contentFormat = api.content_format as string ?? 'bbcode';
-        const contentHtml = contentFormat === 'bbcode'
-            ? convertBBCodeToHTML(contentRaw || '')
-            : contentRaw || '';
-
-        // ─── Fetch comments ──────────────────────────────────────────
-
-        let commentsMarkdown = '';
-        if (replies > 0) {
-            try {
-                const pageSize = api.page_size as number;
-                const order = api.order as string;
-                const maxPages = api.max_pages as number;
-                const postsEndpoint = api.posts_endpoint as string;
-                const pageDelay = api.page_delay as Record<string, number> | undefined;
-
-                if (!postsEndpoint) {
-                    throw new Error('Config missing api.posts_endpoint');
-                }
-
-                let allPosts: Record<string, unknown>[] = [];
-                let currentPage = 1;
-                let hasMorePages = true;
-
-                logger.info(`Fetching ${replies} comments (${pageSize} per page)...`);
-
-                while (hasMorePages && currentPage <= maxPages) {
-                    const postsUrl = interpolate(postsEndpoint, {
-                        thread_id: threadId,
-                        page_size: pageSize,
-                        order,
-                        page: currentPage,
-                    });
-                    logger.info(`Fetching page ${currentPage}: ${postsUrl}`);
-
-                    if (onProgress) {
-                        onProgress(`📥 Page ${currentPage}/${Math.ceil(replies / pageSize)}...`);
-                    }
-
-                    const postsResponse = await fetcher.get(postsUrl, { headers });
-
-                    if (!postsResponse.ok) {
-                        throw new Error(`Posts request failed: ${postsResponse.status}`);
-                    }
-
-                    const postsData = JSON.parse(postsResponse.text);
-
-                    if (postsData.posts && Array.isArray(postsData.posts)) {
-                        allPosts = allPosts.concat(postsData.posts);
-                        logger.info(`Page ${currentPage}: ${postsData.posts.length} comments (total: ${allPosts.length})`);
-
-                        if (postsData.posts.length < pageSize) {
-                            hasMorePages = false;
-                        } else {
-                            currentPage++;
-                            // Human-like delay between pages
-                            if (pageDelay) {
-                                const waited = await humanDelay(pageDelay);
-                                logger.info(`Waited ${waited}ms before next page`);
-                            }
-                        }
-                    } else {
-                        hasMorePages = false;
-                    }
-                }
-
-                if (allPosts.length > 0 && commentTpl && commentsHeaderTpl) {
-                    commentsMarkdown = commentsHeaderTpl
-                        .replace(/{count}/g, allPosts.length.toString())
-                        .replace(/{delimiter}/g, delimiter);
-
-                    if (order === 'time_desc') {
-                        allPosts.reverse();
-                    }
-
-                    for (const post of allPosts) {
-                        const postDate = new Date((post[postFields.posted_at as string ?? 'dateline'] as number) * 1000).toLocaleString();
-                        const postContent = contentFormat === 'bbcode'
-                            ? convertBBCodeToHTML((post[postFields.content as string ?? 'message_bbcode'] as string) || '')
-                            : (post[postFields.content as string ?? 'message_bbcode'] as string) || '';
-
-                        const comment = commentTpl
-                            .replace(/{author}/g, post[postFields.author as string ?? 'author'] as string)
-                            .replace(/{date}/g, postDate)
-                            .replace(/{content}/g, postContent)
-                            .replace(/{delimiter}/g, delimiter);
-
-                        commentsMarkdown += comment;
-                    }
-
-                    logger.info(`Added ${allPosts.length} comments from ${currentPage - 1} pages`);
-                }
-            } catch (error) {
-                logger.error('Error fetching posts:', error);
+    if (replies > 0) {
+        const maxPages = numberField(api.max_pages, 'api.max_pages');
+        const pageSize = numberField(api.page_size, 'api.page_size');
+        if (!Number.isInteger(maxPages) || maxPages < 1 || !Number.isInteger(pageSize) || pageSize < 1) throw new ConversionError('CONFIG_INVALID', 'Pagination limits must be positive integers');
+        const postsEndpoint = textField(api.posts_endpoint, 'api.posts_endpoint');
+        const postsPath = textField(responseConfig.posts_field, 'api.response.posts_field');
+        for (let page = 1; page <= maxPages; page++) {
+            assertNotAborted(context.signal);
+            progress?.(`Fetching comments page ${page}`);
+            const url = interpolate(postsEndpoint, {
+                thread_id: threadId, page_size: pageSize, order: String(api.order), page,
+            });
+            const postsResponse = await request(fetcher, url, options, { stage: 'comments', page });
+            requireOk(postsResponse, 'comments');
+            const pageData = parseJson(postsResponse.text, responseConfig, 'comments');
+            const posts = readPath(pageData, postsPath);
+            if (!Array.isArray(posts)) throw new ConversionError('INVALID_RESPONSE', `Expected array at ${postsPath}`, { stage: 'comments', page });
+            const ids: string[] = [];
+            let newCount = 0;
+            for (const value of posts) {
+                const post = record(value, 'post');
+                const id = field(post, 'id', postFields);
+                if ((typeof id !== 'string' && typeof id !== 'number') || String(id) === '') throw new ConversionError('INVALID_RESPONSE', 'Missing post ID', { stage: 'comments', page });
+                const key = String(id);
+                ids.push(key);
+                if (!seen.has(key)) { seen.add(key); allPosts.push(post); newCount++; }
             }
+            const signature = JSON.stringify(ids);
+            if (posts.length && (signatures.has(signature) || newCount === 0)) throw new ConversionError('REPEATED_PAGE', 'Comments pagination returned no new posts', { stage: 'comments', page });
+            signatures.add(signature);
+            pageCount = page;
+            // Offset pagination ends on a short or empty page, independent of reply totals.
+            if (posts.length < pageSize) { complete = true; break; }
+            if (page < maxPages) await pageDelay(api, context.signal);
         }
-
-        // ─── Build final document ────────────────────────────────────
-
-        const threadUrl = sourceUrlTpl
-            ? interpolate(sourceUrlTpl, { thread_id: threadId })
-            : `thread-${threadId}`;
-        const postDate = new Date(postedAt * 1000).toISOString();
-        const lastUpdated = new Date(updatedAt * 1000).toISOString();
-        const downloadedDate = new Date().toISOString();
-        const sourceLink = `"[${title}](${threadUrl})"`;
-
-        const frontmatter = frontmatterTpl
-            .replace(/{title}/g, title)
-            .replace(/{author}/g, author)
-            .replace(/{posted_at}/g, postDate)
-            .replace(/{updated_at}/g, lastUpdated)
-            .replace(/{downloaded_at}/g, downloadedDate)
-            .replace(/{url}/g, sourceLink)
-            .replace(/{views}/g, views.toString())
-            .replace(/{replies}/g, replies.toString())
-            .replace(/{favorites}/g, favorites.toString());
-
-        const markdown = docTpl
-            .replace(/{frontmatter}/g, frontmatter)
-            .replace(/{title}/g, title)
-            .replace(/{author}/g, author)
-            .replace(/{date}/g, new Date(postedAt * 1000).toLocaleString())
-            .replace(/{content}/g, contentHtml)
-            .replace(/{views}/g, views.toString())
-            .replace(/{replies}/g, replies.toString())
-            .replace(/{favorites}/g, favorites.toString())
-            .replace(/{comments}/g, commentsMarkdown)
-            .replace(/{delimiter}/g, delimiter);
-
-        return markdown;
-    } catch (error) {
-        logger.error('Error fetching forum API content:', error);
-        return null;
+        if (!complete) throw new ConversionError('PAGE_LIMIT', 'Comments page limit reached before a terminal page', { stage: 'comments', page: pageCount });
     }
+    assertNotAborted(context.signal);
+    let comments = '';
+    if (allPosts.length) {
+        const commentTemplate = textField(record(config.comment, 'comment').template, 'comment.template');
+        const headerTemplate = textField(record(config.comments_header, 'comments_header').template, 'comments_header.template');
+        comments = renderTemplate(headerTemplate, { count: allPosts.length, delimiter });
+        if (api.order === 'time_desc') allPosts.reverse();
+        allPosts.forEach((post, index) => {
+            comments += renderTemplate(commentTemplate, {
+                author: textField(field(post, 'author', postFields), 'post.author'),
+                date: dateField(field(post, 'posted_at', postFields), 'post.posted_at'),
+                content: bodyToMarkdown(textField(field(post, 'content', postFields), 'post.content'), format),
+                index: index + 1, delimiter,
+            });
+        });
+    }
+    const downloadedAt = new Date().toISOString();
+    const values = {
+        title, author, posted_at: postedAt, updated_at: updatedAt, downloaded_at: downloadedAt,
+        url: `[${title.replace(/([\[\]])/g, '\\$1')}](${source})`,
+        views, replies, favorites,
+    };
+    const frontmatter = renderFrontmatter(textField(record(config.frontmatter, 'frontmatter').template, 'frontmatter.template'), values);
+    const result = renderTemplate(textField(record(config.document, 'document').template, 'document.template'), {
+        ...values, frontmatter, content: bodyToMarkdown(content, format), comments, delimiter, date: postedAt,
+    });
+    context.onMetadata?.({
+        title, author, id: threadId, source, date: postedAt, downloaded: downloadedAt,
+        commentsExported: allPosts.length, commentsPages: pageCount,
+    });
+    return result;
 }
 
-/**
- * Convert BBCode to HTML using @bbob library
- */
-function convertBBCodeToHTML(bbcode: string): string {
-    return bbob(bbcode, presetHTML5());
-}
-
-// Re-export for backward compatibility
 export { fetchForumApiContent as fetch1Point3AcresContent };

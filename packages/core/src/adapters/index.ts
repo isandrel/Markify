@@ -19,10 +19,9 @@ import { wikipediaAdapter } from './wikipedia';
 import { githubAdapter } from './github';
 import { redditAdapter } from './reddit';
 import { devtoAdapter } from './devto';
-import { usCardForumAdapter } from './uscardforum';
-import { onePoint3AcresAdapter } from './1point3acres';
 import { defaultAdapter } from './default';
 import type { SiteAdapter } from './base';
+import { getProfileAdapters } from './engines';
 
 /**
  * All built-in adapters (order matters — more specific first)
@@ -35,16 +34,19 @@ export const builtInAdapters: SiteAdapter[] = [
     githubAdapter,
     redditAdapter,
     devtoAdapter,
-    usCardForumAdapter,
-    onePoint3AcresAdapter,
     defaultAdapter, // Always last as fallback
 ];
+
+/** Resolved profile adapters are discovered without editing this registry. */
+export function getBuiltInAdapters(): SiteAdapter[] {
+    return [...getProfileAdapters(), ...builtInAdapters];
+}
 
 /**
  * Get adapter info for listing/display purposes
  */
 export function listAdapters(): Array<{ name: string; patterns: string[]; hasApi: boolean }> {
-    return builtInAdapters
+    return getBuiltInAdapters()
         .filter(a => a.name !== 'Default')
         .map(a => ({
             name: a.name,

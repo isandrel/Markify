@@ -16,9 +16,12 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
-import { convert, listAdapters, hasSiteApi, getConfig } from '@markify/core';
+import { convert, listAdapters, hasSiteApi, getConfig, setConfig } from '@markify/core';
 import type { HttpFetcher, MinimalDocument } from '@markify/core';
 import { buildHeaders, humanDelay } from '@markify/core/utils/http';
+import { loadConfigFromDisk } from '@markify/core/config/disk';
+
+setConfig(loadConfigFromDisk());
 
 // ─── HTTP fetcher with real User-Agent ───────────────────────────────
 
@@ -34,7 +37,7 @@ const mcpFetcher: HttpFetcher = {
 
 const server = new McpServer({
     name: 'markify',
-    version: '0.0.3',
+    version: String((getConfig().package as { package?: { version?: string } } | undefined)?.package?.version ?? 'unknown'),
     description:
         'Markify converts web pages to clean, Obsidian-compatible Markdown with YAML frontmatter. ' +
         'It uses a 3-tier conversion strategy: site-specific APIs for supported forums, ' +
