@@ -28,16 +28,19 @@ cd Markify
 # Install dependencies
 bun install
 
-# Build userscript
-bun run build
+# Validate, test, and build userscript
+bun run validate
 
-# Output: dist/markify.user.js
-open dist/markify.user.js
+# Versioned output
+open packages/userscript/dist/markify-v0.0.4.user.js
+
+# Stage the stable update artifact at dist/markify.user.js
+bun run stage:release -- 0.0.4
 ```
 
 ### Install in Tampermonkey
 
-1. Copy contents of `dist/markify.user.js`
+1. Copy contents of `packages/userscript/dist/markify-v0.0.4.user.js` (or the staged `dist/markify.user.js`)
 2. Open Tampermonkey Dashboard → Create new script
 3. Paste and save
 
@@ -55,11 +58,15 @@ All configuration is in the `config/` directory:
 ```
 config/
 ├── package.toml      # Package metadata
-├── userscript.toml   # GM permissions & URL patterns  
+├── userscript.toml   # Global GM permissions
 ├── templates.toml    # Markdown templates
 ├── ui.toml           # UI settings & conversion options
-└── sites.toml        # Custom site adapters
+└── adapters/         # Validated site profiles: routes, layouts, APIs, templates
 ```
+
+Site profiles are the extension point. A profile declares a stable site ID, activation origins, routes, ordered DOM layout variants, API engine, field mappings, timing limits, and filename templates. The shared lifecycle, batch manager, transport, and history services do not contain site selectors or hostnames. Run `bun run validate` after changing a profile; invalid routes, selectors, endpoints, aliases, and placeholders fail before a userscript is built.
+
+The userscript menu includes configuration export/import and reset for the current site. Imported overrides are schema-validated and applied on the next page load; in-flight jobs keep their immutable configuration snapshot.
 
 ### Templates
 

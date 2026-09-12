@@ -6,8 +6,8 @@ declare const __MARKIFY_TEMPLATES__: any;
 declare const __MARKIFY_THEME__: ThemeConfig;
 declare const __MARKIFY_NOTIFICATIONS__: NotificationConfig;
 declare const __MARKIFY_UI__: UIConfig;
-declare const __MARKIFY_PACKAGE__: PackageConfig;
-declare const __MARKIFY_ADAPTER_USCARDFORUM__: any;
+declare const __MARKIFY_PACKAGE__: PackageConfig['package'];
+declare const __MARKIFY_CONFIG__: import('@markify/core/config').MarkifyConfig;
 
 interface ThemeConfig {
     colors: {
@@ -58,7 +58,7 @@ interface NotificationConfig {
     };
     delays: {
         cleanup: number;
-        batch_item: number;
+        batch_item: import('@markify/core/utils/http').DelayConfig;
         dom_stabilize: number;
         rate_limit: number;
     };

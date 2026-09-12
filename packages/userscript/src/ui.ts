@@ -49,7 +49,8 @@ export async function showPromiseToast<T>(
     promise: Promise<T>,
     messages: { loading: string; success: string; error: string }
 ): Promise<T> {
-    return toast.promise(promise, messages);
+    toast.promise(promise, messages);
+    return await promise;
 }
 
 /**

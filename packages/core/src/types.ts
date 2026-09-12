@@ -18,6 +18,17 @@ export interface FetchOptions {
     credentials?: boolean;
     /** Custom headers */
     headers?: Record<string, string>;
+    /** Cancel requests when their owning export is destroyed. */
+    signal?: AbortSignal;
+    /** Finite request deadline supplied by the resolved profile. */
+    timeoutMs?: number;
+}
+
+/** Per-export callbacks; never stored on a shared adapter. */
+export interface ApiConversionContext {
+    signal?: AbortSignal;
+    onProgress?: (message: string) => void;
+    onMetadata?: (metadata: Partial<SiteMetadata>) => void;
 }
 
 export interface FetchResponse {
@@ -53,6 +64,12 @@ export interface ConvertOptions {
     templates?: any;
     /** HTTP fetcher for API-based adapters */
     fetcher?: HttpFetcher;
+    signal?: AbortSignal;
+    onProgress?: (message: string) => void;
+    /** Metadata captured before awaiting network requests. API metadata may refine it. */
+    metadataSnapshot?: Partial<SiteMetadata>;
+    /** Resolved immutable per-job profile (e.g. user preference overrides). */
+    adapterConfig?: import('./config').AdapterConfig;
     /** Turndown conversion options */
     conversion?: ConversionConfig;
     /**

@@ -9,91 +9,106 @@
 
 import {
     convert,
+    classifyRegistryRoute,
+    createProfileAdapter,
+    findProfileAdapter,
     findSiteAdapter,
     builtInAdapters,
     formatDate,
     formatMessage,
     logger,
 } from '@markify/core';
-import type { HttpFetcher, SiteMetadata } from '@markify/core';
+import type { AdapterConfig, ConvertResult, SiteMetadata } from '@markify/core';
 import { loadSettings, showSettings } from './settings';
-import { theme, notifications, ui, pkg } from './config';
+import { getProfiles, initializeConfig, loadOverrides, notifications, pkg, resetOverridesForSite, saveOverrides, templates, theme, ui } from './config';
+import { createFetchFetcher, createProfileFetcher } from './http';
+import { NavigationController } from './navigation';
+import { ProfileBatchCapability } from './adapters/profile-batch';
+import { BatchDownloadManager } from './batch/BatchDownloadManager';
+import { configureHistoryProfiles } from './utils/download-history';
 
 // Global button references for progress updates
 let downloadButton: HTMLButtonElement | null = null;
 let copyButton: HTMLButtonElement | null = null;
 let activeButton: HTMLButtonElement | null = null;
+let activeSingleAbort: AbortController | null = null;
+let activeBatchManager: BatchDownloadManager | null = null;
+let routeGeneration = 0;
 
-/**
- * Create GM.xmlHttpRequest-based HTTP fetcher for browser environment
- */
-function createGMFetcher(): HttpFetcher {
-    return {
-        get: async (url: string, opts?: any) => {
-            return new Promise((resolve, reject) => {
-                GM.xmlHttpRequest({
-                    method: 'GET',
-                    url,
-                    onload: (res) => {
-                        resolve({
-                            status: res.status,
-                            ok: res.status >= 200 && res.status < 300,
-                            text: res.responseText,
-                        });
-                    },
-                    onerror: () => reject(new Error('Network error')),
-                });
-            });
-        },
-    };
+type ActiveRoute = NonNullable<ReturnType<typeof classifyRegistryRoute>> & { pollMs: number };
+
+async function configuredBatchDelay(signal: AbortSignal): Promise<void> {
+    const delay = notifications?.delays?.batch_item;
+    const min = typeof delay === 'object' ? delay.min_ms ?? 1000 : 1000;
+    const max = typeof delay === 'object' ? delay.max_ms ?? 3000 : 3000;
+    const jitter = typeof delay === 'object' ? delay.jitter ?? 0.25 : 0.25;
+    const base = min + Math.random() * Math.max(0, max - min);
+    const milliseconds = Math.max(0, Math.round(base * (1 + (Math.random() * 2 - 1) * jitter)));
+    await new Promise<void>((resolve, reject) => {
+        const timer = setTimeout(finish, milliseconds);
+        function finish() { signal.removeEventListener('abort', cancel); resolve(); }
+        function cancel() { clearTimeout(timer); signal.removeEventListener('abort', cancel); reject(new DOMException('Download cancelled', 'AbortError')); }
+        if (signal.aborted) cancel(); else signal.addEventListener('abort', cancel, { once: true });
+    });
+}
+
+async function activateRoute(route: ActiveRoute | null, url: string): Promise<void> {
+    const generation = ++routeGeneration;
+    activeSingleAbort?.abort();
+    activeBatchManager?.destroy();
+    activeBatchManager = null;
+    document.querySelector('[data-markify-owned="history"]')?.remove();
+    const toolbar = document.querySelector<HTMLElement>('#markify-container');
+    if (toolbar) toolbar.style.display = 'none';
+    if (!route) return;
+    const profile = getProfiles()[route.profileId];
+    if (!profile) return;
+    if (route.kind === 'thread') {
+        if (toolbar) toolbar.style.display = 'flex';
+        await showDownloadStatus(url, () => generation === routeGeneration && window.location.href === url);
+        return;
+    }
+    if (route.kind !== 'listing' || generation !== routeGeneration) return;
+    const contentAdapter = createProfileAdapter(profile);
+    const capability = new ProfileBatchCapability(profile, async (_id, onProgress, signal, item) => {
+        if (!item) throw new Error('Batch item URL is missing');
+        return contentAdapter.fetchViaApi!(item.url, createProfileFetcher(profile), profile, { onProgress, signal });
+    }, { document, url: () => window.location.href });
+    const manager = new BatchDownloadManager(capability, {
+        delay: configuredBatchDelay,
+        notify: text => GM.notification({
+            text,
+            title: pkg?.package?.strings?.app_title_batch || 'Markify Batch Download',
+            timeout: notifications?.timeouts?.long || 5000,
+        }),
+    });
+    if (generation !== routeGeneration) { manager.destroy(); return; }
+    activeBatchManager = manager;
+    manager.initializeUI();
 }
 
 /**
- * Create fetch-based HTTP fetcher (with credentials)
+ * Convert the captured page using an immutable profile and cancellation signal.
  */
-function createFetchFetcher(): HttpFetcher {
-    return {
-        get: async (url: string, opts?: any) => {
-            const res = await fetch(url, { credentials: opts?.credentials ? 'include' : 'same-origin' });
-            return { status: res.status, ok: res.ok, text: await res.text() };
-        },
-    };
-}
-
-/**
- * Convert current page to Markdown using @markify/core
- */
-async function convertToMarkdown(): Promise<string> {
-    const url = window.location.href;
-    const adapter = findSiteAdapter(url, builtInAdapters);
+async function convertToMarkdown(
+    url: string,
+    metadataSnapshot: SiteMetadata,
+    profile: AdapterConfig | undefined,
+    signal: AbortSignal,
+): Promise<ConvertResult> {
+    const adapter = findProfileAdapter(url) ?? findSiteAdapter(url, builtInAdapters);
 
     logger.info(`Using adapter: ${adapter?.name || 'None'}`);
 
-    // Load templates from settings
-    const templates = await GM.getValue('markify_templates', null) as any;
-
-    // Handle progress for 1Point3Acres
-    const onProgress = adapter?.name === '1Point3Acres'
-        ? (progress: string) => { if (activeButton) activeButton.textContent = progress; }
-        : undefined;
-
-    // Determine which fetcher to use
-    // US Card Forum uses regular fetch, 1Point3Acres uses GM.xmlHttpRequest
-    const fetcher = adapter?.name === '1Point3Acres' ? createGMFetcher() : createFetchFetcher();
-
-    if (adapter?.name === 'US Card Forum') {
-        GM.notification({
-            text: notifications?.messages?.api_fetching || 'Fetching content...',
-            title: pkg?.package?.strings?.app_title || 'Markify',
-            timeout: notifications?.timeouts?.short || 2000,
-        });
-    }
-
-    const result = await convert({
+    return convert({
         url,
         document: document as any,
         templates,
-        fetcher,
+        fetcher: profile ? createProfileFetcher(profile) : createFetchFetcher(30000),
+        adapterConfig: profile,
+        metadataSnapshot,
+        signal,
+        onProgress: progress => { if (!signal.aborted && activeButton) activeButton.textContent = progress; },
         includeFrontmatter: true,
         conversion: {
             headingStyle: (ui?.conversion?.heading_style || 'atx') as any,
@@ -104,24 +119,13 @@ async function convertToMarkdown(): Promise<string> {
             removeElements: ui?.conversion?.remove_elements?.tags || ['script', 'style', 'nav', 'header', 'footer', 'aside', 'iframe'],
         },
     });
-
-    // Restore button text after completion
-    if (activeButton && adapter?.name === '1Point3Acres') {
-        activeButton.textContent = activeButton === downloadButton
-            ? (ui?.ui?.buttons?.download_text || '📥 Markify')
-            : (ui?.ui?.buttons?.copy_text || '📋 Copy');
-        activeButton = null;
-    }
-
-    return result.markdown;
 }
 
 /**
  * Extract metadata for filename and download tracking
  */
-async function getPageMetadata(): Promise<{ metadata: SiteMetadata; adapter: ReturnType<typeof findSiteAdapter> }> {
-    const url = window.location.href;
-    const adapter = findSiteAdapter(url, builtInAdapters);
+async function getPageMetadata(url: string): Promise<{ metadata: SiteMetadata; adapter: ReturnType<typeof findSiteAdapter> }> {
+    const adapter = findProfileAdapter(url) ?? findSiteAdapter(url, builtInAdapters);
 
     const metadata: SiteMetadata = {
         title: document.title || 'Untitled',
@@ -180,93 +184,98 @@ function downloadMarkdown(content: string, filename: string) {
 /**
  * Extract ID from URL (site-specific)
  */
-function extractIdFromUrl(): string | undefined {
-    const pathname = window.location.pathname;
-
-    // 1Point3Acres: /bbs/thread-{id}-1-1.html or /home/pins/{id}
-    const threadMatch = pathname.match(/thread-(\d+)/);
-    const pinsMatch = pathname.match(/\/pins\/(\d+)/);
-    if (threadMatch) return threadMatch[1];
-    if (pinsMatch) return pinsMatch[1];
-
-    // USCardForum: /t/{slug}/{id}
-    const uscfMatch = pathname.match(/\/t\/[^/]+\/(\d+)/);
-    if (uscfMatch) return uscfMatch[1];
-
-    return undefined;
+function routeFor(url: string) {
+    return classifyRegistryRoute(url, getProfiles());
 }
 
 /**
  * Handle download button click
  */
 async function handleDownload(mode: 'download' | 'clipboard' = 'download') {
+    if (activeSingleAbort) return;
+    const startUrl = window.location.href;
+    const route = routeFor(startUrl);
+    const profile = route ? getProfiles()[route.profileId] : undefined;
+    const controller = new AbortController();
+    activeSingleAbort = controller;
     try {
-        const markdown = await convertToMarkdown();
-        const { metadata, adapter } = await getPageMetadata();
-
-        // Load filename template from settings
-        const templates = await GM.getValue('markify_templates', null) as any;
-        const filenameTemplate = templates?.filename?.single || '{title}';
+        const captured = await getPageMetadata(startUrl);
+        const result = await convertToMarkdown(startUrl, captured.metadata, profile, controller.signal);
+        if (controller.signal.aborted) return;
+        const metadata = result.metadata;
+        const adapter = captured.adapter;
+        const filenameTemplate = profile?.filename.single ?? templates?.filename?.single ?? '{title}';
 
         const { applyFilenameTemplate } = await import('@markify/core');
         const filename = applyFilenameTemplate(filenameTemplate, {
-            title: metadata.title || document.title || 'untitled',
-            id: extractIdFromUrl(),
+            title: metadata.title || captured.metadata.title || 'untitled',
+            id: route?.id,
             author: metadata.author,
-            site: adapter?.name,
+            site: profile?.site.id ?? adapter?.name,
             date: formatDate(),
         }) + '.md';
 
         if (mode === 'clipboard') {
-            await GM.setClipboard(markdown, 'text');
+            await GM.setClipboard(result.markdown, 'text');
             GM.notification({
                 text: notifications?.messages?.clipboard_success || 'Copied to clipboard!',
                 title: pkg?.package?.strings?.app_title || 'Markify',
                 timeout: notifications?.timeouts?.short || 2000,
             });
         } else {
-            downloadMarkdown(markdown, filename);
+            downloadMarkdown(result.markdown, filename);
             GM.notification({
                 text: formatMessage(notifications?.messages?.download_success || 'Downloaded {filename}', { filename }),
                 title: pkg?.package?.strings?.app_title || 'Markify',
                 timeout: notifications?.timeouts?.medium || 3000,
             });
 
-            const id = extractIdFromUrl();
-            if (id && adapter) {
+            if (route?.id && profile) {
                 const { markAsDownloaded } = await import('./utils/download-history');
-                await markAsDownloaded(id, adapter.name, metadata.title || document.title || 'untitled', 'single');
-                logger.info(`Marked ${id} as downloaded`);
+                await markAsDownloaded(route.id, profile.site.id, metadata.title || captured.metadata.title, 'single');
+                logger.info(`Marked ${route.id} as downloaded`);
             }
         }
 
         const stats = await GM.getValue('markify_stats', 0) as number;
         await GM.setValue('markify_stats', stats + 1);
     } catch (error) {
+        if (controller.signal.aborted) return;
         console.error('Failed to convert page:', error);
         GM.notification({
             text: notifications?.messages?.conversion_failed || 'Failed to convert page',
             title: pkg?.package?.strings?.app_title || 'Markify',
             timeout: notifications?.timeouts?.long || 5000,
         });
+    } finally {
+        if (activeSingleAbort === controller) activeSingleAbort = null;
+        if (activeButton) {
+            activeButton.textContent = activeButton === downloadButton
+                ? (ui?.ui?.buttons?.download_text || '📥 Markify')
+                : (ui?.ui?.buttons?.copy_text || '📋 Copy');
+            activeButton = null;
+        }
     }
 }
 
 /**
  * Show download status indicator on current post page
  */
-async function showDownloadStatus() {
-    const id = extractIdFromUrl();
-    const adapter = findSiteAdapter(window.location.href, builtInAdapters);
-    if (!id || !adapter) return;
+async function showDownloadStatus(url = window.location.href, active: () => boolean = () => true) {
+    document.querySelector('[data-markify-owned="history"]')?.remove();
+    const route = routeFor(url);
+    if (route?.kind !== 'thread' || !route.id) return;
+    const profile = getProfiles()[route.profileId];
 
     const { isDownloaded } = await import('./utils/download-history');
-    const downloaded = await isDownloaded(id, adapter.name);
+    const downloaded = await isDownloaded(route.id, profile.site.id);
+    if (!active()) return;
 
     if (downloaded) {
         const titleElement = document.querySelector('h1.text-xl, h1.font-bold, h1') as HTMLElement;
         if (titleElement) {
             const indicator = document.createElement('span');
+            indicator.dataset.markifyOwned = 'history';
             indicator.textContent = ui?.ui?.indicators?.downloaded_icon || '✓';
             indicator.title = ui?.ui?.indicators?.downloaded_tooltip || 'Already downloaded';
             indicator.style.cssText = `
@@ -301,6 +310,7 @@ async function createDownloadButton() {
         cursor: 'move',
         userSelect: 'none',
     });
+    container.style.display = 'none';
 
     // Make container draggable
     let isDragging = false;
@@ -386,8 +396,9 @@ async function createDownloadButton() {
         downloadBtn.style.boxShadow = ui?.ui?.shadows?.button_default || '0 2px 4px rgba(0,0,0,0.1)';
     });
     downloadBtn.addEventListener('click', () => {
+        if (activeSingleAbort) return;
         activeButton = downloadBtn;
-        handleDownload('download');
+        void handleDownload('download');
     });
 
     // Copy button
@@ -412,8 +423,9 @@ async function createDownloadButton() {
         copyBtn.style.boxShadow = ui?.ui?.shadows?.copy_default || '0 2px 4px rgba(0,0,0,0.1)';
     });
     copyBtn.addEventListener('click', () => {
+        if (activeSingleAbort) return;
         activeButton = copyBtn;
-        handleDownload('clipboard');
+        void handleDownload('clipboard');
     });
 
     container.appendChild(downloadBtn);
@@ -431,13 +443,8 @@ async function createDownloadButton() {
         });
     }
 
-    // Always sync templates from build-time TOML config into GM storage.
-    // This ensures adapter configs (API endpoints, field mappings, etc.)
-    // stay current with each userscript update.
-    if (typeof __MARKIFY_TEMPLATES__ !== 'undefined') {
-        await GM.setValue('markify_templates', __MARKIFY_TEMPLATES__);
-        console.log('[Markify] Templates synced from config');
-    }
+    await initializeConfig();
+    configureHistoryProfiles(Object.values(getProfiles()));
 
     // Register menu commands
     GM.registerMenuCommand(pkg?.package?.menu?.settings || '⚙️ Settings', () => {
@@ -490,34 +497,45 @@ async function createDownloadButton() {
         });
     });
 
+    GM.registerMenuCommand('📤 Export Configuration', async () => {
+        await GM.setClipboard(JSON.stringify(await loadOverrides(), null, 2), 'text');
+        GM.notification({ text: 'Configuration copied to clipboard.', title: 'Markify', timeout: 2000 });
+    });
+
+    GM.registerMenuCommand('📥 Import Configuration', async () => {
+        const value = prompt('Paste exported Markify configuration JSON:');
+        if (!value) return;
+        try {
+            await saveOverrides(JSON.parse(value));
+            GM.notification({ text: 'Configuration saved. Reloading the page.', title: 'Markify', timeout: 2000 });
+            window.location.reload();
+        } catch (error) {
+            GM.notification({ text: `Invalid configuration: ${error instanceof Error ? error.message : String(error)}`, title: 'Markify', timeout: 5000 });
+        }
+    });
+
+    GM.registerMenuCommand('↩️ Reset Current Site Configuration', async () => {
+        const route = routeFor(window.location.href);
+        if (!route) return;
+        await resetOverridesForSite(route.profileId);
+        GM.notification({ text: `Reset ${route.profileId} configuration. Reloading the page.`, title: 'Markify', timeout: 2000 });
+        window.location.reload();
+    });
+
     // Create download button
-    createDownloadButton();
+    await createDownloadButton();
 
-    // Show download status indicator on post pages
-    await showDownloadStatus();
-
-    // Initialize batch download if on a listing page
-    setTimeout(async () => {
-        // Check 1Point3Acres
-        const { OnePoint3AcresBatchCapability } = await import('./adapters/1point3acres-batch');
-        const batchCapability1p3a = new OnePoint3AcresBatchCapability();
-        if (batchCapability1p3a.isListingPage()) {
-            logger.info('1Point3Acres listing page detected - initializing batch download');
-            const { BatchDownloadManager } = await import('./batch/BatchDownloadManager');
-            const batchManager = new BatchDownloadManager(batchCapability1p3a);
-            batchManager.initializeUI();
-        }
-
-        // Check USCardForum
-        const { USCardForumBatchCapability } = await import('./adapters/uscardforum-batch');
-        const batchCapabilityUSCF = new USCardForumBatchCapability();
-        if (batchCapabilityUSCF.isListingPage()) {
-            logger.info('USCardForum listing page detected - initializing batch download');
-            const { BatchDownloadManager } = await import('./batch/BatchDownloadManager');
-            const batchManager = new BatchDownloadManager(batchCapabilityUSCF);
-            batchManager.initializeUI();
-        }
-    }, notifications?.delays?.dom_stabilize || 1000);
+    const navigation = new NavigationController<ActiveRoute>({
+        window,
+        resolve: url => {
+            const route = classifyRegistryRoute(url, getProfiles());
+            if (!route) return null;
+            return { ...route, pollMs: getProfiles()[route.profileId].runtime.poll_ms };
+        },
+        onRoute: (route, url) => { void activateRoute(route, url).catch(error => console.error('[Markify] Route activation failed', error)); },
+        onError: error => console.error('[Markify] Route classification failed', error),
+    });
+    navigation.start();
 
     console.log('[Markify] Ready! Click the button to download this page as Markdown.');
     console.log('[Markify] Right-click the button to copy to clipboard instead.');

@@ -36,6 +36,7 @@ export type {
     HttpFetcher,
     FetchOptions,
     FetchResponse,
+    ApiConversionContext,
 } from './types';
 
 // Adapters
@@ -43,13 +44,17 @@ export {
     findSiteAdapter,
     matchesPattern,
     builtInAdapters,
+    getBuiltInAdapters,
     listAdapters,
     fetchUSCardForumContent,
     fetchDiscourseRawContent,
     fetch1Point3AcresContent,
     fetchForumApiContent,
 } from './adapters';
+export { createProfileAdapter, getProfileAdapters, findProfileAdapter, contentEngines } from './adapters/engines';
+export { classifyRoute, classifyRegistryRoute } from './adapters/routes';
 export type { SiteAdapter } from './adapters/base';
+export { ConversionError } from './errors';
 
 // Templates
 export {

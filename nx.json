@@ -4,7 +4,18 @@
       "dependsOn": [
         "^build"
       ],
-      "cache": true
+      "cache": true,
+      "inputs": [
+        "default",
+        "^default",
+        "config",
+        "{workspaceRoot}/bun.lock",
+        "{workspaceRoot}/tsconfig.base.json"
+      ],
+      "outputs": [
+        "{projectRoot}/dist",
+        "{projectRoot}/tsconfig.tsbuildinfo"
+      ]
     },
     "dev": {
       "cache": false
