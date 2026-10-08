@@ -23,6 +23,17 @@ Use the local `./node_modules/.bin/playwright`, not a global `npx playwright`. T
 | `uscardforum` | `tests/uscardforum/` | Thread export and category/search batch (smoke level) |
 | `userscript` | `tests/userscript/` | Site-independent behaviour: metadata, toolbar, drag, menus, settings, config import/export/migration |
 | `tools` | `tests/tools/` | CLI subcommands and MCP tools |
+| `live-dryrun` | `tests/live/` | The real-site spec run against the fixtures, which keeps it correct in every run |
+| `live-1point3acres` | `tests/live/` | The same spec against www.1point3acres.com, logged out (only when `MARKIFY_E2E_LIVE=1`) |
+
+## Real-site checks
+
+`.github/workflows/live-e2e.yml` runs `live-1point3acres` daily and on pushes or PRs that touch 1Point3Acres code. It covers the discover feed extraction, the thread and comments API against the profile's field mapping, single and batch export, the legacy BBS URL, and client-side pagination, using public threads only.
+
+- A failing scheduled or `main` run opens (or comments on) a `live-e2e` issue. The next passing run closes it.
+- The run's `live-e2e-report` artifact holds traces plus `discover-main.html`, `thread.json` and `posts.json` samples, so a site change can be turned into an updated profile and fixture.
+- "Blocked or unavailable" means bot protection or an outage, not a Markify change.
+- To run locally (needs internet): `bun run --filter @markify/e2e test:e2e:live`.
 
 ## Adding a site
 
