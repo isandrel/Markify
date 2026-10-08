@@ -82,3 +82,15 @@ describe('profile extension and filenames', () => {
             .toBe('001 - [4] $& {id}');
     });
 });
+
+describe('BBCode bodies', () => {
+    test('keep line breaks and paragraphs, fence code, and map strike/list/quote', async () => {
+        const { bodyToMarkdown } = await import('../src/markdown');
+        expect(bodyToMarkdown('line 1\r\nline 2\n\npara [s]old[/s] [b][i]both[/i][/b]', 'bbcode')).toBe('line 1  \nline 2  \n  \npara ~~old~~ ***both***');
+        expect(bodyToMarkdown('[code]a < b\n  c[/code]', 'bbcode')).toBe('```\na < b\n  c\n```');
+        expect(bodyToMarkdown('[list]\n[*]one\n[*]two\n[/list]\nafter', 'bbcode')).toBe('*   one\n*   two\n\nafter');
+        expect(bodyToMarkdown('[quote]q1\nq2[/quote]\nafter', 'bbcode')).toBe('> q1  \n> q2\n\nafter');
+        // HTML bodies are unaffected: their newlines are insignificant whitespace.
+        expect(bodyToMarkdown('<p>a\nb</p>', 'html')).toBe('a b');
+    });
+});

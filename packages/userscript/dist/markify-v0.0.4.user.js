@@ -31,7 +31,7 @@
 // ==/UserScript==
 
 
-System.register("./__entry.js", ['./__monkey.entry-CY3VXLb5.js'], (function (exports, module) {
+System.register("./__entry.js", ['./__monkey.entry-DdE1_ntk.js'], (function (exports, module) {
 	'use strict';
 	return {
 		setters: [null],
@@ -43,7 +43,7 @@ System.register("./__entry.js", ['./__monkey.entry-CY3VXLb5.js'], (function (exp
 	};
 }));
 
-System.register("./__monkey.entry-CY3VXLb5.js", [], (function (exports, module) {
+System.register("./__monkey.entry-DdE1_ntk.js", [], (function (exports, module) {
   'use strict';
   return {
     execute: (function () {
@@ -7110,7 +7110,7 @@ derived({
         const request2 = isRecord(api.request) ? api.request : {};
         const runtime = isRecord(config2.runtime) ? config2.runtime : {};
         return {
-          credentials: request2.credentials === true,
+credentials: typeof request2.credentials === "boolean" ? request2.credentials : void 0,
           headers: typeof request2.accept === "string" ? { Accept: request2.accept } : {},
           timeoutMs: typeof runtime.timeout_ms === "number" ? runtime.timeout_ms : 3e4,
           signal: context.signal
@@ -8369,21 +8369,29 @@ substrUntilChar(char) {
           filter: ["del", "s", "strike"],
           replacement: (content) => `~~${content}~~`
         });
+        const bold = /font-weight\s*:\s*(?:bold|[6-9]00)/i;
+        const italic = /font-style\s*:\s*italic/i;
+        const strike = /text-decoration\s*:\s*line-through/i;
         service.addRule("bbcodeEmphasis", {
-          filter: (node2) => node2.nodeName === "SPAN" && /(?:font-weight\s*:\s*(?:bold|[6-9]00)|font-style\s*:\s*italic)/i.test(node2.getAttribute("style") ?? ""),
+          filter: (node2) => node2.nodeName === "SPAN" && [bold, italic, strike].some((style) => style.test(node2.getAttribute("style") ?? "")),
           replacement: (content, node2) => {
             const style = node2.getAttribute("style") ?? "";
-            const marker = `${/font-weight\s*:\s*(?:bold|[6-9]00)/i.test(style) ? "**" : ""}${/font-style\s*:\s*italic/i.test(style) ? "*" : ""}`;
-            return content.trim() ? `${marker}${content}${marker}` : content;
+            const open2 = `${strike.test(style) ? "~~" : ""}${bold.test(style) ? "**" : ""}${italic.test(style) ? "*" : ""}`;
+            return content.trim() ? `${open2}${content}${[...open2].reverse().join("")}` : content;
           }
         });
         service.remove(["script", "style", "nav", "header", "footer", "aside", "iframe"]);
         return service;
       }
+      const BLOCK_TAG = /\n*(<\/?(?:blockquote|p|pre|ul|ol|li|table|thead|tbody|tr|td|th|h[1-6])\b[^>]*>)\n*/g;
+      function bbcodeToHtml(body) {
+        const html$1 = html(body.replace(/\r\n?/g, "\n"), presetHTML5());
+        return html$1.split(/(<pre>[\s\S]*?<\/pre>)/).map((part) => part.startsWith("<pre>") ? part.replace(/^<pre>([\s\S]*)<\/pre>$/, "<pre><code>$1</code></pre>") : part.replace(BLOCK_TAG, "$1").replace(/\n/g, "<br>")).join("");
+      }
       function bodyToMarkdown(body, format) {
         if (format === "markdown") return body;
-        const html$1 = format === "bbcode" ? html(body, presetHTML5()) : body;
-        return createTurndownService$1().turndown(html$1);
+        const html2 = format === "bbcode" ? bbcodeToHtml(body) : body;
+        return createTurndownService$1().turndown(html2);
       }
       function renderTemplate(template2, values) {
         return template2.replace(/\{(\w+)\}/g, (match2, key) => Object.prototype.hasOwnProperty.call(values, key) ? String(values[key] ?? "") : match2);
@@ -10346,7 +10354,7 @@ enabledAdapters: ["all"],
           const adapter = captured.adapter;
           const filenameTemplate = profile?.filename.single ?? templates?.filename?.single ?? "{title}";
           const { applyFilenameTemplate: applyFilenameTemplate2 } = await __vitePreload(async () => {
-            const { applyFilenameTemplate: applyFilenameTemplate3 } = await module.import('./index-CSxXCQYp-36jprHnZ.js');
+            const { applyFilenameTemplate: applyFilenameTemplate3 } = await module.import('./index-BTEXTDU6-6tN0huZ2.js');
             return { applyFilenameTemplate: applyFilenameTemplate3 };
           }, true ? void 0 : void 0);
           const filename = applyFilenameTemplate2(filenameTemplate, {
@@ -10449,6 +10457,7 @@ enabledAdapters: ["all"],
         let initialY;
         container.addEventListener("mousedown", (e2) => {
           if (e2.target.tagName === "BUTTON") return;
+          e2.preventDefault();
           isDragging = true;
           const rect = container.getBoundingClientRect();
           initialX = e2.clientX - rect.left;
@@ -10655,7 +10664,7 @@ ${summary || "No history yet"}`);
   };
 }));
 
-System.register("./index-CSxXCQYp-36jprHnZ.js", ['./__monkey.entry-CY3VXLb5.js'], (function (exports, module) {
+System.register("./index-BTEXTDU6-6tN0huZ2.js", ['./__monkey.entry-DdE1_ntk.js'], (function (exports, module) {
   'use strict';
   var applyFilenameTemplate;
   return {
