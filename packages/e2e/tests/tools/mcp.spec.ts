@@ -2,9 +2,9 @@ import { join } from 'node:path';
 import { test, expect } from '@playwright/test';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
-import { blogArticle, BLOG, P3A, USCF } from '../fixtures/sites';
-import { mcpEntry, preload, readRequests, serve, tempDir } from '../support/processes';
-import { repoRoot, version } from '../support/harness';
+import { blogArticle, BLOG, P3A, USCF } from '../../fixtures';
+import { mcpEntry, preload, readRequests, serve, tempDir } from '../../support/processes';
+import { repoRoot, version } from '../../support/harness';
 
 type ToolResult = { content: { type: string; text: string }[]; isError?: boolean };
 

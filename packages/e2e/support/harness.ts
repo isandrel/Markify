@@ -10,7 +10,7 @@ import { createRequire } from 'node:module';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { unzipSync } from 'fflate';
-import { respond } from '../fixtures/sites';
+import { respond, type FakeResponse } from '../fixtures';
 
 const here = dirname(fileURLToPath(import.meta.url));
 export const repoRoot = resolve(here, '../../..');
@@ -69,7 +69,7 @@ function shim(): void {
                     if (!response) details.onerror?.();
                     else details.onload?.(response);
                 });
-            return { abort() { aborted = true; details.onabort?.(); } };
+            return { abort() { if (aborted) return; aborted = true; call('xhrAbort', details.url); details.onabort?.(); } };
         },
     };
 }
@@ -90,6 +90,8 @@ export function buildInjection(source = readFileSync(userscriptPath, 'utf8')): s
 }
 
 export interface RecordedRequest { via: 'page' | 'gm' | 'blocked'; url: string; method: string; headers: Record<string, string>; anonymous?: boolean }
+/** Per-test replacement for a fixture response; 'hang' never answers. */
+export type Override = (url: string) => FakeResponse | 'hang' | Promise<FakeResponse | 'hang'>;
 export interface Notification { text: string; title?: string; timeout?: number }
 
 export class MarkifyBrowser {
@@ -98,6 +100,8 @@ export class MarkifyBrowser {
     readonly clipboard: string[] = [];
     readonly requests: RecordedRequest[] = [];
     readonly pageErrors: string[] = [];
+    readonly abortedRequests: string[] = [];
+    private readonly overrides: { match: (url: string) => boolean; handler: Override }[] = [];
 
     constructor(readonly context: BrowserContext, readonly page: Page) {}
 
@@ -113,15 +117,18 @@ export class MarkifyBrowser {
                 case 'openInTab': return undefined;
                 case 'xhr': {
                     this.requests.push({ via: 'gm', url: payload.url, method: payload.method, headers: payload.headers, anonymous: payload.anonymous });
-                    const response = respond(payload.url);
+                    const response = await this.resolve(payload.url);
+                    if (response === 'hang') return new Promise(() => undefined);
                     return response ? { status: response.status, responseText: response.body } : null;
                 }
+                case 'xhrAbort': this.abortedRequests.push(payload); return undefined;
                 default: throw new Error(`Unknown GM op ${op}`);
             }
         });
         await this.context.route('**/*', async route => {
             const request = route.request();
-            const response = respond(request.url());
+            const response = await this.resolve(request.url());
+            if (response === 'hang') return;
             if (!response) {
                 this.requests.push({ via: 'blocked', url: request.url(), method: request.method(), headers: request.headers() });
                 await route.abort('blockedbyclient');
@@ -131,6 +138,27 @@ export class MarkifyBrowser {
             await route.fulfill({ status: response.status, body: response.body, contentType: response.contentType });
         });
         await this.context.addInitScript({ content: buildInjection() });
+    }
+
+    private async resolve(url: string): Promise<FakeResponse | 'hang' | null> {
+        const override = [...this.overrides].reverse().find(entry => entry.match(url));
+        return override ? override.handler(url) : respond(url);
+    }
+
+    /** Replaces the fixture response for matching URLs (latest registration wins). */
+    intercept(match: string | RegExp | ((url: string) => boolean), handler: Override): void {
+        const test = typeof match === 'function' ? match : typeof match === 'string' ? (url: string) => url.startsWith(match) : (url: string) => match.test(url);
+        this.overrides.push({ match: test, handler });
+    }
+
+    /** Holds matching requests until released; `reached` resolves when the first one arrives. */
+    hold(match: string | RegExp | ((url: string) => boolean)): { reached: Promise<void>; release: () => void } {
+        let release!: () => void;
+        let hit!: () => void;
+        const gate = new Promise<void>(resolve => { release = resolve; });
+        const reached = new Promise<void>(resolve => { hit = resolve; });
+        this.intercept(match, async url => { hit(); await gate; return respond(url)!; });
+        return { reached, release };
     }
 
     /** Opens a page and waits until the userscript has registered its menu. */

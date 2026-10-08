@@ -1,9 +1,9 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test, expect } from '@playwright/test';
-import { blogArticle, BLOG, JINA, P3A, P3A_API, USCF } from '../fixtures/sites';
-import { runCli, serve, tempDir } from '../support/processes';
-import { repoRoot, version } from '../support/harness';
+import { blogArticle, BLOG, JINA, P3A, P3A_API, P3A_INSTANT, USCF } from '../../fixtures';
+import { runCli, serve, tempDir } from '../../support/processes';
+import { repoRoot, version } from '../../support/harness';
 
 const UA = readFileSync(join(repoRoot, 'config/notifications.toml'), 'utf8').match(/^user_agent\s*=\s*"(.+)"/m)![1];
 
@@ -55,6 +55,23 @@ test.describe('markify CLI', () => {
         expect(api).toHaveLength(3);
         expect(api.every(r => r.headers['user-agent'] === UA)).toBe(true);
         expect(result.requests.some(r => r.url.startsWith(JINA))).toBe(false);
+    });
+
+    for (const url of [`${P3A}/bbs/thread-1001-1-1.html`, `${P3A}/home/pins/1001`, `${P3A_INSTANT}/thread/1001`]) {
+        test(`convert: 1Point3Acres legacy/alternate route ${new URL(url).host}${new URL(url).pathname}`, async () => {
+            const result = await runCli(['convert', url]);
+            expect(result.status).toBe(0);
+            expect(result.stderr).toContain('Filename:   Offer 比较- Google vs Meta.md');
+            expect(result.stdout).toContain('```\ndef solve(nums):\n    return sorted(nums)\n```');
+            expect(result.requests.filter(r => r.url.startsWith(P3A_API)).map(r => r.url)[0]).toBe(`${P3A_API}/api/v3/home-threads/1001`);
+        });
+    }
+
+    test('convert: 1Point3Acres API failure exits non-zero with the reason', async () => {
+        const result = await runCli(['convert', `${P3A}/home/thread/1003`]);
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('HTTP 403 during thread');
+        expect(result.stdout).toBe('');
     });
 
     test('convert: US Card Forum topic gets page title, tags and every raw page', async () => {
