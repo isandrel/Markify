@@ -92,6 +92,10 @@ export function buildInjection(source = readFileSync(userscriptPath, 'utf8')): s
 /** `fixtures` serves every host offline; `live` uses the real network (see tests/live). */
 export type NetworkMode = 'fixtures' | 'live';
 
+/** Titles of bot-protection interstitials (Cloudflare and similar), English and Chinese. */
+const CHALLENGE = /just a moment|attention required|access denied|captcha|请稍候|请稍等|安全验证|正在验证/i;
+export const BLOCKED = 'Blocked or unavailable';
+
 export interface RecordedRequest { via: 'page' | 'gm' | 'blocked'; url: string; method: string; headers: Record<string, string>; anonymous?: boolean }
 /** Per-test replacement for a fixture response; 'hang' never answers. */
 export type Override = (url: string) => FakeResponse | 'hang' | Promise<FakeResponse | 'hang'>;
@@ -202,10 +206,13 @@ export class MarkifyBrowser {
     /** Opens a page and waits until the userscript has registered its menu. */
     async open(url: string): Promise<void> {
         const response = await this.page.goto(url);
-        if (this.network === 'live') {
+        if (this.network === 'live' && ((response && response.status() >= 400) || CHALLENGE.test(await this.page.title()))) {
+            // Interstitial challenges often clear by themselves in a normal browser; give it time, nothing more.
+            await this.page.waitForFunction(pattern => !new RegExp(pattern, 'i').test(document.title), CHALLENGE.source, { timeout: 20_000 }).catch(() => undefined);
+            await this.page.waitForLoadState('domcontentloaded');
             const title = await this.page.title();
-            if ((response && response.status() >= 400) || /just a moment|attention required|access denied|captcha/i.test(title)) {
-                throw new Error(`Blocked or unavailable: ${url} answered HTTP ${response?.status()} with title "${title}" (bot protection or outage, not a Markify failure)`);
+            if (CHALLENGE.test(title) || (!(await this.page.evaluate(() => (window as any).__markifyInjected)) && response && response.status() >= 400)) {
+                throw new Error(`${BLOCKED}: ${url} answered HTTP ${response?.status()} with title "${title}" (bot protection or outage, not a Markify failure)`);
             }
         }
         await this.ready();

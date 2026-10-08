@@ -35,6 +35,8 @@ module.exports = async ({ github, context, core, outcome, reportPath }) => {
     const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
     const failed = outcome === 'failure';
     const failures = failed ? failuresFrom(reportPath) : [];
+    // Which tests failed and why, without run-specific numbers.
+    const signature = failures.map(line => line.replace(/\d+/g, '#')).sort().join('|').replace(/[^\w|# -]/g, '').slice(0, 300);
     const { data: open } = await github.rest.issues.listForRepo({ ...context.repo, state: 'open', labels: LABEL, per_page: 20 });
     const existing = open.find(issue => issue.title === TITLE);
 
@@ -49,12 +51,17 @@ module.exports = async ({ github, context, core, outcome, reportPath }) => {
             'A "Blocked or unavailable" failure means bot protection or an outage rather than a Markify change.',
         ].join('\n');
         if (existing) {
-            await github.rest.issues.createComment({ ...context.repo, issue_number: existing.number, body });
+            // Same failing set as last time: the issue already says so; don't add a daily duplicate.
+            const marker = `<!-- live-e2e-signature: ${signature} -->`;
+            if (!(existing.body ?? '').includes(marker)) {
+                await github.rest.issues.createComment({ ...context.repo, issue_number: existing.number, body });
+                await github.rest.issues.update({ ...context.repo, issue_number: existing.number, body: `${(existing.body ?? '').replace(/\n?<!-- live-e2e-signature: [^>]* -->/g, '')}\n${marker}` });
+            }
         } else {
             try {
                 await github.rest.issues.createLabel({ ...context.repo, name: LABEL, color: 'd73a4a', description: 'Real-site end-to-end checks' });
             } catch { /* label already exists */ }
-            await github.rest.issues.create({ ...context.repo, title: TITLE, labels: [LABEL], body });
+            await github.rest.issues.create({ ...context.repo, title: TITLE, labels: [LABEL], body: `${body}\n<!-- live-e2e-signature: ${signature} -->` });
         }
     } else if (existing) {
         await github.rest.issues.createComment({ ...context.repo, issue_number: existing.number, body: `Live checks pass again in [run ${context.runId}](${runUrl}). Closing.` });
