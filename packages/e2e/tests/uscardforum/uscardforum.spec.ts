@@ -1,5 +1,5 @@
-import { test, expect } from '../support/harness';
-import { USCF } from '../fixtures/sites';
+import { test, expect } from '../../support/harness';
+import { USCF } from '../../fixtures';
 
 test.describe('US Card Forum thread page', () => {
     test('Download joins every raw page until the empty terminal page', async ({ markify, page }) => {

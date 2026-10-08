@@ -4,7 +4,7 @@
  * servers, and refuses everything else so no test reaches the network.
  */
 import { appendFileSync } from 'node:fs';
-import { respond } from '../fixtures/sites';
+import { respond } from '../fixtures';
 
 const realFetch = globalThis.fetch;
 const log = process.env.MARKIFY_E2E_REQUEST_LOG;

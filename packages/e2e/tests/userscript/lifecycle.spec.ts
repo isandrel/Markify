@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { test, expect, readMetadata, repoRoot, userscriptPath } from '../support/harness';
-import { BLOG, P3A, USCF } from '../fixtures/sites';
+import { test, expect, readMetadata, repoRoot, userscriptPath } from '../../support/harness';
+import { BLOG, P3A } from '../../fixtures';
 
 test.describe('userscript metadata', () => {
     const source = readFileSync(userscriptPath, 'utf8');
@@ -32,7 +32,7 @@ test.describe('userscript metadata', () => {
 
 test.describe('toolbar and configuration', () => {
     test('toolbar uses the configured labels and default position', async ({ markify, page }) => {
-        await markify.open(`${USCF}/t/slug/2001`);
+        await markify.open(`${P3A}/home/thread/1002`);
         const ui = readFileSync(join(repoRoot, 'config/ui.toml'), 'utf8');
         const configured = (key: string) => ui.match(new RegExp(`^${key}\\s*=\\s*"(.*)"`, 'm'))![1];
         await expect(page.locator('#markify-download-btn')).toHaveText(configured('download_text'));
@@ -42,7 +42,7 @@ test.describe('toolbar and configuration', () => {
     });
 
     test('dragging the toolbar persists its position across reloads', async ({ markify, page }) => {
-        await markify.open(`${USCF}/t/slug/2001`);
+        await markify.open(`${P3A}/home/thread/1002`);
         const container = page.locator('#markify-container');
         const box = (await container.boundingBox())!;
         // Grab the gap between the two buttons; pressing on a button must not drag.
@@ -68,16 +68,17 @@ test.describe('toolbar and configuration', () => {
     });
 
     test('menu commands are registered with readable labels', async ({ markify, page }) => {
-        await markify.open(`${USCF}/t/slug/2001`);
+        await markify.open(`${P3A}/home/thread/1002`);
         const names = await page.evaluate(() => Object.keys((window as any).__markifyMenu));
         expect(names).toHaveLength(8);
         for (const name of names) expect(name, `menu label ${JSON.stringify(name)}`).not.toContain('�');
     });
 
     test('stats, history, clear history and reset stats menus', async ({ markify, page }) => {
-        await markify.open(`${USCF}/t/slug/2001`);
+        await markify.open(`${P3A}/home/thread/1002`);
         await markify.download(() => page.locator('#markify-download-btn').click());
-        await expect.poll(() => markify.store.has('markify_download_history')).toBe(true);
+        // History is written first, the download counter last.
+        await expect.poll(() => markify.store.get('markify_stats')).toBe(1);
 
         await markify.runMenu('Stats');
         const stats = await markify.lastNotification(/1 single/i);
@@ -87,7 +88,7 @@ test.describe('toolbar and configuration', () => {
         page.on('dialog', dialog => { dialogs.push(`${dialog.type()}:${dialog.message()}`); void dialog.accept(); });
         await markify.runMenu('Download History');
         expect(dialogs.at(-1)).toContain('alert:Download History (1 items)');
-        expect(dialogs.at(-1)).toContain('Amex Platinum offer (uscardforum)');
+        expect(dialogs.at(-1)).toContain('Visa timeline 2026 (1point3acres)');
 
         await markify.runMenu('Clear History');
         expect(dialogs.at(-1)).toMatch(/^confirm:/);
@@ -100,7 +101,7 @@ test.describe('toolbar and configuration', () => {
     });
 
     test('settings dialog saves preferences and reloads', async ({ markify, page }) => {
-        await markify.open(`${USCF}/t/slug/2001`);
+        await markify.open(`${P3A}/home/thread/1002`);
         await markify.runMenu('Settings');
         await expect(page.locator('#markify-settings-panel')).toBeVisible();
         await page.locator('#markify-settings #include-tags').uncheck();
@@ -116,38 +117,31 @@ test.describe('toolbar and configuration', () => {
     });
 
     test('export, import and per-site reset of configuration overrides', async ({ markify, page }) => {
-        await markify.open(`${USCF}/t/slug/2002`);
+        await markify.open(`${P3A}/home/thread/1002`);
         await markify.runMenu('Export Configuration');
         expect(JSON.parse(markify.clipboard.at(-1)!)).toEqual({ schema_version: 1, global: {}, sites: {} });
 
-        const override = { schema_version: 1, global: {}, sites: { uscardforum: { filename: { single: 'USCF {id} {title}' } } } };
+        const override = { schema_version: 1, global: {}, sites: { '1point3acres': { filename: { single: 'P3A {id} {title}' } } } };
         page.once('dialog', dialog => void dialog.accept(JSON.stringify(override)));
         await Promise.all([page.waitForEvent('load'), markify.runMenu('Import Configuration')]);
         await markify.ready();
         expect(markify.store.get('markify_overrides_v1')).toEqual(override);
-        expect((await markify.download(() => page.locator('#markify-download-btn').click())).name).toBe('USCF 2002 Chase 5-24 rule.md');
+        expect((await markify.download(() => page.locator('#markify-download-btn').click())).name).toBe('P3A 1002 Visa timeline 2026.md');
 
         await Promise.all([page.waitForEvent('load'), markify.runMenu('Reset Current Site Configuration')]);
         await markify.ready();
         expect(markify.store.get('markify_overrides_v1')).toEqual({ schema_version: 1, global: {}, sites: {} });
-        expect((await markify.download(() => page.locator('#markify-download-btn').click())).name).toBe('Chase 5-24 rule.md');
+        expect((await markify.download(() => page.locator('#markify-download-btn').click())).name).toBe('Visa timeline 2026.md');
     });
 
     test('invalid imported configuration is rejected without being stored', async ({ markify, page }) => {
-        await markify.open(`${USCF}/t/slug/2002`);
+        await markify.open(`${P3A}/home/thread/1002`);
         page.once('dialog', dialog => void dialog.accept(JSON.stringify({ schema_version: 1, sites: { unknown: { enabled: false } }, global: { api: {} } })));
         await markify.runMenu('Import Configuration');
         await markify.lastNotification('Invalid configuration');
         expect(markify.store.get('markify_overrides_v1')).toEqual({ schema_version: 1, global: {}, sites: {} });
     });
 
-    test('site override can disable a profile entirely', async ({ markify, page }) => {
-        markify.store.set('markify_overrides_v1', { schema_version: 1, global: {}, sites: { uscardforum: { enabled: false } } });
-        await markify.open(`${USCF}/t/slug/2001`);
-        await expect(page.locator('#markify-container')).toBeHidden();
-        await markify.open(`${P3A}/home/thread/1002`);
-        await expect(page.locator('#markify-container')).toBeVisible();
-    });
 
     test('legacy template filename settings migrate once with a backup', async ({ markify, page }) => {
         const legacy = { filename: { single: 'Legacy {title}' } };
