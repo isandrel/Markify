@@ -53,6 +53,8 @@ bun run test:e2e        # build, then all projects
 bun run test:e2e:1p3a   # build, then only 1Point3Acres
 ```
 
+A scheduled workflow also runs the 1Point3Acres checks against the real site, logged out, and tracks failures in a `live-e2e` issue. See `packages/e2e/README.md`.
+
 For live checks, use a logged-in browser and verify:
 
 1. `/home/discover/38` gets one panel and one checkbox per rendered feed row, with sidebar links excluded.

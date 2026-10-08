@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "test:e2e": "playwright test",
-    "test:e2e:1p3a": "playwright test --project=1point3acres",
+    "test:e2e:1p3a": "playwright test --project=1point3acres --project=live-dryrun",
+    "test:e2e:live": "MARKIFY_E2E_LIVE=1 playwright test --project=live-1point3acres",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
@@ -16,6 +17,7 @@
     "fflate": "^0.8.2",
     "systemjs": "6.15.1",
     "typescript": "^5.9.3",
-    "yaml": "^2.8.1"
+    "yaml": "^2.8.1",
+    "@iarna/toml": "^2.2.5"
   }
 }

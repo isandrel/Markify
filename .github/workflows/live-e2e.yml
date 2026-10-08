@@ -1,0 +1,90 @@
+name: Live E2E (1Point3Acres)
+
+# Real-site checks, logged out and public content only. Failures open or update
+# a "live-e2e" issue; the next passing run closes it.
+on:
+  schedule:
+    - cron: "23 14 * * *" # daily
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "config/adapters/1point3acres.toml"
+      - "packages/core/src/**"
+      - "packages/userscript/src/**"
+      - "packages/e2e/tests/live/**"
+      - "packages/e2e/support/**"
+      - ".github/workflows/live-e2e.yml"
+      - ".github/scripts/live-e2e-issue.js"
+  # Informational on PRs: shows whether a change still works on the real site.
+  pull_request:
+    paths:
+      - "config/adapters/1point3acres.toml"
+      - "packages/core/src/**"
+      - "packages/userscript/src/**"
+      - "packages/e2e/tests/live/**"
+      - "packages/e2e/support/**"
+      - ".github/workflows/live-e2e.yml"
+      - ".github/scripts/live-e2e-issue.js"
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: live-e2e-${{ github.event_name == 'pull_request' && github.ref || 'main' }}
+  cancel-in-progress: false
+
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Install Chromium for Playwright
+        working-directory: packages/e2e
+        run: ./node_modules/.bin/playwright install --with-deps chromium
+
+      - name: Build
+        run: bun run build
+
+      - name: Run live checks
+        id: live
+        continue-on-error: true
+        working-directory: packages/e2e
+        run: ./node_modules/.bin/playwright test --project=live-1point3acres
+        env:
+          CI: "true"
+          MARKIFY_E2E_LIVE: "1"
+
+      - name: Upload report and page samples
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-e2e-report
+          retention-days: 14
+          path: |
+            packages/e2e/playwright-report
+            packages/e2e/test-results
+
+      - name: Sync tracking issue
+        if: always() && github.event_name != 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const sync = require('./.github/scripts/live-e2e-issue.js');
+            await sync({ github, context, core, outcome: '${{ steps.live.outcome }}', reportPath: 'packages/e2e/test-results/results.json' });
+
+      - name: Fail when live checks fail
+        if: steps.live.outcome == 'failure'
+        run: exit 1

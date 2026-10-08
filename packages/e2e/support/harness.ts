@@ -89,6 +89,9 @@ export function buildInjection(source = readFileSync(userscriptPath, 'utf8')): s
     })();`;
 }
 
+/** `fixtures` serves every host offline; `live` uses the real network (see tests/live). */
+export type NetworkMode = 'fixtures' | 'live';
+
 export interface RecordedRequest { via: 'page' | 'gm' | 'blocked'; url: string; method: string; headers: Record<string, string>; anonymous?: boolean }
 /** Per-test replacement for a fixture response; 'hang' never answers. */
 export type Override = (url: string) => FakeResponse | 'hang' | Promise<FakeResponse | 'hang'>;
@@ -102,11 +105,16 @@ export class MarkifyBrowser {
     readonly pageErrors: string[] = [];
     readonly abortedRequests: string[] = [];
     private readonly overrides: { match: (url: string) => boolean; handler: Override }[] = [];
+    private readonly connects: string[];
+    private userAgent = '';
+    private lastLiveRequest = 0;
 
-    constructor(readonly context: BrowserContext, readonly page: Page) {}
+    constructor(readonly context: BrowserContext, readonly page: Page, readonly network: NetworkMode = 'fixtures') {
+        this.connects = readMetadata(readFileSync(userscriptPath, 'utf8')).connects;
+    }
 
     async install(): Promise<void> {
-        await this.context.exposeBinding('__markifyGM', async (_source, op: string, payload: any) => {
+        await this.context.exposeBinding('__markifyGM', async (source, op: string, payload: any) => {
             switch (op) {
                 case 'get': return this.store.has(payload) ? { value: structuredClone(this.store.get(payload)) } : undefined;
                 case 'set': this.store.set(payload.key, structuredClone(payload.value)); return undefined;
@@ -117,7 +125,10 @@ export class MarkifyBrowser {
                 case 'openInTab': return undefined;
                 case 'xhr': {
                     this.requests.push({ via: 'gm', url: payload.url, method: payload.method, headers: payload.headers, anonymous: payload.anonymous });
-                    const response = await this.resolve(payload.url);
+                    // Like Tampermonkey: only @connect hosts (or the page's own host for "self").
+                    const host = new URL(payload.url).hostname;
+                    if (!this.connects.includes(host) && !(this.connects.includes('self') && host === new URL(source.page.url()).hostname)) return null;
+                    const response = await this.resolve(payload.url, payload.headers);
                     if (response === 'hang') return new Promise(() => undefined);
                     return response ? { status: response.status, responseText: response.body } : null;
                 }
@@ -125,6 +136,12 @@ export class MarkifyBrowser {
                 default: throw new Error(`Unknown GM op ${op}`);
             }
         });
+        if (this.network === 'live') {
+            this.userAgent = await this.page.evaluate(() => navigator.userAgent);
+            this.context.on('request', request => this.requests.push({ via: 'page', url: request.url(), method: request.method(), headers: request.headers() }));
+            await this.context.addInitScript({ content: buildInjection() });
+            return;
+        }
         await this.context.route('**/*', async route => {
             const request = route.request();
             const response = await this.resolve(request.url());
@@ -140,9 +157,30 @@ export class MarkifyBrowser {
         await this.context.addInitScript({ content: buildInjection() });
     }
 
-    private async resolve(url: string): Promise<FakeResponse | 'hang' | null> {
+    private async resolve(url: string, headers: Record<string, string> = {}): Promise<FakeResponse | 'hang' | null> {
         const override = [...this.overrides].reverse().find(entry => entry.match(url));
-        return override ? override.handler(url) : respond(url);
+        if (override) return override.handler(url);
+        return this.network === 'live' ? this.liveFetch(url, headers) : respond(url);
+    }
+
+    /** Real request from the test process, paced so a run stays gentle on the site. */
+    private async liveFetch(url: string, headers: Record<string, string>): Promise<FakeResponse | null> {
+        const wait = this.lastLiveRequest + 400 - Date.now();
+        if (wait > 0) await new Promise(resolve => setTimeout(resolve, wait));
+        this.lastLiveRequest = Date.now();
+        try {
+            const response = await fetch(url, { headers: { 'User-Agent': this.userAgent, 'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8', ...headers } });
+            return { status: response.status, body: await response.text(), contentType: response.headers.get('content-type') ?? '' };
+        } catch {
+            return null;
+        }
+    }
+
+    /** GET from the test process through the same fixture/live switch the userscript uses. */
+    async get(url: string): Promise<{ status: number; text: string }> {
+        const response = await this.resolve(url);
+        if (!response || response === 'hang') throw new Error(`No response for ${url}`);
+        return { status: response.status, text: response.body };
     }
 
     /** Replaces the fixture response for matching URLs (latest registration wins). */
@@ -163,7 +201,13 @@ export class MarkifyBrowser {
 
     /** Opens a page and waits until the userscript has registered its menu. */
     async open(url: string): Promise<void> {
-        await this.page.goto(url);
+        const response = await this.page.goto(url);
+        if (this.network === 'live') {
+            const title = await this.page.title();
+            if ((response && response.status() >= 400) || /just a moment|attention required|access denied|captcha/i.test(title)) {
+                throw new Error(`Blocked or unavailable: ${url} answered HTTP ${response?.status()} with title "${title}" (bot protection or outage, not a Markify failure)`);
+            }
+        }
         await this.ready();
     }
 
@@ -205,13 +249,15 @@ export class MarkifyBrowser {
     }
 }
 
-export const test = base.extend<{ markify: MarkifyBrowser }>({
-    markify: async ({ context, page }, use) => {
-        const harness = new MarkifyBrowser(context, page);
+export const test = base.extend<{ markify: MarkifyBrowser; network: NetworkMode }>({
+    network: ['fixtures', { option: true }],
+    markify: async ({ context, page, network }, use) => {
+        const harness = new MarkifyBrowser(context, page, network);
         await harness.install();
         page.on('pageerror', error => harness.pageErrors.push(error.stack ?? error.message));
         await use(harness);
-        expect(harness.pageErrors, 'uncaught page errors').toEqual([]);
+        // A live site's own script errors are not ours to assert on.
+        if (network === 'fixtures') expect(harness.pageErrors, 'uncaught page errors').toEqual([]);
     },
 });
 
