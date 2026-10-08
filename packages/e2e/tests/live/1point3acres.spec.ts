@@ -10,7 +10,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parse as parseToml } from '@iarna/toml';
 import { parse as parseYaml } from 'yaml';
-import { test, expect, repoRoot, BLOCKED, type MarkifyBrowser } from '../../support/harness';
+import { test, expect, repoRoot, type MarkifyBrowser } from '../../support/harness';
+import { runCli, tempDir } from '../../support/processes';
 import { P3A } from '../../fixtures';
 
 type Page = import('@playwright/test').Page;
@@ -20,7 +21,7 @@ const profile = parseToml(readFileSync(join(repoRoot, 'config/adapters/1point3ac
 const api = profile.api as Json;
 const DISCOVER = `${P3A}/home/discover/38`;
 /** Public threads to probe the API with when the discover page itself is blocked. */
-const FALLBACK_IDS = (process.env.LIVE_THREAD_IDS ?? '1184303').split(',').map(id => id.trim()).filter(Boolean);
+const FALLBACK_IDS = (process.env.LIVE_THREAD_IDS || '1184303').split(',').map(id => id.trim()).filter(Boolean);
 const threadUrl = (id: string) => api.thread_endpoint.replace('{thread_id}', id);
 const postsUrl = (id: string, page = 1) => api.posts_endpoint.replace('{thread_id}', id)
     .replace('{page_size}', String(api.page_size)).replace('{order}', api.order).replace('{page}', String(page));
@@ -36,23 +37,31 @@ const tick = (page: Page, selector: string) => page.locator(selector).evaluate(e
 
 interface Readable { id: string; thread: Json }
 let feedCache: string[] | undefined;
-let feedBlocked: Error | undefined;
+let feedBlocked: string | undefined;
 let readableCache: Readable[] | undefined;
 
-async function feedIds(markify: MarkifyBrowser): Promise<string[]> {
-    // A blocked discover page stays blocked for the run; don't wait on it again.
-    if (feedBlocked) throw feedBlocked;
+/** Feed thread ids, or why the discover page could not be opened (checked once per run). */
+async function loadFeed(markify: MarkifyBrowser): Promise<string[] | string> {
+    if (feedBlocked) return feedBlocked;
     if (!feedCache) {
-        try {
-            await markify.open(DISCOVER);
-        } catch (error) {
-            if (String(error).includes(BLOCKED)) feedBlocked = error as Error;
-            throw error;
-        }
+        const blocked = await markify.tryOpen(DISCOVER);
+        if (blocked) return (feedBlocked = blocked);
         await expect.poll(async () => (await boxIds(markify.page)).length, { message: 'feed rows bound', timeout: 30_000 }).toBeGreaterThanOrEqual(5);
         feedCache = await boxIds(markify.page);
     }
     return feedCache;
+}
+
+/** Same policy as MarkifyBrowser.open(): skip, or fail where the runner's network should be accepted. */
+function pageBlocked(reason: string): never {
+    if (process.env.MARKIFY_E2E_BLOCKED === 'fail') throw new Error(reason);
+    test.skip(true, reason);
+    throw new Error(reason);
+}
+
+async function feedIds(markify: MarkifyBrowser): Promise<string[]> {
+    const feed = await loadFeed(markify);
+    return typeof feed === 'string' ? pageBlocked(feed) : feed;
 }
 
 /** Feed threads whose thread endpoint answers anonymously, preferring a few replies. */
@@ -60,15 +69,10 @@ async function readableThreads(markify: MarkifyBrowser): Promise<Readable[]> {
     if (readableCache) return readableCache;
     const found: Readable[] = [];
     const statuses: string[] = [];
-    let candidates: string[];
-    try {
-        candidates = (await feedIds(markify)).slice(0, 10);
-    } catch (error) {
-        // The API can be reachable even when pages are challenged; keep checking it.
-        if (!String(error).includes(BLOCKED)) throw error;
-        statuses.push(`discover page blocked, probing ${FALLBACK_IDS.join(', ')}`);
-        candidates = FALLBACK_IDS;
-    }
+    const feed = await loadFeed(markify);
+    // The API can be reachable even when pages are challenged; keep checking it.
+    if (typeof feed === 'string') statuses.push(`discover page blocked, probing ${FALLBACK_IDS.join(', ')}`);
+    const candidates = typeof feed === 'string' ? FALLBACK_IDS : feed.slice(0, 10);
     for (const id of candidates) {
         const response = await markify.get(threadUrl(id));
         let body: Json | undefined;
@@ -184,5 +188,24 @@ test.describe('1Point3Acres live site (logged out)', () => {
         await expect.poll(async () => (await boxIds(page)).length).toBeGreaterThanOrEqual(5);
         await expect(page.locator('#markify-batch-panel')).toHaveCount(1);
         await expect(page.locator('#markify-batch-panel button')).toHaveText('📥 Download Selected (0)');
+    });
+
+    test('CLI converts real threads end to end through the forum API', async ({ markify }) => {
+        for (const { id, thread } of (await readableThreads(markify)).slice(0, 2)) {
+            const out = join(tempDir(), `${id}.md`);
+            const result = await runCli(['convert', `${P3A}/home/thread/${id}`, '--strategy', 'api-only', '-o', out]);
+            expect(result.status, result.stderr).toBe(0);
+            const text = readFileSync(out, 'utf8');
+            await attach(`export-${id}.md`, text.slice(0, 20_000));
+            const meta = frontmatter(text);
+            expect(meta.title).toBe(thread[api.fields.title]);
+            expect(meta.replies).toBe(thread[api.fields.replies]);
+            expect(text).not.toMatch(/\[\/?(?:b|i|u|s|url|quote|code|list|img)(?:=[^\]]*)?\]/i);
+            expect(text).not.toMatch(/\bundefined\b|\[object Object\]/);
+            if (thread[api.fields.replies] > 0) expect(Number(text.match(/## Comments \((\d+)\)/)?.[1] ?? 0)).toBeGreaterThan(0);
+            // BBCode tags Markify has no rule for yet are reported, not failed (e.g. [attach], [hide]).
+            const unknown = [...new Set([...text.matchAll(/\[\/([a-z]+)\]/gi)].map(m => m[1].toLowerCase()))];
+            if (unknown.length) test.info().annotations.push({ type: 'unconverted BBCode', description: `${id}: ${unknown.join(', ')}` });
+        }
     });
 });

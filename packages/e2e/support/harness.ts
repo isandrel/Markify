@@ -203,19 +203,39 @@ export class MarkifyBrowser {
         return { reached, release };
     }
 
-    /** Opens a page and waits until the userscript has registered its menu. */
+    /**
+     * Opens a page and waits until the userscript has registered its menu. On the live
+     * site a bot-protection page skips the test (MARKIFY_E2E_BLOCKED=fail makes it fail,
+     * for runners whose network the site accepts).
+     */
     async open(url: string): Promise<void> {
-        const response = await this.page.goto(url);
+        const blocked = await this.tryOpen(url);
+        if (blocked) {
+            if (process.env.MARKIFY_E2E_BLOCKED === 'fail') throw new Error(blocked);
+            test.info().skip(true, blocked);
+        }
+    }
+
+    /** Like open(), but returns the reason instead of throwing when the live site blocks the page. */
+    async tryOpen(url: string): Promise<string | undefined> {
+        let response;
+        try {
+            response = await this.page.goto(url);
+        } catch (error) {
+            if (this.network !== 'live') throw error;
+            return `${BLOCKED}: ${url} could not be loaded (${String(error).split('\n')[0]})`;
+        }
         if (this.network === 'live' && ((response && response.status() >= 400) || CHALLENGE.test(await this.page.title()))) {
             // Interstitial challenges often clear by themselves in a normal browser; give it time, nothing more.
             await this.page.waitForFunction(pattern => !new RegExp(pattern, 'i').test(document.title), CHALLENGE.source, { timeout: 20_000 }).catch(() => undefined);
             await this.page.waitForLoadState('domcontentloaded');
             const title = await this.page.title();
             if (CHALLENGE.test(title) || (!(await this.page.evaluate(() => (window as any).__markifyInjected)) && response && response.status() >= 400)) {
-                throw new Error(`${BLOCKED}: ${url} answered HTTP ${response?.status()} with title "${title}" (bot protection or outage, not a Markify failure)`);
+                return `${BLOCKED}: ${url} answered HTTP ${response?.status()} with title "${title}" (bot protection or outage, not a Markify failure)`;
             }
         }
         await this.ready();
+        return undefined;
     }
 
     async ready(): Promise<void> {

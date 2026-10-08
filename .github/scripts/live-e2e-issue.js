@@ -8,33 +8,39 @@ const fs = require('fs');
 const LABEL = 'live-e2e';
 const TITLE = 'Live E2E failing: 1Point3Acres';
 
-function failuresFrom(reportPath) {
+/** Failing tests, plus skipped ones and notes (annotations) worth showing in the run summary. */
+function readReport(reportPath) {
     const failures = [];
+    const notes = [];
     let report;
     try {
         report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
     } catch (error) {
-        return [`- Could not read the test report (${error.message}); the run log has details.`];
+        return { failures: [`- Could not read the test report (${error.message}); the run log has details.`], notes };
     }
+    const clean = text => text.replace(/\u001b\[[0-9;]*m/g, '').split('\n').find(line => line.trim())?.trim().slice(0, 300) ?? '';
     const walk = suite => {
         for (const child of suite.suites ?? []) walk(child);
         for (const spec of suite.specs ?? []) {
             for (const test of spec.tests ?? []) {
-                if (test.status !== 'unexpected') continue;
-                const message = (test.results?.at(-1)?.error?.message ?? 'no error message')
-                    .replace(/\u001b\[[0-9;]*m/g, '').split('\n').find(line => line.trim()) ?? '';
-                failures.push(`- **${spec.title}**: ${message.trim().slice(0, 300)}`);
+                const annotations = [...(test.annotations ?? []), ...(test.results ?? []).flatMap(result => result.annotations ?? [])];
+                for (const note of annotations) {
+                    const line = `- ${note.type === 'skip' ? 'Skipped' : note.type} · **${spec.title}**: ${clean(note.description ?? '')}`;
+                    if (!notes.includes(line)) notes.push(line);
+                }
+                if (test.status === 'unexpected') failures.push(`- **${spec.title}**: ${clean(test.results?.at(-1)?.error?.message ?? 'no error message')}`);
             }
         }
     };
     for (const suite of report.suites ?? []) walk(suite);
-    return failures;
+    return { failures, notes };
 }
 
 module.exports = async ({ github, context, core, outcome, reportPath }) => {
     const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
     const failed = outcome === 'failure';
-    const failures = failed ? failuresFrom(reportPath) : [];
+    const { failures: reported, notes } = readReport(reportPath);
+    const failures = failed ? reported : [];
     // Which tests failed and why, without run-specific numbers.
     const signature = failures.map(line => line.replace(/\d+/g, '#')).sort().join('|').replace(/[^\w|# -]/g, '').slice(0, 300);
     const { data: open } = await github.rest.issues.listForRepo({ ...context.repo, state: 'open', labels: LABEL, per_page: 20 });
@@ -71,6 +77,7 @@ module.exports = async ({ github, context, core, outcome, reportPath }) => {
     await core.summary
         .addHeading(failed ? 'Live 1Point3Acres checks failed' : 'Live 1Point3Acres checks passed', 3)
         .addRaw(failures.join('\n'))
+        .addRaw(notes.length ? `\n\n**Notes**\n${notes.join('\n')}\n` : '')
         .addLink('Run', runUrl)
         .write();
 };

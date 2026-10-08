@@ -28,12 +28,23 @@ Use the local `./node_modules/.bin/playwright`, not a global `npx playwright`. T
 
 ## Real-site checks
 
-`.github/workflows/live-e2e.yml` runs `live-1point3acres` daily and on pushes or PRs that touch 1Point3Acres code. It covers the discover feed extraction, the thread and comments API against the profile's field mapping, single and batch export, the legacy BBS URL, and client-side pagination, using public threads only.
+`.github/workflows/live-e2e.yml` runs `live-1point3acres` daily and on pushes or PRs that touch 1Point3Acres code. It uses public threads only and covers:
 
-- A failing scheduled or `main` run opens (or comments on) a `live-e2e` issue. The next passing run closes it.
-- The run's `live-e2e-report` artifact holds traces plus `discover-main.html`, `thread.json` and `posts.json` samples, so a site change can be turned into an updated profile and fixture.
-- "Blocked or unavailable" means bot protection or an outage, not a Markify change.
-- To run locally (needs internet): `bun run --filter @markify/e2e test:e2e:live`.
+- the thread and comments API against the profile's field mapping;
+- a real thread converted end to end by the CLI (BBCode, comments, frontmatter);
+- in the browser: discover feed extraction, single and batch export, the legacy BBS URL and client-side pagination.
+
+The site serves GitHub-hosted runners a bot-protection page ("请稍候…", HTTP 403). The API checks still run there, and the browser checks are **skipped** with that reason. They are never bypassed. To run the browser checks too, register a runner on a network the site accepts (for example your own machine as a [self-hosted runner](https://docs.github.com/actions/hosting-your-own-runners)) and set these repository variables:
+
+- `LIVE_RUNNER`: the runner label, for example `self-hosted`. On such a runner a blocked page fails instead of skipping.
+- `LIVE_THREAD_IDS` (optional): comma-separated public thread ids to use when the discover page is blocked. The default is `1184303`.
+
+Results:
+
+- A failing scheduled or `main` run opens a `live-e2e` issue, which is commented on only when the failures change. The next passing run closes it.
+- The run summary lists skipped checks and BBCode tags that Markify does not convert yet.
+- The `live-e2e-report` artifact holds traces plus `discover-main.html`, `thread.json`, `posts.json` and `export-<id>.md` samples, so a site change can be turned into an updated profile and fixture.
+- To run locally (needs internet): `bun run --filter @markify/e2e test:e2e:live`. Add `MARKIFY_E2E_BLOCKED=fail` to treat blocked pages as failures.
 
 ## Adding a site
 
