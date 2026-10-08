@@ -1,0 +1,19 @@
+{
+  "name": "@markify/e2e",
+  "version": "0.0.4",
+  "private": true,
+  "description": "End-to-end tests: built userscript in Chromium, CLI and MCP server as subprocesses",
+  "type": "module",
+  "scripts": {
+    "test:e2e": "playwright test",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "@playwright/test": "1.56.1",
+    "@types/node": "^25.1.0",
+    "fflate": "^0.8.2",
+    "systemjs": "6.15.1",
+    "typescript": "^5.9.3"
+  }
+}
