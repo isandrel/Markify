@@ -12,22 +12,38 @@ export function createTurndownService(config?: ConversionConfig): TurndownServic
     service.addRule('strikethrough', {
         filter: ['del', 's', 'strike'] as any, replacement: content => `~~${content}~~`,
     });
-    // @bbob/preset-html5 expresses [b]/[i] as styled spans, not semantic tags.
+    // @bbob/preset-html5 expresses [b]/[i]/[s] as styled spans, not semantic tags.
+    const bold = /font-weight\s*:\s*(?:bold|[6-9]00)/i;
+    const italic = /font-style\s*:\s*italic/i;
+    const strike = /text-decoration\s*:\s*line-through/i;
     service.addRule('bbcodeEmphasis', {
-        filter: node => node.nodeName === 'SPAN' && /(?:font-weight\s*:\s*(?:bold|[6-9]00)|font-style\s*:\s*italic)/i.test(node.getAttribute('style') ?? ''),
+        filter: node => node.nodeName === 'SPAN' && [bold, italic, strike].some(style => style.test(node.getAttribute('style') ?? '')),
         replacement: (content, node) => {
             const style = (node as HTMLElement).getAttribute('style') ?? '';
-            const marker = `${/font-weight\s*:\s*(?:bold|[6-9]00)/i.test(style) ? '**' : ''}${/font-style\s*:\s*italic/i.test(style) ? '*' : ''}`;
-            return content.trim() ? `${marker}${content}${marker}` : content;
+            const open = `${strike.test(style) ? '~~' : ''}${bold.test(style) ? '**' : ''}${italic.test(style) ? '*' : ''}`;
+            return content.trim() ? `${open}${content}${[...open].reverse().join('')}` : content;
         },
     });
     service.remove((config?.removeElements ?? ['script', 'style', 'nav', 'header', 'footer', 'aside', 'iframe']) as any);
     return service;
 }
 
+const BLOCK_TAG = /\n*(<\/?(?:blockquote|p|pre|ul|ol|li|table|thead|tbody|tr|td|th|h[1-6])\b[^>]*>)\n*/g;
+
+/**
+ * BBCode line breaks are content, unlike HTML whitespace. Keep them as <br> in
+ * text, drop the ones that only separate block tags, and fence [code] blocks.
+ */
+function bbcodeToHtml(body: string): string {
+    const html = bbob(body.replace(/\r\n?/g, '\n'), presetHTML5());
+    return html.split(/(<pre>[\s\S]*?<\/pre>)/).map(part => part.startsWith('<pre>')
+        ? part.replace(/^<pre>([\s\S]*)<\/pre>$/, '<pre><code>$1</code></pre>')
+        : part.replace(BLOCK_TAG, '$1').replace(/\n/g, '<br>')).join('');
+}
+
 export function bodyToMarkdown(body: string, format: string): string {
     if (format === 'markdown') return body;
-    const html = format === 'bbcode' ? bbob(body, presetHTML5()) : body;
+    const html = format === 'bbcode' ? bbcodeToHtml(body) : body;
     return createTurndownService().turndown(html);
 }
 

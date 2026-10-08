@@ -321,6 +321,8 @@ async function createDownloadButton() {
 
     container.addEventListener('mousedown', (e) => {
         if ((e.target as HTMLElement).tagName === 'BUTTON') return;
+        // Without this, passing over a link starts a native drag and mouseup never arrives.
+        e.preventDefault();
         isDragging = true;
         const rect = container.getBoundingClientRect();
         initialX = e.clientX - rect.left;

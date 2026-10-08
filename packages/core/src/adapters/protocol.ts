@@ -59,7 +59,8 @@ export function requestOptions(config: JsonRecord, context: ApiConversionContext
     const request = isRecord(api.request) ? api.request : {};
     const runtime = isRecord(config.runtime) ? config.runtime : {};
     return {
-        credentials: request.credentials === true,
+        // Unset means the transport default (GM: logged-in session; fetch: same-origin), not anonymous.
+        credentials: typeof request.credentials === 'boolean' ? request.credentials : undefined,
         headers: typeof request.accept === 'string' ? { Accept: request.accept } : {},
         timeoutMs: typeof runtime.timeout_ms === 'number' ? runtime.timeout_ms : 30000,
         signal: context.signal,
