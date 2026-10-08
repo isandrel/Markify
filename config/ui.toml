@@ -11,7 +11,7 @@ button_text        = "📥 Markify"
 [ui.buttons]
 copy_color           = "#059669"
 copy_hover_color     = "#047857"
-copy_text            = "� Copy"
+copy_text            = "📋 Copy"
 download_color       = "#7c3aed"
 download_hover_color = "#6d28d9"
 download_text        = "📥 Download"

@@ -17,6 +17,6 @@ app_title_stats = "Markify Stats"
 [package.menu]
 clear_history = "🗑️ Clear History"
 history       = "📜 Download History"
-reset_stats   = "� Reset Stats"
+reset_stats   = "🔄 Reset Stats"
 settings      = "⚙️ Settings"
-stats         = "� View Stats"
+stats         = "📊 View Stats"
