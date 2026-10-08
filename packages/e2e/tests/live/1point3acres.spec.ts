@@ -10,7 +10,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parse as parseToml } from '@iarna/toml';
 import { parse as parseYaml } from 'yaml';
-import { test, expect, repoRoot, type MarkifyBrowser } from '../../support/harness';
+import { test, expect, repoRoot, BLOCKED, type MarkifyBrowser } from '../../support/harness';
 import { P3A } from '../../fixtures';
 
 type Page = import('@playwright/test').Page;
@@ -19,6 +19,8 @@ type Json = Record<string, any>;
 const profile = parseToml(readFileSync(join(repoRoot, 'config/adapters/1point3acres.toml'), 'utf8')) as Json;
 const api = profile.api as Json;
 const DISCOVER = `${P3A}/home/discover/38`;
+/** Public threads to probe the API with when the discover page itself is blocked. */
+const FALLBACK_IDS = (process.env.LIVE_THREAD_IDS ?? '1184303').split(',').map(id => id.trim()).filter(Boolean);
 const threadUrl = (id: string) => api.thread_endpoint.replace('{thread_id}', id);
 const postsUrl = (id: string, page = 1) => api.posts_endpoint.replace('{thread_id}', id)
     .replace('{page_size}', String(api.page_size)).replace('{order}', api.order).replace('{page}', String(page));
@@ -34,11 +36,19 @@ const tick = (page: Page, selector: string) => page.locator(selector).evaluate(e
 
 interface Readable { id: string; thread: Json }
 let feedCache: string[] | undefined;
+let feedBlocked: Error | undefined;
 let readableCache: Readable[] | undefined;
 
 async function feedIds(markify: MarkifyBrowser): Promise<string[]> {
+    // A blocked discover page stays blocked for the run; don't wait on it again.
+    if (feedBlocked) throw feedBlocked;
     if (!feedCache) {
-        await markify.open(DISCOVER);
+        try {
+            await markify.open(DISCOVER);
+        } catch (error) {
+            if (String(error).includes(BLOCKED)) feedBlocked = error as Error;
+            throw error;
+        }
         await expect.poll(async () => (await boxIds(markify.page)).length, { message: 'feed rows bound', timeout: 30_000 }).toBeGreaterThanOrEqual(5);
         feedCache = await boxIds(markify.page);
     }
@@ -50,7 +60,16 @@ async function readableThreads(markify: MarkifyBrowser): Promise<Readable[]> {
     if (readableCache) return readableCache;
     const found: Readable[] = [];
     const statuses: string[] = [];
-    for (const id of (await feedIds(markify)).slice(0, 10)) {
+    let candidates: string[];
+    try {
+        candidates = (await feedIds(markify)).slice(0, 10);
+    } catch (error) {
+        // The API can be reachable even when pages are challenged; keep checking it.
+        if (!String(error).includes(BLOCKED)) throw error;
+        statuses.push(`discover page blocked, probing ${FALLBACK_IDS.join(', ')}`);
+        candidates = FALLBACK_IDS;
+    }
+    for (const id of candidates) {
         const response = await markify.get(threadUrl(id));
         let body: Json | undefined;
         try { body = JSON.parse(response.text); } catch { /* reported below */ }
