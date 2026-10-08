@@ -13,6 +13,7 @@
     "build:userscript": "bun run --filter @markify/userscript build",
     "graph": "bunx nx graph",
     "test": "bun run --filter @markify/core test && bun run --filter @markify/userscript test",
+    "test:e2e": "bun run build && bun run --filter @markify/e2e test:e2e",
     "typecheck": "bun run --filter @markify/core build && bun run --filter \"@markify/*\" typecheck",
     "validate": "bun run test && bun run typecheck && bun run build",
     "stage:release": "bun run scripts/stage-release.ts"

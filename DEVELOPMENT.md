@@ -46,6 +46,15 @@ User overrides are limited to schema-approved enablement, runtime bounds, and te
 
 Core tests cover profile validation/migration, route ambiguity, synthetic profile conversion, API failures, comment pagination, Markdown conversion, and filename rendering. Userscript tests cover GM transport cancellation, route lifecycle, exact current-layout extraction, selection cleanup, partial batches, cancellation, and history aliases.
 
+End-to-end tests (`packages/e2e`, Playwright) exercise the shipped artifacts offline against fixture copies of both forums, their APIs, and a Jina Reader stand-in:
+
+- the built userscript runs in Chromium under a GM.* harness that honours its `@match`/`@require`/`@grant` metadata: single Download/Copy, comment pagination, history indicators, listing checkboxes and batch ZIPs (including partial failures), SPA navigation, layouts, menus, settings, and configuration import/export/reset/migration;
+- the CLI and MCP server run as real `bun` subprocesses (MCP over stdio with the SDK client), covering every subcommand/tool and strategy.
+
+```bash
+bun run test:e2e   # builds, then runs packages/e2e
+```
+
 For live checks, use a logged-in browser and verify:
 
 1. `/home/discover/38` gets one panel and one checkbox per rendered feed row, with sidebar links excluded.

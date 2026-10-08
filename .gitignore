@@ -66,3 +66,7 @@ vite.config.ts.timestamp-*
 !.yarn/releases
 !.yarn/sdks
 !.yarn/versions
+
+# Playwright
+packages/e2e/test-results/
+packages/e2e/playwright-report/
