@@ -25,12 +25,15 @@ const configFiles = [
 
 
 let config: any = {};
+// Runtime constants keep each file's own shape (ui.ui.buttons, theme.colors, notifications.messages).
+const files: Record<string, any> = {};
 
 for (const file of configFiles) {
     const filePath = join(configDir, file);
     try {
         const content = readFileSync(filePath, 'utf-8');
         const parsed = parse(content);
+        files[file.replace(/\.toml$/, '')] = parsed;
 
         // Merge configs (templates go into templates key)
         if (file === 'templates.toml') {
@@ -91,9 +94,9 @@ export default defineConfig({
     define: {
         // Make TOML configs available at runtime as global constants
         __MARKIFY_TEMPLATES__: JSON.stringify(config.templates || {}),
-        __MARKIFY_THEME__: JSON.stringify(config.theme || {}),
-        __MARKIFY_NOTIFICATIONS__: JSON.stringify(config.notifications || {}),
-        __MARKIFY_UI__: JSON.stringify(config.ui || {}),
+        __MARKIFY_THEME__: JSON.stringify(files.theme || {}),
+        __MARKIFY_NOTIFICATIONS__: JSON.stringify(files.notifications || {}),
+        __MARKIFY_UI__: JSON.stringify(files.ui || {}),
         __MARKIFY_PACKAGE__: JSON.stringify(config.package || {}),
         __MARKIFY_CONFIG__: JSON.stringify({ adapters: compiledConfig.adapters, templates: config.templates || {} }),
     },

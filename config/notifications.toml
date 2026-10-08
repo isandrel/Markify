@@ -21,7 +21,7 @@ no_files          = "No files were successfully downloaded"
 # Batch messages
 batch_complete = "Successfully downloaded all {total} items!"
 batch_partial  = "Downloaded {success}/{total} items. {failed} failed."
-stats_summary  = "Downloaded: {total} total\\n{single} single | {batch} batch\\nHistory: {tracked} tracked"
+stats_summary  = "Downloaded: {total} total\n{single} single | {batch} batch\nHistory: {tracked} tracked"
 
 # Confirmation prompts
 clear_history_confirm = "Clear all download history? This cannot be undone."
