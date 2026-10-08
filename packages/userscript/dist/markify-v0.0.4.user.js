@@ -31,7 +31,7 @@
 // ==/UserScript==
 
 
-System.register("./__entry.js", ['./__monkey.entry-Bv5Kf1YQ.js'], (function (exports, module) {
+System.register("./__entry.js", ['./__monkey.entry-CY3VXLb5.js'], (function (exports, module) {
 	'use strict';
 	return {
 		setters: [null],
@@ -43,7 +43,7 @@ System.register("./__entry.js", ['./__monkey.entry-Bv5Kf1YQ.js'], (function (exp
 	};
 }));
 
-System.register("./__monkey.entry-Bv5Kf1YQ.js", [], (function (exports, module) {
+System.register("./__monkey.entry-CY3VXLb5.js", [], (function (exports, module) {
   'use strict';
   return {
     execute: (function () {
@@ -56,8 +56,9 @@ System.register("./__monkey.entry-Bv5Kf1YQ.js", [], (function (exports, module) 
         G: matchesPattern,
         H: parseForumPosts,
         I: replacePlaceholders,
-        J: sanitizeFilename,
-        K: setConfig,
+        J: routeLogsToStderr,
+        K: sanitizeFilename,
+        M: setConfig,
         a: applyFilenameTemplate,
         d: applyCommentTemplate,
         e: applyDocumentTemplate,
@@ -8751,6 +8752,11 @@ substrUntilChar(char) {
         LogLevel2[LogLevel2["ERROR"] = 3] = "ERROR";
         return LogLevel2;
       })(LogLevel || {}));
+      let infoSink = (...args) => console.log(...args);
+      let debugSink = (...args) => console.debug(...args);
+      function routeLogsToStderr() {
+        infoSink = debugSink = (...args) => console.error(...args);
+      }
       class Logger {
         level = 1;
         prefix;
@@ -8762,12 +8768,12 @@ substrUntilChar(char) {
         }
         debug(message, ...args) {
           if (this.level <= 0) {
-            console.debug(`[${this.prefix}:DEBUG]`, message, ...args);
+            debugSink(`[${this.prefix}:DEBUG]`, message, ...args);
           }
         }
         info(message, ...args) {
           if (this.level <= 1) {
-            console.log(`[${this.prefix}]`, message, ...args);
+            infoSink(`[${this.prefix}]`, message, ...args);
           }
         }
         warn(message, ...args) {
@@ -8905,6 +8911,7 @@ readerConfig
         logger.info(`Using adapter: ${adapter?.name || "Default"}, strategy: ${strategy}`);
         const siteApiResult = await trySiteApi(adapter, url2, fetcher, adapterConfig, signal, onProgress);
         if (siteApiResult !== null) {
+          const pageMetadata = !metadataSnapshot && doc && adapter?.extractMetadata ? await adapter.extractMetadata(doc, url2) : {};
           return buildResult(
             siteApiResult.markdown,
             adapter,
@@ -8912,7 +8919,7 @@ readerConfig
             templates2,
             includeFrontmatter,
             adapter?.includesFrontmatter ?? false,
-            { ...metadataSnapshot, ...siteApiResult.metadata },
+            { ...pageMetadata, ...metadataSnapshot, ...siteApiResult.metadata },
             adapterConfig
           );
         }
@@ -9127,11 +9134,11 @@ ${rawMarkdown}`;
         return metadata;
       }
       var define_MARKIFY_CONFIG_default = { adapters: { "1point3acres": { schema_version: 1, engine: "forum-json", transport: "gm", enabled: true, site: { id: "1point3acres", name: "1Point3Acres", base_url: "https://www.1point3acres.com", origins: ["https://www.1point3acres.com", "https://instant.1point3acres.com"], aliases: ["1point3acres"] }, activation: { matches: ["https://www.1point3acres.com/home/*", "https://www.1point3acres.com/bbs/thread-*", "https://instant.1point3acres.com/thread/*"], connect: ["api.1point3acres.com"] }, routes: [{ name: "discover", kind: "listing", pattern: "^/home/discover/([^/]+)/?$", id_group: 1, origins: ["https://www.1point3acres.com"], query_keys: ["page", "sort", "order", "tab", "type"] }, { name: "forum", kind: "listing", pattern: "^/home/forum/([^/]+)/?$", id_group: 1, origins: ["https://www.1point3acres.com"], query_keys: ["page", "sort", "order", "tab", "type"] }, { name: "tag", kind: "listing", pattern: "^/home/tag/([^/]+)/?$", id_group: 1, origins: ["https://www.1point3acres.com"], query_keys: ["page", "sort", "order", "tab", "type"] }, { name: "thread", kind: "thread", pattern: "^/home/thread/(\\d+)/?$", id_group: 1, origins: ["https://www.1point3acres.com"] }, { name: "pins", kind: "thread", pattern: "^/home/pins/(\\d+)/?$", id_group: 1, origins: ["https://www.1point3acres.com"] }, { name: "bbs-thread", kind: "thread", pattern: "^/bbs/thread-(\\d+)-\\d+-\\d+\\.html$", id_group: 1, origins: ["https://www.1point3acres.com"] }, { name: "instant-thread", kind: "thread", pattern: "^/thread/(\\d+)/?$", id_group: 1, origins: ["https://instant.1point3acres.com"] }, { name: "home", kind: "entry", pattern: "^/home/?$", origins: ["https://www.1point3acres.com"] }], batch: { layouts: [{ name: "forum-thread-items", route_names: ["discover", "forum", "tag"], root_selector: "main", row_selector: '[data-sentry-component="ForumThreadItem"]', link_selector: 'a[href*="/home/thread/"]:has(h3), a[href*="/home/pins/"]:has(h3)', title_selector: "h3", title_attribute: "title", exclude_selectors: ["aside", "[data-ad]"] }, { name: "legacy-home-thread-items", route_names: ["forum", "tag"], root_selector: "main", row_selector: '[data-sentry-component="HomeThreadItem"]', link_selector: 'a[href*="/home/pins/"]', title_selector: "h3", exclude_selectors: ["aside", "[data-ad]"] }], label_selector: "main h1" }, runtime: { poll_ms: 500, debounce_ms: 100, timeout_ms: 3e4 }, api: { thread_endpoint: "https://api.1point3acres.com/api/v3/home-threads/{thread_id}", posts_endpoint: "https://api.1point3acres.com/api/threads/{thread_id}/nested-posts?ps={page_size}&order={order}&pg={page}", max_pages: 100, page_size: 20, order: "time_asc", content_format: "bbcode", id_extraction: { patterns: ["thread-(\\d+)", "/pins/(\\d+)", "/thread/(\\d+)"] }, response: { success_field: "errno", success_value: 0, data_field: "thread", posts_field: "posts" }, fields: { title: "subject", author: "author", content: "message_bbcode", posted_at: "dateline", updated_at: "lastpost", views: "views", replies: "replies", favorites: "favtimes", post: { id: "pid", author: "author", content: "message_bbcode", posted_at: "dateline" } } }, metadata: { tags: ["1point3acres", "forum"], source_url: "https://www.1point3acres.com/bbs/thread-{thread_id}-1-1.html" }, delimiter: "---", frontmatter: { template: '---\ntitle: "{title}"\nauthor: {author}\nposted_at: {posted_at}\nupdated_at: {updated_at}\ndownloaded_at: {downloaded_at}\nsource: {url}\nviews: {views}\nreplies: {replies}\nfavorites: {favorites}\ntags:\n  - 1point3acres\n  - forum\n---\n' }, document: { template: "{frontmatter}\n# {title}\n\n**Author:** {author} | **Date:** {date}\n\n---\n\n{content}\n\n---\n\n**Views:** {views} | **Replies:** {replies} | **Favorites:** {favorites}\n\n{comments}" }, comment: { template: "**{author}** - *{date}*\n\n{content}\n\n{delimiter}\n" }, comments_header: { template: "\n{delimiter}\n\n## Comments ({count})\n" }, filename: { single: "{title}", batch_item: "{id} - {title}", batch: "{site}-{type}-{tagname}-{date}" } }, uscardforum: { schema_version: 1, engine: "discourse-raw", transport: "fetch", enabled: true, site: { id: "uscardforum", name: "US Card Forum", base_url: "https://www.uscardforum.com", origins: ["https://www.uscardforum.com"], aliases: ["USCardForum"] }, activation: { matches: ["https://www.uscardforum.com/*"], connect: ["self"] }, routes: [{ name: "thread", kind: "thread", pattern: "^/t/(?:[^/]+/)?(\\d+)(?:/\\d+)?/?$", id_group: 1 }, { name: "category", kind: "listing", pattern: "^/c/([^/]+)(?:/[^/]+)*/?$", id_group: 1, query_keys: ["page", "order", "ascending", "status", "q"] }, { name: "tag", kind: "listing", pattern: "^/tags?/([^/]+)/?$", id_group: 1, query_keys: ["page", "order", "ascending"] }, { name: "search", kind: "listing", pattern: "^/search/?$", query_keys: ["q", "page", "expanded"] }, { name: "home", kind: "entry", pattern: "^/(?:latest|top|categories)?/?$" }], batch: { layouts: [{ name: "topic-list", route_names: ["category", "tag"], root_selector: "#main-outlet", row_selector: "tr.topic-list-item", link_selector: 'a.title[href*="/t/"], a.raw-topic-link[href*="/t/"]', exclude_selectors: ["aside"] }, { name: "search-results", route_names: ["search"], root_selector: "#main-outlet", row_selector: ".fps-result", link_selector: 'a.search-link[href*="/t/"]', title_selector: ".topic-title", exclude_selectors: ["aside"] }], label_selector: "h1" }, runtime: { poll_ms: 500, debounce_ms: 100, timeout_ms: 3e4 }, api: { raw_endpoint: "{base_url}/raw/{topic_id}?page={page}", json_endpoint: "{base_url}/t/{topic_id}.json?print=true&include_raw=true", max_pages: 100, page_size: 20, page_delay: { min_ms: 100, max_ms: 100, jitter: 0 }, request: { credentials: true, accept: "text/plain" }, id_extraction: { patterns: ["/t/[^/]+/(\\d+)", "/t/(\\d+)"] } }, metadata: { title_cleanup: "[\\s\\-]+(美国信用卡指南|US Card Forum)$", tags: ["uscardforum", "forum", "credit-cards"], source_url: "{base_url}/t/{topic_id}" }, page_separator: "\n\n---\n\n", delimiter: "---", filename: { single: "{title}", batch_item: "{id} - {title}", batch: "{site}-{type}-{tagname}-{date}" } } }, templates: { document: { enabled: true, template: "{frontmatter}\n\n{content}\n" }, frontmatter: { enabled: true, fields: ["author", "date", "description", "downloaded", "source", "tags", "title"] }, content: { separator: "\n\n---\n\n" }, comment: { enabled: true, template: "## Comment {index} - {author}\n**Posted:** {date}\n\n{content}\n" }, filename: { single: "[{id}] {title}", batch_item: "{index} - [{id}] {title}", batch: "[{date}] [{site}] [{type}] [{id}] {tagname}" } } };
-      var define_MARKIFY_NOTIFICATIONS_default = {};
-      var define_MARKIFY_PACKAGE_default = { author: "isandrel", description: "Convert web pages to Obsidian-formatted Markdown with YAML frontmatter", name: "Markify", repository: "https://github.com/isandrel/Markify", version: "0.0.4", strings: { app_title: "Markify", app_title_batch: "Markify Batch Download", app_title_error: "Markify Batch Download Error", app_title_stats: "Markify Stats" }, menu: { clear_history: "🗑️ Clear History", history: "📜 Download History", reset_stats: "� Reset Stats", settings: "⚙️ Settings", stats: "� View Stats" } };
+      var define_MARKIFY_NOTIFICATIONS_default = { messages: { clipboard_success: "Copied to clipboard!", download_success: "Downloaded as {filename}", history_cleared: "Download history cleared", settings_reset: "Settings reset to defaults", settings_saved: "Settings saved successfully!", stats_reset: "Stats reset successfully", api_fetching: "Fetching forum content via API...", downloading: "Downloading {current}/{total}...", processing: "Processing {item}...", conversion_failed: "Failed to convert page. Check console for details.", download_failed: "Failed to create ZIP: {error}", no_files: "No files were successfully downloaded", batch_complete: "Successfully downloaded all {total} items!", batch_partial: "Downloaded {success}/{total} items. {failed} failed.", stats_summary: "Downloaded: {total} total\n{single} single | {batch} batch\nHistory: {tracked} tracked", clear_history_confirm: "Clear all download history? This cannot be undone." }, timeouts: { long: 5e3, medium: 3e3, short: 2e3 }, delays: { cleanup: 100, dom_stabilize: 1e3, batch_item: { min_ms: 1e3, max_ms: 3e3, jitter: 0.25 }, api_page: { min_ms: 500, max_ms: 1500, jitter: 0.2 } }, http: { user_agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36" } };
+      var define_MARKIFY_PACKAGE_default = { author: "isandrel", description: "Convert web pages to Obsidian-formatted Markdown with YAML frontmatter", name: "Markify", repository: "https://github.com/isandrel/Markify", version: "0.0.4", strings: { app_title: "Markify", app_title_batch: "Markify Batch Download", app_title_error: "Markify Batch Download Error", app_title_stats: "Markify Stats" }, menu: { clear_history: "🗑️ Clear History", history: "📜 Download History", reset_stats: "🔄 Reset Stats", settings: "⚙️ Settings", stats: "📊 View Stats" } };
       var define_MARKIFY_TEMPLATES_default = { document: { enabled: true, template: "{frontmatter}\n\n{content}\n" }, frontmatter: { enabled: true, fields: ["author", "date", "description", "downloaded", "source", "tags", "title"] }, content: { separator: "\n\n---\n\n" }, comment: { enabled: true, template: "## Comment {index} - {author}\n**Posted:** {date}\n\n{content}\n" }, filename: { single: "[{id}] {title}", batch_item: "{index} - [{id}] {title}", batch: "[{date}] [{site}] [{type}] [{id}] {tagname}" } };
-      var define_MARKIFY_THEME_default = {};
-      var define_MARKIFY_UI_default = {};
+      var define_MARKIFY_THEME_default = { colors: { primary: "#7c3aed", primary_hover: "#6d28d9", secondary: "#059669", secondary_hover: "#047857", success: "#22c55e", text_primary: "#e5e7eb", text_secondary: "#a78bfa" } };
+      var define_MARKIFY_UI_default = { ui: { button_text: "📥 Markify", buttons: { copy_text: "📋 Copy", download_text: "📥 Download", gap: "10px" }, indicators: { downloaded_icon: "✓ ", downloaded_tooltip: "Already downloaded", font_size_title: "1.2em" }, position: { default_right: "20px", default_top: "25%", z_index: 1e4 }, style: { border_radius: "8px", font_family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', font_size: "14px", font_weight: "600", padding: "12px 20px" }, shadows: { button_default: "0 4px 12px rgba(124, 58, 237, 0.4)", button_hover: "0 6px 16px rgba(124, 58, 237, 0.5)", copy_default: "0 4px 12px rgba(5, 150, 105, 0.4)", copy_hover: "0 6px 16px rgba(5, 150, 105, 0.5)" }, animations: { hover_transform: "translateY(-2px)", transition: "all 0.2s ease" } }, conversion: { code_block_style: "fenced", em_delimiter: "*", heading_style: "atx", link_style: "inlined", strong_delimiter: "**", remove_elements: { tags: ["aside", "footer", "header", "iframe", "nav", "script", "style"] } } };
       const theme = define_MARKIFY_THEME_default;
       const notifications = define_MARKIFY_NOTIFICATIONS_default;
       const ui = define_MARKIFY_UI_default;
@@ -9168,8 +9175,8 @@ ${rawMarkdown}`;
       }
       const defaultSettings = {
 buttonPosition: "bottom-right",
-        buttonText: ui?.ui?.button_text || "📥 Markify",
-        buttonColor: theme?.colors?.primary || "#7c3aed",
+        buttonText: ui?.ui?.button_text,
+        buttonColor: theme?.colors?.primary,
 includeImages: true,
         includeTables: true,
         includeCodeBlocks: true,
@@ -9246,7 +9253,7 @@ enabledAdapters: ["all"],
         margin: 0 0 24px 0;
         font-size: 24px;
         font-weight: 700;
-        color: ${theme?.colors?.primary || "#7c3aed"};
+        color: ${theme?.colors?.primary};
       }
       
       .markify-setting-group {
@@ -9257,7 +9264,7 @@ enabledAdapters: ["all"],
         font-size: 16px;
         font-weight: 600;
         margin: 0 0 12px 0;
-        color: ${theme?.colors?.text_secondary || "#9ca3af"};
+        color: ${theme?.colors?.text_secondary};
       }
       
       .markify-setting-item {
@@ -9274,7 +9281,7 @@ enabledAdapters: ["all"],
       
       .markify-setting-item label {
         font-size: 14px;
-        color: ${theme?.colors?.text_primary || "#f3f4f6"};
+        color: ${theme?.colors?.text_primary};
       }
       
       .markify-setting-item input[type="checkbox"] {
@@ -9311,12 +9318,12 @@ enabledAdapters: ["all"],
       }
       
       .markify-btn-primary {
-        background: ${theme?.colors?.primary || "#7c3aed"};
+        background: ${theme?.colors?.primary};
         color: white;
       }
       
       .markify-btn-primary:hover {
-        background: ${theme?.colors?.primary_hover || "#6d28d9"};
+        background: ${theme?.colors?.primary_hover};
       }
       
       .markify-btn-secondary {
@@ -10200,9 +10207,9 @@ enabledAdapters: ["all"],
       let routeGeneration = 0;
       async function configuredBatchDelay(signal) {
         const delay = notifications?.delays?.batch_item;
-        const min = typeof delay === "object" ? delay.min_ms ?? 1e3 : 1e3;
-        const max = typeof delay === "object" ? delay.max_ms ?? 3e3 : 3e3;
-        const jitter = typeof delay === "object" ? delay.jitter ?? 0.25 : 0.25;
+        const min = typeof delay === "object" ? delay.min_ms : 1e3;
+        const max = typeof delay === "object" ? delay.max_ms : 3e3;
+        const jitter = typeof delay === "object" ? delay.jitter : 0.25;
         const base = min + Math.random() * Math.max(0, max - min);
         const milliseconds = Math.max(0, Math.round(base * (1 + (Math.random() * 2 - 1) * jitter)));
         await new Promise((resolve, reject) => {
@@ -10247,7 +10254,7 @@ enabledAdapters: ["all"],
           notify: (text2) => GM.notification({
             text: text2,
             title: pkg?.package?.strings?.app_title_batch,
-            timeout: notifications?.timeouts?.long || 5e3
+            timeout: notifications?.timeouts?.long
           })
         });
         if (generation !== routeGeneration) {
@@ -10273,11 +10280,11 @@ enabledAdapters: ["all"],
           },
           includeFrontmatter: true,
           conversion: {
-            headingStyle: ui?.conversion?.heading_style || "atx",
-            codeBlockStyle: ui?.conversion?.code_block_style || "fenced",
-            emDelimiter: ui?.conversion?.em_delimiter || "*",
-            strongDelimiter: ui?.conversion?.strong_delimiter || "**",
-            linkStyle: ui?.conversion?.link_style || "inlined",
+            headingStyle: ui?.conversion?.heading_style,
+            codeBlockStyle: ui?.conversion?.code_block_style,
+            emDelimiter: ui?.conversion?.em_delimiter,
+            strongDelimiter: ui?.conversion?.strong_delimiter,
+            linkStyle: ui?.conversion?.link_style,
             removeElements: ui?.conversion?.remove_elements?.tags || ["script", "style", "nav", "header", "footer", "aside", "iframe"]
           }
         });
@@ -10319,7 +10326,7 @@ enabledAdapters: ["all"],
         setTimeout(() => {
           document.body.removeChild(a2);
           URL.revokeObjectURL(url2);
-        }, notifications?.delays?.cleanup || 100);
+        }, notifications?.delays?.cleanup);
       }
       function routeFor(url2) {
         return classifyRegistryRoute(url2, getProfiles());
@@ -10339,7 +10346,7 @@ enabledAdapters: ["all"],
           const adapter = captured.adapter;
           const filenameTemplate = profile?.filename.single ?? templates?.filename?.single ?? "{title}";
           const { applyFilenameTemplate: applyFilenameTemplate2 } = await __vitePreload(async () => {
-            const { applyFilenameTemplate: applyFilenameTemplate3 } = await module.import('./index-xyhz2gY2-CPtAJysL.js');
+            const { applyFilenameTemplate: applyFilenameTemplate3 } = await module.import('./index-CSxXCQYp-36jprHnZ.js');
             return { applyFilenameTemplate: applyFilenameTemplate3 };
           }, true ? void 0 : void 0);
           const filename = applyFilenameTemplate2(filenameTemplate, {
@@ -10378,14 +10385,14 @@ enabledAdapters: ["all"],
           if (controller.signal.aborted) return;
           console.error("Failed to convert page:", error2);
           GM.notification({
-            text: notifications?.messages?.conversion_failed || "Failed to convert page",
+            text: notifications?.messages?.conversion_failed,
             title: pkg?.package?.strings?.app_title,
-            timeout: notifications?.timeouts?.long || 5e3
+            timeout: notifications?.timeouts?.long
           });
         } finally {
           if (activeSingleAbort === controller) activeSingleAbort = null;
           if (activeButton) {
-            activeButton.textContent = activeButton === downloadButton ? ui?.ui?.buttons?.download_text || "📥 Markify" : ui?.ui?.buttons?.copy_text || "📋 Copy";
+            activeButton.textContent = activeButton === downloadButton ? ui?.ui?.buttons?.download_text : ui?.ui?.buttons?.copy_text;
             activeButton = null;
           }
         }
@@ -10406,11 +10413,11 @@ enabledAdapters: ["all"],
           if (titleElement) {
             const indicator = document.createElement("span");
             indicator.dataset.markifyOwned = "history";
-            indicator.textContent = ui?.ui?.indicators?.downloaded_icon || "✓";
-            indicator.title = ui?.ui?.indicators?.downloaded_tooltip || "Already downloaded";
+            indicator.textContent = ui?.ui?.indicators?.downloaded_icon;
+            indicator.title = ui?.ui?.indicators?.downloaded_tooltip;
             indicator.style.cssText = `
-                color: ${theme?.colors?.success || "#22c55e"};
-                font-size: ${ui?.ui?.indicators?.font_size_title || "1.2em"};
+                color: ${theme?.colors?.success};
+                font-size: ${ui?.ui?.indicators?.font_size_title};
                 margin-right: 6px;
                 font-weight: bold;
             `;
@@ -10425,11 +10432,11 @@ enabledAdapters: ["all"],
         container.id = "markify-container";
         Object.assign(container.style, {
           position: "fixed",
-          top: ui?.ui?.position?.default_top || "20px",
-          right: ui?.ui?.position?.default_right || "20px",
-          zIndex: String(ui?.ui?.position?.z_index || 9999),
+          top: ui?.ui?.position?.default_top,
+          right: ui?.ui?.position?.default_right,
+          zIndex: String(ui?.ui?.position?.z_index),
           display: "flex",
-          gap: ui?.ui?.buttons?.gap || "8px",
+          gap: ui?.ui?.buttons?.gap,
           flexDirection: "row",
           cursor: "move",
           userSelect: "none"
@@ -10479,34 +10486,34 @@ enabledAdapters: ["all"],
           container.style.right = "auto";
         }
         const baseButtonStyle = {
-          padding: ui?.ui?.style?.padding || "10px 18px",
+          padding: ui?.ui?.style?.padding,
           border: "none",
-          borderRadius: ui?.ui?.style?.border_radius || "8px",
-          fontSize: ui?.ui?.style?.font_size || "14px",
-          fontWeight: ui?.ui?.style?.font_weight || "600",
+          borderRadius: ui?.ui?.style?.border_radius,
+          fontSize: ui?.ui?.style?.font_size,
+          fontWeight: ui?.ui?.style?.font_weight,
           cursor: "pointer",
-          transition: ui?.ui?.animations?.transition || "all 0.2s ease",
-          fontFamily: ui?.ui?.style?.font_family || '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+          transition: ui?.ui?.animations?.transition,
+          fontFamily: ui?.ui?.style?.font_family,
           color: "white"
         };
         const downloadBtn = document.createElement("button");
-        downloadBtn.textContent = ui?.ui?.buttons?.download_text || "📥 Markify";
+        downloadBtn.textContent = ui?.ui?.buttons?.download_text;
         downloadButton = downloadBtn;
         downloadBtn.id = "markify-download-btn";
         Object.assign(downloadBtn.style, {
           ...baseButtonStyle,
-          backgroundColor: theme?.colors?.primary || "#7c3aed",
-          boxShadow: ui?.ui?.shadows?.button_default || "0 2px 4px rgba(0,0,0,0.1)"
+          backgroundColor: theme?.colors?.primary,
+          boxShadow: ui?.ui?.shadows?.button_default
         });
         downloadBtn.addEventListener("mouseenter", () => {
-          downloadBtn.style.backgroundColor = theme?.colors?.primary_hover || "#6d28d9";
-          downloadBtn.style.transform = ui?.ui?.animations?.hover_transform || "translateY(-2px)";
-          downloadBtn.style.boxShadow = ui?.ui?.shadows?.button_hover || "0 4px 8px rgba(0,0,0,0.2)";
+          downloadBtn.style.backgroundColor = theme?.colors?.primary_hover;
+          downloadBtn.style.transform = ui?.ui?.animations?.hover_transform;
+          downloadBtn.style.boxShadow = ui?.ui?.shadows?.button_hover;
         });
         downloadBtn.addEventListener("mouseleave", () => {
-          downloadBtn.style.backgroundColor = theme?.colors?.primary || "#7c3aed";
+          downloadBtn.style.backgroundColor = theme?.colors?.primary;
           downloadBtn.style.transform = "translateY(0)";
-          downloadBtn.style.boxShadow = ui?.ui?.shadows?.button_default || "0 2px 4px rgba(0,0,0,0.1)";
+          downloadBtn.style.boxShadow = ui?.ui?.shadows?.button_default;
         });
         downloadBtn.addEventListener("click", () => {
           if (activeSingleAbort) return;
@@ -10514,22 +10521,22 @@ enabledAdapters: ["all"],
           void handleDownload("download");
         });
         const copyBtn = document.createElement("button");
-        copyBtn.textContent = ui?.ui?.buttons?.copy_text || "📋 Copy";
+        copyBtn.textContent = ui?.ui?.buttons?.copy_text;
         copyBtn.id = "markify-copy-btn";
         Object.assign(copyBtn.style, {
           ...baseButtonStyle,
-          backgroundColor: theme?.colors?.secondary || "#059669",
-          boxShadow: ui?.ui?.shadows?.copy_default || "0 2px 4px rgba(0,0,0,0.1)"
+          backgroundColor: theme?.colors?.secondary,
+          boxShadow: ui?.ui?.shadows?.copy_default
         });
         copyBtn.addEventListener("mouseenter", () => {
-          copyBtn.style.backgroundColor = theme?.colors?.secondary_hover || "#047857";
-          copyBtn.style.transform = ui?.ui?.animations?.hover_transform || "translateY(-2px)";
-          copyBtn.style.boxShadow = ui?.ui?.shadows?.copy_hover || "0 4px 8px rgba(0,0,0,0.2)";
+          copyBtn.style.backgroundColor = theme?.colors?.secondary_hover;
+          copyBtn.style.transform = ui?.ui?.animations?.hover_transform;
+          copyBtn.style.boxShadow = ui?.ui?.shadows?.copy_hover;
         });
         copyBtn.addEventListener("mouseleave", () => {
-          copyBtn.style.backgroundColor = theme?.colors?.secondary || "#059669";
+          copyBtn.style.backgroundColor = theme?.colors?.secondary;
           copyBtn.style.transform = "translateY(0)";
-          copyBtn.style.boxShadow = ui?.ui?.shadows?.copy_default || "0 2px 4px rgba(0,0,0,0.1)";
+          copyBtn.style.boxShadow = ui?.ui?.shadows?.copy_default;
         });
         copyBtn.addEventListener("click", () => {
           if (activeSingleAbort) return;
@@ -10559,14 +10566,14 @@ enabledAdapters: ["all"],
           }, void 0 );
           const stats = await getDownloadStats2();
           GM.notification({
-            text: formatMessage(notifications?.messages?.stats_summary || "Total: {total} | Single: {single} | Batch: {batch} | Tracked: {tracked}", {
+            text: formatMessage(notifications?.messages?.stats_summary, {
               total: count,
               single: stats.single,
               batch: stats.batch,
               tracked: stats.total
             }),
             title: pkg?.package?.strings?.app_title_stats,
-            timeout: notifications?.timeouts?.long || 5e3
+            timeout: notifications?.timeouts?.long
           });
         });
         GM.registerMenuCommand(pkg?.package?.menu?.history, async () => {
@@ -10583,25 +10590,25 @@ Recent:
 ${summary || "No history yet"}`);
         });
         GM.registerMenuCommand(pkg?.package?.menu?.clear_history, async () => {
-          if (confirm(notifications?.messages?.clear_history_confirm || "Clear download history?")) {
+          if (confirm(notifications?.messages?.clear_history_confirm)) {
             const { clearHistory: clearHistory2 } = await __vitePreload(async () => {
               const { clearHistory: clearHistory3 } = await Promise.resolve().then(() => downloadHistory);
               return { clearHistory: clearHistory3 };
             }, void 0 );
             await clearHistory2();
             GM.notification({
-              text: notifications?.messages?.history_cleared || "History cleared",
+              text: notifications?.messages?.history_cleared,
               title: pkg?.package?.strings?.app_title,
-              timeout: notifications?.timeouts?.short || 2e3
+              timeout: notifications?.timeouts?.short
             });
           }
         });
         GM.registerMenuCommand(pkg?.package?.menu?.reset_stats, async () => {
           await GM.setValue("markify_stats", 0);
           GM.notification({
-            text: notifications?.messages?.stats_reset || "Stats reset",
+            text: notifications?.messages?.stats_reset,
             title: pkg?.package?.strings?.app_title,
-            timeout: notifications?.timeouts?.short || 2e3
+            timeout: notifications?.timeouts?.short
           });
         });
         GM.registerMenuCommand("📤 Export Configuration", async () => {
@@ -10648,13 +10655,13 @@ ${summary || "No history yet"}`);
   };
 }));
 
-System.register("./index-xyhz2gY2-CPtAJysL.js", ['./__monkey.entry-Bv5Kf1YQ.js'], (function (exports, module) {
+System.register("./index-CSxXCQYp-36jprHnZ.js", ['./__monkey.entry-CY3VXLb5.js'], (function (exports, module) {
   'use strict';
   var applyFilenameTemplate;
   return {
     setters: [module => {
       applyFilenameTemplate = module.a;
-      exports({ ConversionError: module.C, LogLevel: module.L, Logger: module.b, adapterLogger: module.c, applyCommentTemplate: module.d, applyDocumentTemplate: module.e, applyFilenameTemplate: module.a, batchLogger: module.f, builtInAdapters: module.g, classifyRegistryRoute: module.h, classifyRoute: module.i, contentEngines: module.j, convert: module.k, createProfileAdapter: module.l, defaultTemplates: module.m, extractIdFromUrl: module.n, extractMainContent: module.o, fetch1Point3AcresContent: module.p, fetchDiscourseRawContent: module.q, fetchForumApiContent: module.p, fetchUSCardForumContent: module.q, fetchViaJinaReader: module.r, findProfileAdapter: module.s, findSiteAdapter: module.t, formatDate: module.u, formatMessage: module.v, generateFrontmatter: module.w, getAdapterConfig: module.x, getBuiltInAdapters: module.y, getConfig: module.z, getProfileAdapters: module.A, hasSiteApi: module.B, interpolate: module.D, listAdapters: module.E, logger: module.F, matchesPattern: module.G, parseForumPosts: module.H, replacePlaceholders: module.I, sanitizeFilename: module.J, setConfig: module.K });
+      exports({ ConversionError: module.C, LogLevel: module.L, Logger: module.b, adapterLogger: module.c, applyCommentTemplate: module.d, applyDocumentTemplate: module.e, applyFilenameTemplate: module.a, batchLogger: module.f, builtInAdapters: module.g, classifyRegistryRoute: module.h, classifyRoute: module.i, contentEngines: module.j, convert: module.k, createProfileAdapter: module.l, defaultTemplates: module.m, extractIdFromUrl: module.n, extractMainContent: module.o, fetch1Point3AcresContent: module.p, fetchDiscourseRawContent: module.q, fetchForumApiContent: module.p, fetchUSCardForumContent: module.q, fetchViaJinaReader: module.r, findProfileAdapter: module.s, findSiteAdapter: module.t, formatDate: module.u, formatMessage: module.v, generateFrontmatter: module.w, getAdapterConfig: module.x, getBuiltInAdapters: module.y, getConfig: module.z, getProfileAdapters: module.A, hasSiteApi: module.B, interpolate: module.D, listAdapters: module.E, logger: module.F, matchesPattern: module.G, parseForumPosts: module.H, replacePlaceholders: module.I, routeLogsToStderr: module.J, sanitizeFilename: module.K, setConfig: module.M });
     }],
     execute: (function () {
 
@@ -10668,7 +10675,7 @@ System.register("./index-xyhz2gY2-CPtAJysL.js", ['./__monkey.entry-Bv5Kf1YQ.js']
       function getUserAgent(override) {
         if (override) return override;
         const nav = globalThis.navigator;
-        if (nav?.userAgent) {
+        if (nav?.userAgent && typeof globalThis.document !== "undefined") {
           return nav.userAgent;
         }
         try {

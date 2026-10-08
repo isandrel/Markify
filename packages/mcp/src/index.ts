@@ -16,11 +16,12 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
-import { convert, listAdapters, hasSiteApi, getConfig, setConfig } from '@markify/core';
+import { convert, listAdapters, hasSiteApi, getConfig, setConfig, routeLogsToStderr } from '@markify/core';
 import type { HttpFetcher, MinimalDocument } from '@markify/core';
 import { buildHeaders, humanDelay } from '@markify/core/utils/http';
 import { loadConfigFromDisk } from '@markify/core/config/disk';
 
+routeLogsToStderr();
 setConfig(loadConfigFromDisk());
 
 // ─── HTTP fetcher with real User-Agent ───────────────────────────────

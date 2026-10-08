@@ -11,11 +11,12 @@
  * Run `markify <command> -h` for command-specific help.
  */
 
-import { convert, listAdapters, hasSiteApi, getConfig, setConfig } from '@markify/core';
+import { convert, listAdapters, hasSiteApi, getConfig, setConfig, routeLogsToStderr } from '@markify/core';
 import type { HttpFetcher, ConvertStrategy } from '@markify/core';
 import { buildHeaders } from '@markify/core/utils/http';
 import { loadConfigFromDisk } from '@markify/core/config/disk';
 
+routeLogsToStderr();
 setConfig(loadConfigFromDisk());
 
 const VERSION = String((getConfig().package as { package?: { version?: string } } | undefined)?.package?.version ?? 'unknown');

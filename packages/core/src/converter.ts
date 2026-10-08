@@ -109,8 +109,10 @@ export async function convert(options: ConvertOptions): Promise<ConvertResult> {
 
     const siteApiResult = await trySiteApi(adapter, url, fetcher, adapterConfig, signal, onProgress);
     if (siteApiResult !== null) {
+        // CLI/MCP pass a parsed page instead of a snapshot; APIs without metadata still need its title and tags.
+        const pageMetadata = !metadataSnapshot && doc && adapter?.extractMetadata ? await adapter.extractMetadata(doc, url) : {};
         return buildResult(siteApiResult.markdown, adapter, url, templates, includeFrontmatter,
-            adapter?.includesFrontmatter ?? false, { ...metadataSnapshot, ...siteApiResult.metadata }, adapterConfig);
+            adapter?.includesFrontmatter ?? false, { ...pageMetadata, ...metadataSnapshot, ...siteApiResult.metadata }, adapterConfig);
     }
 
     // ─── Step 2: Try Jina Reader (api-first / api-only) ──────────────
