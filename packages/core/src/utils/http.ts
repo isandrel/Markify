@@ -24,9 +24,10 @@ export function getUserAgent(override?: string): string {
     // 1. Explicit override from caller (adapter-specific TOML http.user_agent)
     if (override) return override;
 
-    // 2. Real browser UA (userscript — this IS the real thing)
+    // 2. Real browser UA (userscript — this IS the real thing). Bun and Node also
+    //    define navigator ("Bun/1.x", "Node.js/22"), so require a DOM as well.
     const nav = (globalThis as Record<string, unknown>).navigator as { userAgent?: string } | undefined;
-    if (nav?.userAgent) {
+    if (nav?.userAgent && typeof (globalThis as Record<string, unknown>).document !== 'undefined') {
         return nav.userAgent;
     }
 

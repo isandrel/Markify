@@ -78,7 +78,7 @@ export {
 export { applyFilenameTemplate } from './utils/filename';
 export type { FilenameContext } from './utils/filename';
 
-export { Logger, LogLevel, logger, batchLogger, adapterLogger } from './utils/logger';
+export { Logger, LogLevel, logger, batchLogger, adapterLogger, routeLogsToStderr } from './utils/logger';
 
 export { getUserAgent, humanDelay, sleep, buildHeaders } from './utils/http';
 export type { DelayConfig } from './utils/http';

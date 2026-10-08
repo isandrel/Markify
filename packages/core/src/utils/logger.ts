@@ -10,6 +10,15 @@ export enum LogLevel {
     ERROR = 3,
 }
 
+/** Destination for debug/info lines; CLI and MCP keep stdout for Markdown and JSON-RPC. */
+let infoSink: (...args: any[]) => void = (...args) => console.log(...args);
+let debugSink: (...args: any[]) => void = (...args) => console.debug(...args);
+
+/** Sends every logger's debug/info output to stderr. */
+export function routeLogsToStderr(): void {
+    infoSink = debugSink = (...args) => console.error(...args);
+}
+
 export class Logger {
     private level: LogLevel = LogLevel.INFO;
     private prefix: string;
@@ -24,13 +33,13 @@ export class Logger {
 
     debug(message: string, ...args: any[]): void {
         if (this.level <= LogLevel.DEBUG) {
-            console.debug(`[${this.prefix}:DEBUG]`, message, ...args);
+            debugSink(`[${this.prefix}:DEBUG]`, message, ...args);
         }
     }
 
     info(message: string, ...args: any[]): void {
         if (this.level <= LogLevel.INFO) {
-            console.log(`[${this.prefix}]`, message, ...args);
+            infoSink(`[${this.prefix}]`, message, ...args);
         }
     }
 
