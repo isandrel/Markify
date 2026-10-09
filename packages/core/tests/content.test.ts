@@ -93,6 +93,21 @@ describe('BBCode bodies', () => {
         // HTML bodies are unaffected: their newlines are insignificant whitespace.
         expect(bodyToMarkdown('<p>a\nb</p>', 'html')).toBe('a b');
     });
+
+    test('attachments become images or links, and [email] becomes a mailto link', async () => {
+        const { bodyToMarkdown } = await import('../src/markdown');
+        const files = new Map([
+            ['626734', { url: 'https://oss.example/a.png', image: true }],
+            ['7', { url: 'https://oss.example/r.pdf', name: 'resume [v2].pdf', image: false }],
+        ]);
+        expect(bodyToMarkdown('see [attach]626734[/attach] and [attach]7[/attach]', 'bbcode', files))
+            .toBe('see ![](https://oss.example/a.png) and [resume v2.pdf](https://oss.example/r.pdf)');
+        // Unknown or unmapped attachments are named, not left as a bare number.
+        expect(bodyToMarkdown('[attach]99[/attach]', 'bbcode', files)).toBe('*attachment 99*');
+        expect(bodyToMarkdown('[attach]99[/attach]', 'bbcode')).toBe('*attachment 99*');
+        expect(bodyToMarkdown('[email]ho@example.com[/email] or [email=hr@example.com]HR[/email]', 'bbcode'))
+            .toBe('[ho@example.com](mailto:ho@example.com) or [HR](mailto:hr@example.com)');
+    });
 });
 
 describe('nested replies (楼中楼)', () => {

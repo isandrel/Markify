@@ -42,6 +42,7 @@ export const RICH_BODY = [
     '    return sorted(nums)[/code]',
     'Prep: [url=https://example.org/guide]the guide[/url]',
     '[img]https://example.org/offer.png[/img]',
+    'Uploaded: [attach]555[/attach] [attach]556[/attach] Contact: [email]hr@example.org[/email]',
     'Literal tokens: $& $1 {title} 😀',
 ].join('\n');
 
@@ -229,6 +230,8 @@ function api(url: URL): FakeResponse {
         const thread: Record<string, unknown> = {
             subject: data.subject, author: data.author, message_bbcode: data.bbcode,
             dateline: EPOCH, lastpost: EPOCH + 3600, views: 4321, replies: data.replies, favtimes: 7,
+            // [attach]555[/attach] is an image; 556 is a file that is not returned (e.g. members only).
+            attachment_list: [{ aid: 555, filename: '', isimage: 1, url: 'https://oss.example.org/offer-letter.png' }],
         };
         if (data.missingSubject) delete thread.subject;
         return json({ errno: data.errno ?? 0, thread });
