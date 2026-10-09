@@ -41,9 +41,16 @@ pattern = '^/search/?$'
 query_keys = ["q", "page", "expanded"]
 
 [[routes]]
+name = "latest"
+kind = "listing"
+pattern = '^/(latest|new|top|hot)/?$'
+id_group = 1
+query_keys = ["order", "ascending", "period", "page"]
+
+[[routes]]
 name = "home"
 kind = "entry"
-pattern = '^/(?:latest|top|categories)?/?$'
+pattern = '^/(?:categories)?/?$'
 
 [runtime]
 poll_ms = 500
@@ -55,7 +62,7 @@ label_selector = "h1"
 
 [[batch.layouts]]
 name = "topic-list"
-route_names = ["category", "tag"]
+route_names = ["category", "tag", "latest"]
 root_selector = "#main-outlet"
 row_selector = "tr.topic-list-item"
 link_selector = 'a.title[href*="/t/"], a.raw-topic-link[href*="/t/"]'
@@ -100,7 +107,10 @@ patterns = [
 # How to extract metadata from the page (for frontmatter)
 
 [metadata]
-# Regex to clean the page title (removes site name suffix)
+# The topic title element; Discourse's page title is "Topic - Category - Site".
+title_selectors = ["#topic-title .fancy-title", "#topic-title h1"]
+
+# Fallback: regex to clean the page title (removes site name suffix)
 title_cleanup = '[\s\-]+(美国信用卡指南|US Card Forum)$'
 
 # Default tags

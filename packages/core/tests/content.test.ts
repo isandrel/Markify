@@ -152,3 +152,14 @@ describe('nested replies (楼中楼)', () => {
         await expect(fetchForumApiContent('123', fetcher, acres, undefined, { signal: controller.signal })).rejects.toMatchObject({ code: 'ABORTED' });
     });
 });
+
+describe('page titles', () => {
+    test('title element first, then document.title without the site suffix', async () => {
+        const { pageTitle } = await import('../src/adapters/title');
+        const profile = profiles.uscardforum;
+        const doc = (title: string, body = '') => ({ title, querySelector: (selector: string) => selector === '#topic-title .fancy-title' && body ? { textContent: body } : null }) as any;
+        expect(pageTitle(doc('Amex offer - 信用卡 - 美国信用卡指南', '  Amex\n offer '), profile)).toBe('Amex offer');
+        expect(pageTitle(doc('Amex offer - 美国信用卡指南'), profile)).toBe('Amex offer');
+        expect(pageTitle(doc('Topic - 开发调优 - LINUX DO', '[开源] Topic'), profiles.linuxdo)).toBe('[开源] Topic');
+    });
+});
