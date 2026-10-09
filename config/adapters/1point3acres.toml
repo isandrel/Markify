@@ -150,6 +150,7 @@ updated_at = "lastpost"          # Unix timestamp
 views      = "views"
 replies    = "replies"
 favorites  = "favtimes"
+attachments = "attachment_list"  # Files that [attach]{id}[/attach] in the content refers to
 
 # Post/comment field mapping
 [api.fields.post]
@@ -159,6 +160,14 @@ content    = "message_bbcode"
 posted_at  = "dateline"          # Unix timestamp
 children       = "replies.data"   # Nested reply preview (first few)
 children_count = "replies.count"  # Total nested replies of the post
+attachments    = "attachment_list"
+
+# One entry of an attachment list
+[api.fields.attachment]
+id    = "aid"
+url   = "url"
+name  = "filename"
+image = "isimage"                # 1 for images, which are embedded; other files become links
 
 # ─── Metadata Configuration ──────────────────────────────────────────
 

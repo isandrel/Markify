@@ -30,20 +30,35 @@ export function createTurndownService(config?: ConversionConfig): TurndownServic
 
 const BLOCK_TAG = /\n*(<\/?(?:blockquote|p|pre|ul|ol|li|table|thead|tbody|tr|td|th|h[1-6])\b[^>]*>)\n*/g;
 
+/** A post attachment, keyed by the id that `[attach]id[/attach]` refers to. */
+export interface Attachment { url: string; name?: string; image?: boolean }
+
+/** Forum-specific tags @bbob has no rule for, rewritten into ones it has. */
+function expandForumTags(body: string, attachments?: ReadonlyMap<string, Attachment>): string {
+    return body
+        .replace(/\[attach\]\s*(\d+)\s*\[\/attach\]/gi, (_, id: string) => {
+            const file = attachments?.get(id);
+            if (!file) return `[i]attachment ${id}[/i]`;
+            return file.image ? `[img]${file.url}[/img]` : `[url=${file.url}]${file.name?.replace(/[[\]]/g, '') || `attachment ${id}`}[/url]`;
+        })
+        .replace(/\[email\]([^\[\]\s]+)\[\/email\]/gi, '[url=mailto:$1]$1[/url]')
+        .replace(/\[email=([^\]\s]+)\]([\s\S]*?)\[\/email\]/gi, '[url=mailto:$1]$2[/url]');
+}
+
 /**
  * BBCode line breaks are content, unlike HTML whitespace. Keep them as <br> in
  * text, drop the ones that only separate block tags, and fence [code] blocks.
  */
-function bbcodeToHtml(body: string): string {
-    const html = bbob(body.replace(/\r\n?/g, '\n'), presetHTML5());
+function bbcodeToHtml(body: string, attachments?: ReadonlyMap<string, Attachment>): string {
+    const html = bbob(expandForumTags(body.replace(/\r\n?/g, '\n'), attachments), presetHTML5());
     return html.split(/(<pre>[\s\S]*?<\/pre>)/).map(part => part.startsWith('<pre>')
         ? part.replace(/^<pre>([\s\S]*)<\/pre>$/, '<pre><code>$1</code></pre>')
         : part.replace(BLOCK_TAG, '$1').replace(/\n/g, '<br>')).join('');
 }
 
-export function bodyToMarkdown(body: string, format: string): string {
+export function bodyToMarkdown(body: string, format: string, attachments?: ReadonlyMap<string, Attachment>): string {
     if (format === 'markdown') return body;
-    const html = format === 'bbcode' ? bbcodeToHtml(body) : body;
+    const html = format === 'bbcode' ? bbcodeToHtml(body, attachments) : body;
     return createTurndownService().turndown(html);
 }
 

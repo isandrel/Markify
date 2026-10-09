@@ -4,7 +4,7 @@ import type { ApiConversionContext, HttpFetcher } from '../types';
 import { getAdapterConfig, interpolate } from '../config';
 import { classifyRoute } from './routes';
 import { ConversionError, assertNotAborted } from '../errors';
-import { bodyToMarkdown, renderFrontmatter, renderTemplate } from '../markdown';
+import { bodyToMarkdown, renderFrontmatter, renderTemplate, type Attachment } from '../markdown';
 import {
     field, readPath, record, isRecord, textField, numberField, dateField, parseJson,
     requestOptions, request, requireOk, pageDelay, type JsonRecord,
@@ -28,6 +28,28 @@ export const onePoint3AcresAdapter: SiteAdapter = {
         return fetchForumApiContent(route.id, fetcher, config, context?.onProgress, context);
     },
 };
+
+/**
+ * Attachments of one thread or post, keyed by id, when the profile maps them
+ * (`fields.attachments` / `fields.post.attachments` plus `fields.attachment`).
+ * Malformed entries are skipped; the body then names the attachment instead.
+ */
+function attachmentsOf(item: unknown, mapping: JsonRecord, fields: JsonRecord): Map<string, Attachment> | undefined {
+    const shape = fields.attachment;
+    if (typeof mapping.attachments !== 'string' || !isRecord(shape)) return undefined;
+    const list = readPath(item, mapping.attachments);
+    if (!Array.isArray(list)) return undefined;
+    const files = new Map<string, Attachment>();
+    for (const entry of list) {
+        const id = typeof shape.id === 'string' ? readPath(entry, shape.id) : undefined;
+        const url = typeof shape.url === 'string' ? readPath(entry, shape.url) : undefined;
+        if ((typeof id !== 'string' && typeof id !== 'number') || typeof url !== 'string' || !/^https?:\/\//.test(url)) continue;
+        const name = typeof shape.name === 'string' ? readPath(entry, shape.name) : undefined;
+        const image = typeof shape.image === 'string' ? readPath(entry, shape.image) : undefined;
+        files.set(String(id), { url, name: typeof name === 'string' ? name : undefined, image: image === true || image === 1 || image === '1' });
+    }
+    return files;
+}
 
 /**
  * Exports only after every page validates and pagination terminates. Reply totals
@@ -130,7 +152,7 @@ export async function fetchForumApiContent(
             let nested = thread.replies.map(reply => renderTemplate(replyTemplate, {
                 author: textField(field(reply, 'author', postFields), 'reply.author'),
                 date: dateField(field(reply, 'posted_at', postFields), 'reply.posted_at'),
-                content: quote(bodyToMarkdown(textField(field(reply, 'content', postFields), 'reply.content', true), format)),
+                content: quote(bodyToMarkdown(textField(field(reply, 'content', postFields), 'reply.content', true), format, attachmentsOf(reply, postFields, fields))),
                 delimiter,
             })).join('\n');
             if (thread.missing) nested += `${nested ? '\n' : ''}${renderTemplate(gapTemplate, { missing: thread.missing, reason: thread.reason ?? 'not returned by the API' })}`;
@@ -138,7 +160,7 @@ export async function fetchForumApiContent(
             const values = {
                 author: textField(field(post, 'author', postFields), 'post.author'),
                 date: dateField(field(post, 'posted_at', postFields), 'post.posted_at'),
-                content: bodyToMarkdown(textField(field(post, 'content', postFields), 'post.content'), format),
+                content: bodyToMarkdown(textField(field(post, 'content', postFields), 'post.content'), format, attachmentsOf(post, postFields, fields)),
                 index: index + 1, delimiter, nested,
             };
             // A customised comment template without {nested} still keeps the replies.
@@ -154,7 +176,7 @@ export async function fetchForumApiContent(
     };
     const frontmatter = renderFrontmatter(textField(record(config.frontmatter, 'frontmatter').template, 'frontmatter.template'), values);
     const result = renderTemplate(textField(record(config.document, 'document').template, 'document.template'), {
-        ...values, frontmatter, content: bodyToMarkdown(content, format), comments, delimiter, date: postedAt,
+        ...values, frontmatter, content: bodyToMarkdown(content, format, attachmentsOf(thread, fields, fields)), comments, delimiter, date: postedAt,
     });
     context.onMetadata?.({
         title, author, id: threadId, source, date: postedAt, downloaded: downloadedAt,

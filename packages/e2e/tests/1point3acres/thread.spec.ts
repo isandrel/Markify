@@ -44,6 +44,7 @@ test.describe('single thread export', () => {
         expect(text).toContain('```\ndef solve(nums):\n    return sorted(nums)\n```');
         expect(text).toContain('Prep: [the guide](https://example.org/guide)');
         expect(text).toContain('![](https://example.org/offer.png)');
+        expect(text).toContain('Uploaded: ![](https://oss.example.org/offer-letter.png) *attachment 556* Contact: [hr@example.org](mailto:hr@example.org)');
         expect(text).toContain('Literal tokens: $& $1 {title} 😀');
 
         // 25 top-level comments plus 5 nested replies, each under its own post.
