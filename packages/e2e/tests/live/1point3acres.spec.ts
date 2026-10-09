@@ -1,7 +1,7 @@
 /**
  * Real-site checks for 1Point3Acres, logged out and public content only.
  *
- * Project `live-1point3acres` runs this against www.1point3acres.com (scheduled
+ * Project `live` runs this against www.1point3acres.com (scheduled
  * in .github/workflows/live-e2e.yml); project `live-dryrun` runs the same file
  * against the offline fixtures so the spec itself stays correct in normal CI.
  * Every request is paced and a run touches about a dozen threads.
@@ -10,7 +10,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parse as parseToml } from '@iarna/toml';
 import { parse as parseYaml } from 'yaml';
-import { test, expect, repoRoot, type MarkifyBrowser } from '../../support/harness';
+import { test, expect, repoRoot, skipBlocked, type MarkifyBrowser } from '../../support/harness';
 import { runCli, tempDir } from '../../support/processes';
 import { P3A } from '../../fixtures';
 
@@ -54,16 +54,9 @@ async function loadFeed(markify: MarkifyBrowser): Promise<string[] | string> {
     return feedCache;
 }
 
-/** Same policy as MarkifyBrowser.open(): skip, or fail where the runner's network should be accepted. */
-function pageBlocked(reason: string): never {
-    if (process.env.MARKIFY_E2E_BLOCKED === 'fail') throw new Error(reason);
-    test.skip(true, reason);
-    throw new Error(reason);
-}
-
 async function feedIds(markify: MarkifyBrowser): Promise<string[]> {
     const feed = await loadFeed(markify);
-    return typeof feed === 'string' ? pageBlocked(feed) : feed;
+    return typeof feed === 'string' ? skipBlocked(feed) : feed;
 }
 
 /** Feed threads whose thread endpoint answers anonymously, preferring a few replies. */

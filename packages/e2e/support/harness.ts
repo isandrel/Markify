@@ -96,6 +96,25 @@ export type NetworkMode = 'fixtures' | 'live';
 const CHALLENGE = /just a moment|attention required|access denied|captcha|请稍候|请稍等|安全验证|正在验证/i;
 export const BLOCKED = 'Blocked or unavailable';
 
+/**
+ * A live site refused us (bot protection or outage): skip the test, or fail it on
+ * runners whose network the site should accept (MARKIFY_E2E_BLOCKED=fail).
+ */
+export function skipBlocked(reason: string): never {
+    if (process.env.MARKIFY_E2E_BLOCKED === 'fail') throw new Error(reason);
+    base.info().skip(true, reason);
+    throw new Error(reason);
+}
+
+/**
+ * Whether a live response is a bot-protection interstitial rather than the resource:
+ * an HTML 403/503. A JSON or plain-text 403 is the site itself refusing (e.g. a
+ * restricted topic), which is a real result.
+ */
+export function isChallenge(status: number, body: string): boolean {
+    return (status === 403 || status === 503) && /^\s*<(!doctype|html)/i.test(body);
+}
+
 export interface RecordedRequest { via: 'page' | 'gm' | 'blocked'; url: string; method: string; headers: Record<string, string>; anonymous?: boolean }
 /** Per-test replacement for a fixture response; 'hang' never answers. */
 export type Override = (url: string) => FakeResponse | 'hang' | Promise<FakeResponse | 'hang'>;
@@ -210,10 +229,7 @@ export class MarkifyBrowser {
      */
     async open(url: string): Promise<void> {
         const blocked = await this.tryOpen(url);
-        if (blocked) {
-            if (process.env.MARKIFY_E2E_BLOCKED === 'fail') throw new Error(blocked);
-            test.info().skip(true, blocked);
-        }
+        if (blocked) skipBlocked(blocked);
     }
 
     /** Like open(), but returns the reason instead of throwing when the live site blocks the page. */

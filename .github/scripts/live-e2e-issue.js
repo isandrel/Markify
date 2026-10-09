@@ -1,12 +1,12 @@
 /**
- * Keeps one tracking issue in sync with the live 1Point3Acres checks:
+ * Keeps one tracking issue in sync with the live real-site checks:
  * opened (or commented on) when they fail, closed when they pass again.
  * Called from .github/workflows/live-e2e.yml through actions/github-script.
  */
 const fs = require('fs');
 
 const LABEL = 'live-e2e';
-const TITLE = 'Live E2E failing: 1Point3Acres';
+const TITLE = 'Live E2E failing';
 
 /** Failing tests, plus skipped ones and notes (annotations) worth showing in the run summary. */
 function readReport(reportPath) {
@@ -48,12 +48,12 @@ module.exports = async ({ github, context, core, outcome, reportPath }) => {
 
     if (failed) {
         const body = [
-            `Live checks against www.1point3acres.com failed in [run ${context.runId}](${runUrl}).`,
+            `Live checks against the real sites failed in [run ${context.runId}](${runUrl}).`,
             '',
             failures.length ? failures.join('\n') : '- No failing test was recorded; the run log has details.',
             '',
-            'The run\'s `live-e2e-report` artifact has traces plus `discover-main.html`, `thread.json` and `posts.json` samples',
-            'for updating `config/adapters/1point3acres.toml` and `packages/e2e/fixtures/sites/1point3acres.ts`.',
+            'The run\'s `live-e2e-report` artifact has traces plus page, API and export samples for updating',
+            'the site profiles in `config/adapters/` and the fixtures in `packages/e2e/fixtures/sites/`.',
             'A "Blocked or unavailable" failure means bot protection or an outage rather than a Markify change.',
         ].join('\n');
         if (existing) {
@@ -75,7 +75,7 @@ module.exports = async ({ github, context, core, outcome, reportPath }) => {
     }
 
     await core.summary
-        .addHeading(failed ? 'Live 1Point3Acres checks failed' : 'Live 1Point3Acres checks passed', 3)
+        .addHeading(failed ? 'Live checks failed' : 'Live checks passed', 3)
         .addRaw(failures.join('\n'))
         .addRaw(notes.length ? `\n\n**Notes**\n${notes.join('\n')}\n` : '')
         .addLink('Run', runUrl)

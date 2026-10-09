@@ -10,6 +10,7 @@ test.describe('userscript metadata', () => {
     test('activation, connect hosts and grants are generated from the profiles', () => {
         expect(metadata.matches).toEqual([
             'https://instant.1point3acres.com/thread/*',
+            'https://linux.do/*',
             'https://www.1point3acres.com/bbs/thread-*',
             'https://www.1point3acres.com/home/*',
             'https://www.uscardforum.com/*',

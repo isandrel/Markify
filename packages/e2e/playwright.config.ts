@@ -7,7 +7,7 @@ import type { NetworkMode } from './support/harness';
  * `--project=<site id>`; a new site adds a fixture module, a tests/<site id>/
  * folder and an entry here.
  *
- * `live-1point3acres` reaches the real site, so it only exists when
+ * `live` reaches the real sites, so it only exists when
  * MARKIFY_E2E_LIVE=1 (scheduled workflow); `live-dryrun` runs the same spec
  * offline in every normal run.
  */
@@ -32,11 +32,12 @@ export default defineConfig<{ network: NetworkMode }>({
     projects: [
         { name: '1point3acres', testDir: './tests/1point3acres' },
         { name: 'uscardforum', testDir: './tests/uscardforum' },
+        { name: 'linuxdo', testDir: './tests/linuxdo' },
         { name: 'userscript', testDir: './tests/userscript' },
         { name: 'tools', testDir: './tests/tools' },
         { name: 'live-dryrun', testDir: './tests/live', fullyParallel: false, use: { network: 'fixtures' } },
         ...(live ? [{
-            name: 'live-1point3acres',
+            name: 'live',
             testDir: './tests/live',
             fullyParallel: false,
             timeout: 180_000,
