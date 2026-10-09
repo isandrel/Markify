@@ -31,10 +31,13 @@ const test$ = test.extend<{ mcp: { client: Client; call: (name: string, args?: R
 });
 
 test$.describe('markify MCP server (stdio)', () => {
-    test$('advertises its identity and five tools', async ({ mcp }) => {
+    test$('advertises its identity and tools', async ({ mcp }) => {
         expect(mcp.client.getServerVersion()).toMatchObject({ name: 'markify', version });
         const { tools } = await mcp.client.listTools();
-        expect(tools.map(tool => tool.name).sort()).toEqual(['batch_convert', 'convert_html', 'convert_url', 'get_config', 'list_adapters']);
+        expect(tools.map(tool => tool.name).sort()).toEqual([
+            'batch_convert', 'browser_export', 'browser_export_many', 'browser_list', 'browser_status',
+            'convert_html', 'convert_url', 'get_config', 'list_adapters',
+        ]);
         const convertUrl = tools.find(tool => tool.name === 'convert_url')!;
         expect(Object.keys(convertUrl.inputSchema.properties ?? {}).sort()).toEqual(['adapter', 'include_frontmatter', 'strategy', 'url']);
     });

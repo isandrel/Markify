@@ -81,6 +81,43 @@ Limits:
 
 Page scripts (including ads) can see `window.markify` once it is on. They can't use it without the token, and they can't replace it. Only give the token to agents you trust, and only on sites you use them on. Where the browser supports [WebMCP](https://github.com/webmachinelearning/webmcp), the same commands are also registered as `markify_*` tools, and each one takes the token as an input.
 
+### From Claude Desktop, Claude Code and other MCP clients
+
+Markify's MCP server (`packages/mcp`) can use your Chrome the same way. Its `browser_*` tools connect to Chrome over the DevTools Protocol and call `window.markify` in a tab of the site. The tokens live in the server's settings, so the AI never sees them.
+
+| Tool | What it does |
+| --- | --- |
+| `browser_status` | Open tabs on Markify sites, and whether the API answers there |
+| `browser_export` | One thread (URL, or id plus `site`) as Markdown |
+| `browser_list` | Threads on the open listing tab |
+| `browser_export_many` | Up to 50 threads, optionally downloaded as a ZIP |
+
+Setup:
+
+1. **Let the server reach Chrome.** Either:
+   - turn on remote debugging at `chrome://inspect/#remote-debugging`; Chrome asks you to approve each connection; or
+   - start a separate Chrome profile with `--remote-debugging-port=9222 --user-data-dir=<folder>`, and log in to the sites there.
+
+   While remote debugging is on, any program on your computer can control that browser. Turn it off when you're done.
+2. **Copy each site's token** with **🤖 AI Console API: copy token** in the Tampermonkey menu.
+3. **Add the server** to your client, with the tokens in its environment:
+
+   ```json
+   {
+     "mcpServers": {
+       "markify": {
+         "command": "bun",
+         "args": ["run", "/path/to/Markify/packages/mcp/src/index.ts"],
+         "env": { "MARKIFY_TOKENS": "1point3acres=mfy_…,linuxdo=mfy_…" }
+       }
+     }
+   }
+   ```
+
+   For Claude Code: `claude mcp add markify --env MARKIFY_TOKENS=1point3acres=mfy_… -- bun run /path/to/Markify/packages/mcp/src/index.ts`.
+
+The server finds Chrome by itself. To point it somewhere else, set `MARKIFY_BROWSER` to `http://127.0.0.1:<port>` or a `ws://` DevTools URL. Keep a tab of the site open; listings need a listing tab. When a tool fails, its message starts with a code (`NO_BROWSER`, `NO_TAB`, `NO_TOKEN`, `DISABLED`, `UNAUTHORIZED`) and says what to do.
+
 ## Configuration
 
 All configuration is in the `config/` directory:
