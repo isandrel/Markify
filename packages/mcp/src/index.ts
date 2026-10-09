@@ -11,6 +11,13 @@
  *   batch_convert   Convert multiple URLs in one call
  *   list_adapters   List site adapters with API capabilities
  *   get_config      Show active TOML configuration
+ *
+ * Through the user's own Chrome (logged in, past bot checks), via the
+ * userscript's token-gated window.markify:
+ *   browser_status       Open Markify-site tabs and whether the API answers there
+ *   browser_export       Export one thread
+ *   browser_list         Threads on the open listing tab
+ *   browser_export_many  Export several threads, optionally as a ZIP download
  */
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
@@ -20,6 +27,8 @@ import { convert, listAdapters, hasSiteApi, getConfig, setConfig, routeLogsToStd
 import type { HttpFetcher, MinimalDocument } from '@markify/core';
 import { buildHeaders, humanDelay } from '@markify/core/utils/http';
 import { loadConfigFromDisk } from '@markify/core/config/disk';
+import type { AdapterConfig } from '@markify/core';
+import { BrowserBridge, BrowserError, parseTokens } from './browser';
 
 routeLogsToStderr();
 setConfig(loadConfigFromDisk());
@@ -315,6 +324,84 @@ server.tool(
             }],
         };
     },
+);
+
+// ─── Browser tools: the user's own logged-in Chrome ─────────────────
+
+const browser = new BrowserBridge({
+    endpoint: process.env.MARKIFY_BROWSER || 'auto',
+    tokens: parseTokens(process.env.MARKIFY_TOKENS),
+    profiles: () => Object.values(getConfig().adapters) as AdapterConfig[],
+});
+
+const BROWSER_INTRO = 'Runs in the user\'s own Chrome through the Markify userscript, so it reaches content behind '
+    + 'login and bot protection that convert_url cannot (e.g. 1Point3Acres nested replies). Needs Chrome with remote '
+    + 'debugging on, a tab of the site open, and the site\'s token in MARKIFY_TOKENS. ';
+
+/** Browser tool results: text on success, a readable error with its code otherwise. */
+async function browserTool(work: () => Promise<string>) {
+    try {
+        return { content: [{ type: 'text' as const, text: await work() }] };
+    } catch (error) {
+        const code = error instanceof BrowserError ? `${error.code}: ` : '';
+        return { content: [{ type: 'text' as const, text: `${code}${error instanceof Error ? error.message : String(error)}` }], isError: true };
+    }
+}
+
+const exportText = (result: any): string => result.ok
+    ? `| Property | Value |\n|----------|-------|\n| Site | ${result.site} |\n| Thread | ${result.id} |\n| Filename | \`${result.filename}\` |\n| Source | Your browser (window.markify) |\n\n---\n\n${result.markdown}`
+    : `${result.error.code}: ${result.error.message}${result.id ? ` (thread ${result.id})` : ''}`;
+
+server.tool(
+    'browser_status',
+    BROWSER_INTRO + 'Lists open tabs on Markify sites, the page kind (thread or listing) and whether the API answers '
+    + 'there (ready, NO_TOKEN, DISABLED, UNAUTHORIZED, NOT_INSTALLED). Call this first when a browser tool fails.',
+    {},
+    () => browserTool(async () => JSON.stringify(await browser.status(), null, 2)),
+);
+
+server.tool(
+    'browser_export',
+    BROWSER_INTRO + 'Exports one thread as Markdown with frontmatter and every comment the user can see.',
+    {
+        target: z.string().describe('Thread URL, or a numeric thread id together with "site"'),
+        site: z.string().optional().describe('Site id (1point3acres, uscardforum, linuxdo); only needed for a bare thread id'),
+        download: z.boolean().default(false).describe('Also save the .md file in the browser and record it in download history'),
+        title: z.string().optional().describe('Title to use when the site API has none (Discourse) and the thread is not the open page'),
+    },
+    async ({ target, site, download, title }) => browserTool(async () => {
+        const result = await browser.exportThread(target, { site, download, title });
+        if (!result.ok) throw new BrowserError(result.error.code, exportText(result));
+        return exportText(result);
+    }),
+);
+
+server.tool(
+    'browser_list',
+    BROWSER_INTRO + 'Lists the threads on the open listing tab of a site (feed, category, tag, search or latest), '
+    + 'with ids, titles and whether each was downloaded before. Use the ids with browser_export_many.',
+    {
+        site: z.string().optional().describe('Site id; optional when only one site has a token'),
+        tab: z.string().optional().describe('Text the listing tab URL contains, when several are open'),
+    },
+    async ({ site, tab }) => browserTool(async () => JSON.stringify(await browser.list({ site, tab }), null, 2)),
+);
+
+server.tool(
+    'browser_export_many',
+    BROWSER_INTRO + 'Exports up to 50 threads one after another with polite delays. Failures do not stop the rest.',
+    {
+        targets: z.array(z.string()).min(1).max(50).describe('Thread URLs or ids of one site'),
+        site: z.string().optional().describe('Site id; needed when targets are bare ids and several sites have tokens'),
+        zip: z.boolean().default(false).describe('Also download a ZIP of the successful exports in the browser'),
+    },
+    async ({ targets, site, zip }) => browserTool(async () => {
+        const { results, zip: archive } = await browser.exportMany(targets, { site, zip });
+        const ok = results.filter((result: any) => result.ok).length;
+        return [`# Browser export: ${ok}/${results.length} threads${archive ? `, ZIP ${archive}` : ''}`,
+            ...results.map((result: any, index: number) => `## ${index + 1}. ${result.ok ? result.title : `Failed: ${result.id ?? targets[index]}`}\n\n${exportText(result)}`)]
+            .join('\n\n---\n\n');
+    }),
 );
 
 // ─── Start server ────────────────────────────────────────────────────
