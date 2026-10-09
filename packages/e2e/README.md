@@ -22,7 +22,7 @@ Use the local `./node_modules/.bin/playwright`, not a global `npx playwright`. T
 | `1point3acres` | `tests/1point3acres/` | Thread export on every route, BBCode, nested replies, comment pagination, API failure modes, cancellation, discover/forum/tag listings, batch ZIPs, SPA navigation, history |
 | `uscardforum` | `tests/uscardforum/` | The shared Discourse suite (`support/discourse-suite.ts`) for US Card Forum |
 | `linuxdo` | `tests/linuxdo/` | The same Discourse suite for LINUX DO |
-| `userscript` | `tests/userscript/` | Site-independent behaviour: metadata, toolbar, drag, menus, settings, config import/export/migration |
+| `userscript` | `tests/userscript/` | Site-independent behaviour: metadata, toolbar, drag, menus, settings, config import/export/migration, and the token-gated `window.markify` console API |
 | `tools` | `tests/tools/` | CLI subcommands and MCP tools |
 | `live-dryrun` | `tests/live/` | The real-site specs run against the fixtures, which keeps them correct in every run |
 | `live` | `tests/live/` | The same specs against the real sites, logged out (only when `MARKIFY_E2E_LIVE=1`) |

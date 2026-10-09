@@ -29,10 +29,11 @@
 // @grant        GM.setClipboard
 // @grant        GM.setValue
 // @grant        GM.xmlHttpRequest
+// @grant        unsafeWindow
 // ==/UserScript==
 
 
-System.register("./__entry.js", ['./__monkey.entry-CFkfyTWx.js'], (function (exports, module) {
+System.register("./__entry.js", ['./__monkey.entry-Btf-Tj-t.js'], (function (exports, module) {
 	'use strict';
 	return {
 		setters: [null],
@@ -44,7 +45,7 @@ System.register("./__entry.js", ['./__monkey.entry-CFkfyTWx.js'], (function (exp
 	};
 }));
 
-System.register("./__monkey.entry-CFkfyTWx.js", [], (function (exports, module) {
+System.register("./__monkey.entry-Btf-Tj-t.js", [], (function (exports, module) {
   'use strict';
   return {
     execute: (function () {
@@ -10306,6 +10307,306 @@ enabledAdapters: ["all"],
           }
         }
       }
+      const AGENT_API_STORAGE_KEY = "markify_agent_api_v1";
+      const MAX_BATCH = 50;
+      const AGENT_CLIENT = Symbol("markify.client");
+      const MAX_TOKEN_FAILURES = 5;
+      function normalizeAgentSettings(value) {
+        const sites = {};
+        const raw = value?.sites;
+        if (raw && typeof raw === "object") {
+          for (const [site, entry] of Object.entries(raw)) {
+            if (typeof entry?.token === "string" && entry.token.length >= 32) sites[site] = { token: entry.token, createdAt: String(entry.createdAt ?? "") };
+          }
+        }
+        return { sites };
+      }
+      function newAgentToken(random = (bytes) => crypto.getRandomValues(bytes)) {
+        return `mfy_${Array.from(random(new Uint8Array(16)), (byte) => byte.toString(16).padStart(2, "0")).join("")}`;
+      }
+      function sameToken(given, expected) {
+        let diff = given.length ^ expected.length;
+        for (let index = 0; index < expected.length; index++) diff |= (given.charCodeAt(index) || 0) ^ expected.charCodeAt(index);
+        return diff === 0;
+      }
+      const tokenSchema = { type: "string", description: "Secret token from the Markify menu (🤖 AI Console API)" };
+      const targetSchema = {
+        oneOf: [{ type: "string", description: "Thread URL on this site, or a numeric thread id" }, { type: "integer", minimum: 1 }]
+      };
+      class AgentApiError extends Error {
+        constructor(code, message) {
+          super(message);
+          this.code = code;
+          this.name = "AgentApiError";
+        }
+      }
+      function errorOf(error2) {
+        if (error2 instanceof AgentApiError) return { code: error2.code, message: error2.message };
+        const code = typeof error2?.code === "string" ? error2.code : error2?.name === "AbortError" ? "ABORTED" : "EXPORT_FAILED";
+        return { code, message: error2 instanceof Error ? error2.message : String(error2) };
+      }
+      function resolveTarget(target, profile, currentUrl) {
+        let url2;
+        if (target === void 0 || target === null || target === "") {
+          url2 = currentUrl;
+        } else if (typeof target === "number" && Number.isInteger(target) && target > 0 || typeof target === "string" && /^\d+$/.test(target)) {
+          const template2 = profile.metadata?.source_url;
+          if (!template2) throw new AgentApiError("INVALID_TARGET", `${profile.site.name} has no thread URL template; pass a full URL`);
+          url2 = interpolate(template2, { base_url: profile.site.base_url, thread_id: String(target), topic_id: String(target) });
+        } else if (typeof target === "string") {
+          url2 = target;
+        } else {
+          throw new AgentApiError("INVALID_TARGET", "Target must be a thread URL or a numeric thread id");
+        }
+        let route;
+        try {
+          route = classifyRoute(url2, profile);
+        } catch {
+          route = null;
+        }
+        if (route?.kind !== "thread" || !route.id) {
+          throw new AgentApiError("INVALID_TARGET", target === void 0 || target === null || target === "" ? "This page is not a thread; pass a thread id or URL" : `Not a ${profile.site.name} thread: ${String(target)}`);
+        }
+        return { url: url2, id: route.id };
+      }
+      function createAgentApi(host) {
+        let queue = Promise.resolve();
+        const serial = (task) => {
+          const next2 = queue.catch(() => void 0).then(task);
+          queue = next2;
+          return next2;
+        };
+        const site = () => {
+          const profile = host.profile();
+          if (!profile) throw new AgentApiError("UNSUPPORTED_SITE", "Markify has no enabled profile for this site");
+          return profile;
+        };
+        async function exportOne(target, options = {}) {
+          let profile;
+          let resolved;
+          try {
+            profile = site();
+            resolved = resolveTarget(target, profile, host.location());
+            const outcome = await host.exportThread(resolved.url, { title: options.title, download: options.download === true });
+            return { ok: true, site: profile.site.id, id: resolved.id, url: resolved.url, ...outcome };
+          } catch (error2) {
+            return { ok: false, site: profile?.site.id ?? "unknown", id: resolved?.id, url: resolved?.url, error: errorOf(error2) };
+          }
+        }
+        const commands = [
+          {
+            name: "status",
+            description: "Where the browser is: site, page kind (thread, listing, entry) and thread id, plus the API version.",
+            input: { type: "object", properties: {}, additionalProperties: false },
+            async run() {
+              const profile = host.profile();
+              let route = null;
+              try {
+                route = profile ? classifyRoute(host.location(), profile) : null;
+              } catch {
+              }
+              return {
+                version: host.version,
+                url: host.location(),
+                site: profile ? { id: profile.site.id, name: profile.site.name } : null,
+                page: route ? { kind: route.kind, route: route.name, id: route.id ?? null } : null
+              };
+            }
+          },
+          {
+            name: "export",
+            description: "Convert one thread to Markdown (with frontmatter and comments) using the logged-in session. Defaults to the current thread page. Returns the Markdown; only downloads a file when download is true.",
+            input: {
+              type: "object",
+              properties: {
+                target: targetSchema,
+                download: { type: "boolean", default: false, description: "Also save the .md file and record it in download history" },
+                title: { type: "string", description: "Title to use when the site API has none and the thread is not the open page" }
+              },
+              additionalProperties: false
+            },
+            run: (args) => serial(() => exportOne(args.target, { download: args.download, title: typeof args.title === "string" ? args.title : void 0 }))
+          },
+          {
+            name: "list",
+            description: "Threads shown on the current listing page (feed, category, tag, search, latest), with whether each was downloaded before.",
+            input: { type: "object", properties: {}, additionalProperties: false },
+            async run() {
+              const profile = site();
+              const items = await host.listRows();
+              if (!items) throw new AgentApiError("NOT_A_LISTING", "This page is not a listing; open a feed, category, tag or search page");
+              return { site: profile.site.id, url: host.location(), items };
+            }
+          },
+          {
+            name: "exportMany",
+            description: `Convert several threads (at most ${MAX_BATCH}) one after another with polite delays. Returns one result per target, in order; failures do not stop the rest. With zip true, also downloads a ZIP of the successes.`,
+            input: {
+              type: "object",
+              properties: {
+                targets: { type: "array", items: targetSchema, minItems: 1, maxItems: MAX_BATCH },
+                zip: { type: "boolean", default: false, description: "Also download a ZIP of the successful exports and record them in history" }
+              },
+              required: ["targets"],
+              additionalProperties: false
+            },
+            run: (args) => serial(async () => {
+              const targets = args.targets;
+              if (!Array.isArray(targets) || !targets.length) throw new AgentApiError("INVALID_TARGET", "targets must be a non-empty array");
+              if (targets.length > MAX_BATCH) throw new AgentApiError("TOO_MANY", `At most ${MAX_BATCH} targets per call`);
+              const titles = new Map((await host.listRows().catch(() => null) ?? []).map((item) => [item.id, item.title]));
+              const results = [];
+              for (const [index, target] of targets.entries()) {
+                const id = typeof target === "number" || /^\d+$/.test(String(target)) ? String(target) : void 0;
+                results.push(await exportOne(target, { title: id ? titles.get(id) : void 0 }));
+                if (index < targets.length - 1) await host.delay();
+              }
+              if (args.zip) {
+                const ok = results.filter((result) => result.ok);
+                if (ok.length) {
+                  const zip = await host.downloadZip(ok.map((result) => ({ id: result.id, title: result.title, markdown: result.markdown })));
+                  return { results, zip };
+                }
+              }
+              return { results };
+            })
+          },
+          {
+            name: "history",
+            description: "Threads of the current site already downloaded with Markify (read-only).",
+            input: { type: "object", properties: {}, additionalProperties: false },
+            async run() {
+              const profile = site();
+              return { site: profile.site.id, items: await host.history(profile.site.id) };
+            }
+          }
+        ];
+        let failures = 0;
+        async function authorize(token) {
+          if (failures >= MAX_TOKEN_FAILURES) throw new AgentApiError("LOCKED", "Too many wrong tokens; reload the page and copy the token from the Markify menu");
+          const profile = site();
+          const expected = await host.token(profile.site.id);
+          if (!expected) throw new AgentApiError("DISABLED", `The AI console API is off for ${profile.site.name}; enable it from the Markify menu (🤖 AI Console API)`);
+          if (typeof token !== "string" || !sameToken(token, expected)) {
+            failures++;
+            throw new AgentApiError("UNAUTHORIZED", "Wrong or revoked token; copy the current one from the Markify menu (🤖 AI Console API)");
+          }
+        }
+        const help = () => ({
+          name: "markify",
+          version: host.version,
+          usage: "The user copies a token from the Markify menu (🤖 AI Console API). Then: const m = await markify.connect(token); await m.export() on a thread page, or await m.exportMany((await m.list()).items.slice(0, 5).map(i => i.id)). Every command returns a Promise of plain JSON.",
+          commands: commands.map((command) => ({ name: command.name, description: command.description, input: command.input })),
+          errors: [
+            "DISABLED",
+            "UNAUTHORIZED",
+            "LOCKED",
+            "UNSUPPORTED_SITE",
+            "INVALID_TARGET",
+            "NOT_A_LISTING",
+            "TOO_MANY",
+            "ACCESS_DENIED",
+            "HTTP_ERROR",
+            "TIMEOUT",
+            "REPEATED_PAGE",
+            "PAGE_LIMIT",
+            "EXPORT_FAILED"
+          ]
+        });
+        async function call(token, name, args = {}) {
+          await authorize(token);
+          const command = commands.find((entry) => entry.name === name);
+          if (!command) throw new AgentApiError("UNKNOWN_COMMAND", `No command ${name}`);
+          return command.run(args);
+        }
+        const client = (token) => ({
+          [AGENT_CLIENT]: true,
+          help: async () => help(),
+          status: () => call(token, "status"),
+          export: (target, options = {}) => call(token, "export", { ...options, target }),
+          list: () => call(token, "list"),
+          exportMany: (targets, options = {}) => call(token, "exportMany", { ...options, targets }),
+          history: () => call(token, "history")
+        });
+        return {
+          help,
+          commands,
+          call,
+resetLock: () => {
+            failures = 0;
+          },
+root: {
+            help: async () => help(),
+            connect: async (token) => {
+              await authorize(token);
+              return client(token);
+            }
+          }
+        };
+      }
+      const plain = (value) => value === void 0 ? value : JSON.parse(JSON.stringify(value));
+      function installAgentApi(target, api, scope = globalThis) {
+        const exportFunction = typeof scope.exportFunction === "function" ? scope.exportFunction : void 0;
+        const cloneInto = typeof scope.cloneInto === "function" ? scope.cloneInto : void 0;
+        const pageWindow = target.wrappedJSObject ?? target;
+        const toPage = (value) => cloneInto ? cloneInto(value, target) : value;
+        const expose = (methods) => {
+          const object = exportFunction ? new target.Object() : {};
+          for (const [name, method] of Object.entries(methods)) {
+            const call = (...args) => {
+              const result = Promise.resolve().then(() => method(...args.map(plain))).then(
+                (value) => value?.[AGENT_CLIENT] ? expose(value) : toPage(plain(value)),
+                (error2) => {
+                  throw toPage(plain(errorOf(error2)));
+                }
+              );
+              if (!exportFunction) return result;
+              return new target.Promise(exportFunction((resolve, reject) => {
+                result.then(resolve, reject);
+              }, target));
+            };
+            if (exportFunction) exportFunction(call, object, { defineAs: name });
+            else object[name] = call;
+          }
+          if (!exportFunction) Object.freeze(object);
+          return object;
+        };
+        try {
+          Object.defineProperty(pageWindow, "markify", { value: expose(api.root), configurable: false, enumerable: false, writable: false });
+        } catch (error2) {
+          console.warn("[Markify] This page already defines window.markify; the AI console API is unavailable here", error2);
+          return false;
+        }
+        const modelContext = target.navigator?.modelContext;
+        if (typeof modelContext?.registerTool === "function") {
+          for (const command of api.commands) {
+            try {
+              modelContext.registerTool({
+                name: `markify_${command.name}`,
+                description: command.description,
+                inputSchema: {
+                  ...command.input,
+                  properties: { token: tokenSchema, ...command.input.properties },
+                  required: ["token", ...command.input.required ?? []]
+                },
+                execute: async (input) => {
+                  const { token, ...args } = plain(input ?? {});
+                  let text2;
+                  try {
+                    text2 = JSON.stringify(await api.call(token, command.name, args));
+                  } catch (error2) {
+                    text2 = JSON.stringify({ ok: false, error: errorOf(error2) });
+                  }
+                  return { content: [{ type: "text", text: text2 }] };
+                }
+              });
+            } catch (error2) {
+              console.warn("[Markify] WebMCP tool registration failed", command.name, error2);
+            }
+          }
+        }
+        return true;
+      }
       let downloadButton = null;
       let activeButton = null;
       let activeSingleAbort = null;
@@ -10452,8 +10753,8 @@ enabledAdapters: ["all"],
           const adapter = captured.adapter;
           const filenameTemplate = profile?.filename.single ?? templates?.filename?.single ?? "{title}";
           const { applyFilenameTemplate: applyFilenameTemplate2 } = await __vitePreload(async () => {
-            const { applyFilenameTemplate: applyFilenameTemplate3 } = await module.import('./index-Ovt6UgPi-D1gkDNZv.js');
-            return { applyFilenameTemplate: applyFilenameTemplate3 };
+            const { applyFilenameTemplate: applyFilenameTemplate22 } = await module.import('./index-VeO8E2hz-DGOuY8p2.js');
+            return { applyFilenameTemplate: applyFilenameTemplate22 };
           }, true ? void 0 : void 0);
           const filename = applyFilenameTemplate2(filenameTemplate, {
             title: metadata.title || captured.metadata.title || "untitled",
@@ -10478,8 +10779,8 @@ enabledAdapters: ["all"],
             });
             if (route?.id && profile) {
               const { markAsDownloaded: markAsDownloaded2 } = await __vitePreload(async () => {
-                const { markAsDownloaded: markAsDownloaded3 } = await Promise.resolve().then(() => downloadHistory);
-                return { markAsDownloaded: markAsDownloaded3 };
+                const { markAsDownloaded: markAsDownloaded22 } = await Promise.resolve().then(() => downloadHistory);
+                return { markAsDownloaded: markAsDownloaded22 };
               }, true ? void 0 : void 0);
               await markAsDownloaded2(route.id, profile.site.id, metadata.title || captured.metadata.title, "single");
               logger.info(`Marked ${route.id} as downloaded`);
@@ -10654,6 +10955,89 @@ enabledAdapters: ["all"],
         container.appendChild(copyBtn);
         document.body.appendChild(container);
       }
+      function currentProfile() {
+        return Object.values(getProfiles()).find((profile) => profile.enabled && profile.site.origins.includes(window.location.origin));
+      }
+      const agentHost = {
+        version: pkg?.package?.version,
+        location: () => window.location.href,
+        profile: currentProfile,
+        async exportThread(url2, options) {
+          const profile = currentProfile();
+          const route = classifyRoute(url2, profile);
+          const current = classifyRoute(window.location.href, profile);
+          const snapshot = current?.kind === "thread" && current.id === route?.id ? (await getPageMetadata(window.location.href)).metadata : { title: options.title || "Untitled", url: url2, id: route?.id, tags: profile.metadata?.tags, date: formatDate(), downloaded: formatDate() };
+          const result = await convertToMarkdown(url2, { ...snapshot, url: url2 }, profile, options.signal ?? new AbortController().signal);
+          const title = result.metadata.title || snapshot.title || "untitled";
+          const filename = applyFilenameTemplate(profile.filename.single, { title, id: route?.id, author: result.metadata.author, site: profile.site.id, date: formatDate() }) + ".md";
+          if (options.download) {
+            downloadMarkdown(result.markdown, filename);
+            if (route?.id) await markAsDownloaded(route.id, profile.site.id, title, "single");
+          }
+          return { markdown: result.markdown, filename, title, metadata: { ...result.metadata } };
+        },
+        async listRows() {
+          const profile = currentProfile();
+          if (!profile || classifyRoute(window.location.href, profile)?.kind !== "listing") return null;
+          const rows = new ProfileBatchCapability(profile, async () => null, { document, url: () => window.location.href }).extractRows();
+          const done = new Set((await getDownloadHistory()).filter((record2) => record2.site === profile.site.id).map((record2) => record2.id));
+          return rows.map((row) => ({ id: row.id, title: row.title, url: row.url, downloaded: done.has(row.id) }));
+        },
+        async history(siteId) {
+          return (await getDownloadHistory()).filter((record2) => record2.site === siteId).map(({ id, title, downloadedAt, type }) => ({ id, title, downloadedAt, type }));
+        },
+        async downloadZip(items) {
+          const profile = currentProfile();
+          const context = { site: profile.site.id, date: formatDate() };
+          const used = new Set();
+          const files = items.map((item, index) => {
+            const base = applyFilenameTemplate(profile.filename.batch_item, { ...context, id: item.id, title: item.title, index: String(index + 1).padStart(3, "0") });
+            let name = `${base}.md`;
+            if (used.has(name.toLowerCase())) name = `${base} [${item.id}].md`;
+            used.add(name.toLowerCase());
+            return { name, input: item.markdown };
+          });
+          const archive = `${applyFilenameTemplate(profile.filename.batch, context)}.zip`;
+          initiateDownload(await A(files).blob(), archive);
+          await markManyAsDownloaded(items.map(({ id, title }) => ({ id, title })), profile.site.id, "batch");
+          return archive;
+        },
+        delay: (signal) => configuredBatchDelay(signal ?? new AbortController().signal),
+        async token(siteId) {
+          return normalizeAgentSettings(await GM.getValue(AGENT_API_STORAGE_KEY, null)).sites[siteId]?.token;
+        }
+      };
+      const agentApi = createAgentApi(agentHost);
+      let agentApiInstalled = false;
+      function installAgentApiOnce() {
+        if (!agentApiInstalled) agentApiInstalled = installAgentApi(typeof unsafeWindow !== "undefined" ? unsafeWindow : window, agentApi);
+        return agentApiInstalled;
+      }
+      async function agentApiMenu(action) {
+        const profile = currentProfile();
+        if (!profile) {
+          GM.notification({ text: "Markify has no profile for this site.", title: "Markify", timeout: 3e3 });
+          return;
+        }
+        const settings = normalizeAgentSettings(await GM.getValue(AGENT_API_STORAGE_KEY, null));
+        if (action === "disable") {
+          delete settings.sites[profile.site.id];
+          await GM.setValue(AGENT_API_STORAGE_KEY, settings);
+          GM.notification({ text: `AI console API turned off for ${profile.site.name}; its token is revoked.`, title: "Markify", timeout: 4e3 });
+          return;
+        }
+        const token = settings.sites[profile.site.id]?.token ?? newAgentToken();
+        settings.sites[profile.site.id] = { token, createdAt: settings.sites[profile.site.id]?.createdAt || ( new Date()).toISOString() };
+        await GM.setValue(AGENT_API_STORAGE_KEY, settings);
+        agentApi.resetLock();
+        const installed = installAgentApiOnce();
+        await GM.setClipboard(token, "text");
+        GM.notification({
+          text: installed ? `AI console API on for ${profile.site.name}. Token copied; give it to your agent: await markify.connect(token)` : "Token copied, but this page blocks window.markify. Reload and try again.",
+          title: "Markify",
+          timeout: 6e3
+        });
+      }
       (async function main() {
         if (document.readyState === "loading") {
           await new Promise((resolve) => {
@@ -10685,8 +11069,8 @@ enabledAdapters: ["all"],
         });
         GM.registerMenuCommand(pkg?.package?.menu?.history, async () => {
           const { getDownloadHistory: getDownloadHistory2 } = await __vitePreload(async () => {
-            const { getDownloadHistory: getDownloadHistory3 } = await Promise.resolve().then(() => downloadHistory);
-            return { getDownloadHistory: getDownloadHistory3 };
+            const { getDownloadHistory: getDownloadHistory22 } = await Promise.resolve().then(() => downloadHistory);
+            return { getDownloadHistory: getDownloadHistory22 };
           }, void 0 );
           const history = await getDownloadHistory2();
           const recent = history.slice(-10).reverse();
@@ -10740,6 +11124,10 @@ ${summary || "No history yet"}`);
           GM.notification({ text: `Reset ${route.profileId} configuration. Reloading the page.`, title: "Markify", timeout: 2e3 });
           window.location.reload();
         });
+        GM.registerMenuCommand("🤖 AI Console API: copy token (turns it on for this site)", () => agentApiMenu("token"));
+        GM.registerMenuCommand("🤖 AI Console API: turn off and revoke token (this site)", () => agentApiMenu("disable"));
+        const agentSite = currentProfile();
+        if (agentSite && await agentHost.token(agentSite.site.id)) installAgentApiOnce();
         await createDownloadButton();
         const navigation = new NavigationController({
           window,
@@ -10762,7 +11150,7 @@ ${summary || "No history yet"}`);
   };
 }));
 
-System.register("./index-Ovt6UgPi-D1gkDNZv.js", ['./__monkey.entry-CFkfyTWx.js'], (function (exports, module) {
+System.register("./index-VeO8E2hz-DGOuY8p2.js", ['./__monkey.entry-Btf-Tj-t.js'], (function (exports, module) {
   'use strict';
   var applyFilenameTemplate;
   return {

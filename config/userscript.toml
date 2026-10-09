@@ -19,6 +19,8 @@ permissions = [
     "GM.setClipboard",
     "GM.setValue",
     "GM.xmlHttpRequest",
+    # window.markify, the token-gated AI console API (off until enabled per site from the menu).
+    "unsafeWindow",
 ]
 
 [userscript.compatible]
