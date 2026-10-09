@@ -22,6 +22,8 @@ const api = profile.api as Json;
 const DISCOVER = `${P3A}/home/discover/38`;
 /** Public threads to probe the API with when the discover page itself is blocked. */
 const FALLBACK_IDS = (process.env.LIVE_THREAD_IDS || '1184303').split(',').map(id => id.trim()).filter(Boolean);
+/** The forum listing the discover page renders, used for ids when the page is blocked. */
+const LISTING = 'https://api.1point3acres.com/api/forums/38/threads?is_groupid=1&ps=20&pg=1';
 const threadUrl = (id: string) => api.thread_endpoint.replace('{thread_id}', id);
 const postsUrl = (id: string, page = 1) => api.posts_endpoint.replace('{thread_id}', id)
     .replace('{page_size}', String(api.page_size)).replace('{order}', api.order).replace('{page}', String(page));
@@ -71,8 +73,21 @@ async function readableThreads(markify: MarkifyBrowser): Promise<Readable[]> {
     const statuses: string[] = [];
     const feed = await loadFeed(markify);
     // The API can be reachable even when pages are challenged; keep checking it.
-    if (typeof feed === 'string') statuses.push(`discover page blocked, probing ${FALLBACK_IDS.join(', ')}`);
-    const candidates = typeof feed === 'string' ? FALLBACK_IDS : feed.slice(0, 10);
+    let candidates = typeof feed === 'string' ? FALLBACK_IDS : feed.slice(0, 10);
+    if (typeof feed === 'string') {
+        statuses.push('discover page blocked');
+        try {
+            const listing = JSON.parse((await markify.get(LISTING)).text);
+            const threads = (Array.isArray(listing.threads) ? listing.threads : []) as Json[];
+            // A busy thread (several comment pages, nested replies) first, then ordinary ones.
+            const busy = threads.filter(t => t.replies > api.page_size && t.replies <= 100).sort((a, b) => b.replies - a.replies);
+            const ids = [...busy, ...threads.filter(t => !busy.includes(t))].map(t => String(t.tid)).filter(id => /^\d+$/.test(id));
+            if (ids.length) candidates = [...ids.slice(0, 6), ...FALLBACK_IDS];
+            statuses.push(`listing API gave ${ids.length} ids`);
+        } catch (error) {
+            statuses.push(`listing API unavailable (${String(error).split('\n')[0]}), probing ${FALLBACK_IDS.join(', ')}`);
+        }
+    }
     for (const id of candidates) {
         const response = await markify.get(threadUrl(id));
         let body: Json | undefined;
@@ -82,7 +97,7 @@ async function readableThreads(markify: MarkifyBrowser): Promise<Readable[]> {
         if (found.length >= 4) break;
     }
     expect(found.length, `No feed thread readable without login. ${statuses.join('; ')}`).toBeGreaterThan(0);
-    found.sort((a, b) => score(a) - score(b));
+    if (typeof feed !== 'string') found.sort((a, b) => score(a) - score(b));
     readableCache = found;
     return found;
 }
@@ -202,7 +217,11 @@ test.describe('1Point3Acres live site (logged out)', () => {
             expect(meta.replies).toBe(thread[api.fields.replies]);
             expect(text).not.toMatch(/\[\/?(?:b|i|u|s|url|quote|code|list|img)(?:=[^\]]*)?\]/i);
             expect(text).not.toMatch(/\bundefined\b|\[object Object\]/);
-            if (thread[api.fields.replies] > 0) expect(Number(text.match(/## Comments \((\d+)\)/)?.[1] ?? 0)).toBeGreaterThan(0);
+            // Every reply is either exported or explicitly noted as missing (e.g. nested replies behind login).
+            const exported = Number(text.match(/## Comments \((\d+)\)/)?.[1] ?? 0);
+            const missing = [...text.matchAll(/(\d+) more replies are not included/g)].reduce((sum, m) => sum + Number(m[1]), 0);
+            expect(exported + missing, `exported ${exported} + noted missing ${missing} vs replies ${thread[api.fields.replies]}`).toBeGreaterThanOrEqual(thread[api.fields.replies]);
+            if (missing) test.info().annotations.push({ type: 'replies behind login', description: `${id}: ${missing} of ${thread[api.fields.replies]}` });
             // BBCode tags Markify has no rule for yet are reported, not failed (e.g. [attach], [hide]).
             const unknown = [...new Set([...text.matchAll(/\[\/([a-z]+)\]/gi)].map(m => m[1].toLowerCase()))];
             if (unknown.length) test.info().annotations.push({ type: 'unconverted BBCode', description: `${id}: ${unknown.join(', ')}` });

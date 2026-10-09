@@ -75,7 +75,7 @@ test.describe('batch download', () => {
         });
         expect(zip.name).toBe(`1point3acres-discover-求职-${today()}.zip`);
         expect(Object.keys(zip.files).sort()).toEqual(['1001 - Offer 比较- Google vs Meta.md', '1007 - Exactly one page of replies.md']);
-        expect(zip.files['1001 - Offer 比较- Google vs Meta.md']).toContain('## Comments (25)');
+        expect(zip.files['1001 - Offer 比较- Google vs Meta.md']).toContain('## Comments (30)');
         expect(zip.files['1007 - Exactly one page of replies.md']).toContain('## Comments (20)');
 
         const notice = await markify.lastNotification('Download started for');
