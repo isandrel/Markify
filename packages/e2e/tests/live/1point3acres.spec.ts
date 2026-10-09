@@ -28,6 +28,26 @@ const threadUrl = (id: string) => api.thread_endpoint.replace('{thread_id}', id)
 const postsUrl = (id: string, page = 1) => api.posts_endpoint.replace('{thread_id}', id)
     .replace('{page_size}', String(api.page_size)).replace('{order}', api.order).replace('{page}', String(page));
 
+/** A dotted field path such as "replies.count". */
+const pick = (value: Json, path: string): unknown => path.split('.').reduce<any>((node, key) => node?.[key], value);
+
+/**
+ * Replies the comments API lists for a thread: every top-level post plus each
+ * post's nested-reply count. The thread's own counter can be higher (deleted or
+ * hidden posts stay counted), so exports are checked against this instead.
+ */
+async function listedReplies(markify: MarkifyBrowser, id: string): Promise<number> {
+    let total = 0;
+    for (let page = 1; page <= 50; page++) {
+        const response = await markify.get(postsUrl(id, page));
+        expect(response.status, `comments page ${page} of ${id}`).toBe(200);
+        const posts = JSON.parse(response.text)[api.response.posts_field] as Json[] | undefined;
+        if (!posts?.length) return total;
+        for (const post of posts) total += 1 + Number(pick(post, api.fields.post.children_count) ?? 0);
+    }
+    return total;
+}
+
 const boxIds = (page: Page) => page.locator('.markify-batch-checkbox').evaluateAll(list => list.map(box => (box as HTMLInputElement).dataset.itemId!));
 
 /** Script-level actions; a site popup over the page must not decide the result. */
@@ -200,6 +220,8 @@ test.describe('1Point3Acres live site (logged out)', () => {
 
     test('CLI converts real threads end to end through the forum API', async ({ markify }) => {
         for (const { id, thread } of (await readableThreads(markify)).slice(0, 2)) {
+            // Counted before the export, so replies posted meanwhile can only add to the export.
+            const listed = await listedReplies(markify, id);
             const out = join(tempDir(), `${id}.md`);
             const result = await runCli(['convert', `${P3A}/home/thread/${id}`, '--strategy', 'api-only', '-o', out]);
             expect(result.status, result.stderr).toBe(0);
@@ -213,7 +235,10 @@ test.describe('1Point3Acres live site (logged out)', () => {
             // Every reply is either exported or explicitly noted as missing (e.g. nested replies behind login).
             const exported = Number(text.match(/## Comments \((\d+)\)/)?.[1] ?? 0);
             const missing = [...text.matchAll(/(\d+) more replies are not included/g)].reduce((sum, m) => sum + Number(m[1]), 0);
-            expect(exported + missing, `exported ${exported} + noted missing ${missing} vs replies ${thread[api.fields.replies]}`).toBeGreaterThanOrEqual(thread[api.fields.replies]);
+            expect(exported + missing, `exported ${exported} + noted missing ${missing} vs ${listed} listed by the comments API`).toBeGreaterThanOrEqual(listed);
+            if (listed < thread[api.fields.replies]) {
+                test.info().annotations.push({ type: 'reply counter ahead of the API', description: `${id}: thread says ${thread[api.fields.replies]}, the comments API lists ${listed} (deleted or hidden posts)` });
+            }
             if (missing) test.info().annotations.push({ type: 'replies behind login', description: `${id}: ${missing} of ${thread[api.fields.replies]}` });
             // BBCode tags Markify has no rule for yet are reported, not failed (e.g. [attach], [hide]).
             const unknown = [...new Set([...text.matchAll(/\[\/([a-z]+)\]/gi)].map(m => m[1].toLowerCase()))];
