@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - "v*.*.*" # Triggers on version tags like v0.0.1, v1.2.3
+  # Or run it from the Actions tab: it tags the current main commit as v<version>.
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release, without the v (must match package.json, e.g. 0.0.4)"
+        required: true
 
 jobs:
   build-and-release:
@@ -13,19 +19,27 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Bun
-        uses: oven-sh/setup-bun@v1
+        uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Extract version from tag
+      - name: Resolve version
         id: version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          VERSION="${INPUT_VERSION:-${GITHUB_REF#refs/tags/v}}"
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then echo "::error::Not a version: $VERSION"; exit 1; fi
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
+          if [ "$VERSION" != "$PACKAGE_VERSION" ]; then echo "::error::Version $VERSION does not match package.json ($PACKAGE_VERSION)"; exit 1; fi
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "TAG=v$VERSION" >> $GITHUB_OUTPUT
 
       - name: Validate and stage release artifacts
         run: |
@@ -48,15 +62,18 @@ jobs:
           git push origin main
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v3
         with:
+          tag_name: ${{ steps.version.outputs.TAG }}
+          # The validated commit, not the dist update pushed to main above.
+          target_commitish: ${{ github.sha }}
           name: Markify v${{ steps.version.outputs.VERSION }}
           generate_release_notes: true
           files: ${{ runner.temp }}/markify-v${{ steps.version.outputs.VERSION }}.user.js
           body: |
             ## 🚀 Markify ${{ steps.version.outputs.VERSION }}
 
-            **Install:** [Click here](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/markify-v${{ steps.version.outputs.VERSION }}.user.js)
+            **Install:** [Click here](https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.TAG }}/markify-v${{ steps.version.outputs.VERSION }}.user.js)
 
             ### Changes
             See commit history for details.
@@ -73,5 +90,5 @@ jobs:
         run: |
           echo "✅ Release created successfully!"
           echo "📦 Userscript: packages/userscript/dist/markify-v${{ steps.version.outputs.VERSION }}.user.js"
-          echo "🔗 Release URL: https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}"
-          echo "🌐 Greasy Fork will sync from: https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/markify-v${{ steps.version.outputs.VERSION }}.user.js"
+          echo "🔗 Release URL: https://github.com/${{ github.repository }}/releases/tag/${{ steps.version.outputs.TAG }}"
+          echo "🌐 Greasy Fork will sync from: https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.TAG }}/markify-v${{ steps.version.outputs.VERSION }}.user.js"

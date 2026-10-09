@@ -46,10 +46,10 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Bun
-        uses: oven-sh/setup-bun@v1
+        uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
 
@@ -78,7 +78,7 @@ jobs:
 
       - name: Upload report and page samples
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: live-e2e-report
           retention-days: 14
@@ -88,7 +88,7 @@ jobs:
 
       - name: Sync tracking issue
         if: always() && github.event_name != 'pull_request'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const sync = require('./.github/scripts/live-e2e-issue.js');
