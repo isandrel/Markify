@@ -26,9 +26,9 @@ export const layoutSchema = z.strictObject({
     title_attribute: text.optional(), exclude_selectors: z.array(text).default([]),
     empty_selector: text.optional(), loading_selector: text.optional(),
 });
-const bodyVars = ['title', 'author', 'posted_at', 'updated_at', 'downloaded_at', 'url', 'views', 'replies', 'favorites', 'frontmatter', 'date', 'content', 'comments', 'index', 'delimiter', 'count'];
+const bodyVars = ['title', 'author', 'posted_at', 'updated_at', 'downloaded_at', 'url', 'views', 'replies', 'favorites', 'frontmatter', 'date', 'content', 'comments', 'index', 'delimiter', 'count', 'nested', 'missing', 'reason'];
 export const templateBlockSchema = z.strictObject({ template: template(bodyVars) });
-const endpoint = template(['base_url', 'topic_id', 'thread_id', 'page', 'page_size', 'order']);
+const endpoint = template(['base_url', 'topic_id', 'thread_id', 'post_id', 'page', 'page_size', 'order']);
 export const profileSchema = z.strictObject({
     schema_version: z.literal(1),
     engine: z.enum(['forum-json', 'discourse-raw']), transport: z.enum(['gm', 'fetch']), enabled: z.boolean().default(true),
@@ -39,18 +39,21 @@ export const profileSchema = z.strictObject({
     runtime: runtimeSchema.prefault({}),
     api: z.strictObject({
         raw_endpoint: endpoint.optional(), json_endpoint: endpoint.optional(), thread_endpoint: endpoint.optional(), posts_endpoint: endpoint.optional(),
+        /** forum-json: full nested replies of one post, when the comments page only carries a preview. */
+        nested_endpoint: endpoint.optional(),
         max_pages: z.number().int().min(1).max(1000).default(100), page_size: z.number().int().min(1).max(1000).default(20),
         page_delay: z.strictObject({ min_ms: z.number().min(0).max(60000).default(100), max_ms: z.number().min(0).max(60000).default(100), jitter: z.number().min(0).max(1).default(0) }).optional(),
         order: z.enum(['time_asc', 'time_desc', 'hot_desc']).optional(), content_format: z.enum(['bbcode', 'html', 'markdown']).optional(),
         request: z.strictObject({ credentials: z.boolean().optional(), accept: text.optional() }).optional(),
         id_extraction: z.strictObject({ patterns: z.array(text) }).optional(),
-        response: z.strictObject({ success_field: path.optional(), success_value: z.union([z.number(), z.string(), z.boolean()]).optional(), data_field: path.optional(), posts_field: path.optional() }).optional(),
+        response: z.strictObject({ success_field: path.optional(), success_value: z.union([z.number(), z.string(), z.boolean()]).optional(), data_field: path.optional(), posts_field: path.optional(), nested_posts_field: path.optional() }).optional(),
         fields: z.record(z.string(), z.union([path, z.record(z.string(), path)])).optional(),
     }),
     metadata: z.strictObject({ title_cleanup: text.optional(), tags: z.array(text).optional(), source_url: endpoint.optional() }).optional(),
     http: z.strictObject({ user_agent: text.optional() }).optional(),
     page_separator: z.string().optional(), delimiter: z.string().default('---'),
     frontmatter: templateBlockSchema.optional(), document: templateBlockSchema.optional(), comment: templateBlockSchema.optional(), comments_header: templateBlockSchema.optional(),
+    reply: templateBlockSchema.optional(), replies_gap: templateBlockSchema.optional(),
     filename: filenameSchema.prefault({ single: '[{id}] {title}', batch_item: '{index} - [{id}] {title}', batch: '[{date}] [{site}] [{type}] [{id}] {tagname}' }),
 }).superRefine((p, ctx) => {
     const fail = (key: (string | number)[], message: string) => ctx.addIssue({ code: 'custom', path: key, message });
@@ -77,7 +80,8 @@ export const profileSchema = z.strictObject({
     if (p.engine === 'forum-json' && !p.api.thread_endpoint?.includes('{thread_id}')) fail(['api', 'thread_endpoint'], 'Must include {thread_id}');
     if (p.engine === 'discourse-raw' && !p.api.raw_endpoint?.includes('{topic_id}')) fail(['api', 'raw_endpoint'], 'Must include {topic_id}');
     if (p.api.page_delay && p.api.page_delay.min_ms > p.api.page_delay.max_ms) fail(['api', 'page_delay'], 'min_ms must not exceed max_ms');
-    for (const key of ['raw_endpoint', 'json_endpoint', 'thread_endpoint', 'posts_endpoint'] as const) {
+    if (p.api.nested_endpoint && !p.api.nested_endpoint.includes('{post_id}')) fail(['api', 'nested_endpoint'], 'Must include {post_id}');
+    for (const key of ['raw_endpoint', 'json_endpoint', 'thread_endpoint', 'posts_endpoint', 'nested_endpoint'] as const) {
         if (!p.api[key]) continue;
         try {
             const url = new URL(p.api[key]!.replace('{base_url}', p.site.base_url).replace(/\{\w+\}/g, '1'));

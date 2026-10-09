@@ -31,7 +31,7 @@
 // ==/UserScript==
 
 
-System.register("./__entry.js", ['./__monkey.entry-DdE1_ntk.js'], (function (exports, module) {
+System.register("./__entry.js", ['./__monkey.entry-PwrGzOLb.js'], (function (exports, module) {
 	'use strict';
 	return {
 		setters: [null],
@@ -43,7 +43,7 @@ System.register("./__entry.js", ['./__monkey.entry-DdE1_ntk.js'], (function (exp
 	};
 }));
 
-System.register("./__monkey.entry-DdE1_ntk.js", [], (function (exports, module) {
+System.register("./__monkey.entry-PwrGzOLb.js", [], (function (exports, module) {
   'use strict';
   return {
     execute: (function () {
@@ -6791,9 +6791,9 @@ derived({
         empty_selector: text.optional(),
         loading_selector: text.optional()
       });
-      const bodyVars = ["title", "author", "posted_at", "updated_at", "downloaded_at", "url", "views", "replies", "favorites", "frontmatter", "date", "content", "comments", "index", "delimiter", "count"];
+      const bodyVars = ["title", "author", "posted_at", "updated_at", "downloaded_at", "url", "views", "replies", "favorites", "frontmatter", "date", "content", "comments", "index", "delimiter", "count", "nested", "missing", "reason"];
       const templateBlockSchema = strictObject({ template: template(bodyVars) });
-      const endpoint = template(["base_url", "topic_id", "thread_id", "page", "page_size", "order"]);
+      const endpoint = template(["base_url", "topic_id", "thread_id", "post_id", "page", "page_size", "order"]);
       const profileSchema = strictObject({
         schema_version: literal(1),
         engine: _enum(["forum-json", "discourse-raw"]),
@@ -6809,6 +6809,7 @@ derived({
           json_endpoint: endpoint.optional(),
           thread_endpoint: endpoint.optional(),
           posts_endpoint: endpoint.optional(),
+nested_endpoint: endpoint.optional(),
           max_pages: number().int().min(1).max(1e3).default(100),
           page_size: number().int().min(1).max(1e3).default(20),
           page_delay: strictObject({ min_ms: number().min(0).max(6e4).default(100), max_ms: number().min(0).max(6e4).default(100), jitter: number().min(0).max(1).default(0) }).optional(),
@@ -6816,7 +6817,7 @@ derived({
           content_format: _enum(["bbcode", "html", "markdown"]).optional(),
           request: strictObject({ credentials: boolean().optional(), accept: text.optional() }).optional(),
           id_extraction: strictObject({ patterns: array(text) }).optional(),
-          response: strictObject({ success_field: path.optional(), success_value: union([number(), string(), boolean()]).optional(), data_field: path.optional(), posts_field: path.optional() }).optional(),
+          response: strictObject({ success_field: path.optional(), success_value: union([number(), string(), boolean()]).optional(), data_field: path.optional(), posts_field: path.optional(), nested_posts_field: path.optional() }).optional(),
           fields: record$1(string(), union([path, record$1(string(), path)])).optional()
         }),
         metadata: strictObject({ title_cleanup: text.optional(), tags: array(text).optional(), source_url: endpoint.optional() }).optional(),
@@ -6827,6 +6828,8 @@ derived({
         document: templateBlockSchema.optional(),
         comment: templateBlockSchema.optional(),
         comments_header: templateBlockSchema.optional(),
+        reply: templateBlockSchema.optional(),
+        replies_gap: templateBlockSchema.optional(),
         filename: filenameSchema.prefault({ single: "[{id}] {title}", batch_item: "{index} - [{id}] {title}", batch: "[{date}] [{site}] [{type}] [{id}] {tagname}" })
       }).superRefine((p2, ctx) => {
         const fail = (key, message) => ctx.addIssue({ code: "custom", path: key, message });
@@ -6853,7 +6856,8 @@ derived({
         if (p2.engine === "forum-json" && !p2.api.thread_endpoint?.includes("{thread_id}")) fail(["api", "thread_endpoint"], "Must include {thread_id}");
         if (p2.engine === "discourse-raw" && !p2.api.raw_endpoint?.includes("{topic_id}")) fail(["api", "raw_endpoint"], "Must include {topic_id}");
         if (p2.api.page_delay && p2.api.page_delay.min_ms > p2.api.page_delay.max_ms) fail(["api", "page_delay"], "min_ms must not exceed max_ms");
-        for (const key of ["raw_endpoint", "json_endpoint", "thread_endpoint", "posts_endpoint"]) {
+        if (p2.api.nested_endpoint && !p2.api.nested_endpoint.includes("{post_id}")) fail(["api", "nested_endpoint"], "Must include {post_id}");
+        for (const key of ["raw_endpoint", "json_endpoint", "thread_endpoint", "posts_endpoint", "nested_endpoint"]) {
           if (!p2.api[key]) continue;
           try {
             const url2 = new URL(p2.api[key].replace("{base_url}", p2.site.base_url).replace(/\{\w+\}/g, "1"));
@@ -6905,6 +6909,8 @@ derived({
         frontmatter: templateBlockSchema.optional(),
         comment: templateBlockSchema.optional(),
         comments_header: templateBlockSchema.optional(),
+        reply: templateBlockSchema.optional(),
+        replies_gap: templateBlockSchema.optional(),
         filename: filenameSchema.partial().optional(),
         runtime: runtimeSchema.partial().optional()
       });
@@ -8490,20 +8496,39 @@ substrUntilChar(char) {
         }
         assertNotAborted(context.signal);
         let comments = "";
+        let exported = allPosts.length;
+        let missingTotal = 0;
         if (allPosts.length) {
           const commentTemplate = textField(record(config2.comment, "comment").template, "comment.template");
           const headerTemplate = textField(record(config2.comments_header, "comments_header").template, "comments_header.template");
-          comments = renderTemplate(headerTemplate, { count: allPosts.length, delimiter });
+          const replyTemplate = isRecord(config2.reply) && typeof config2.reply.template === "string" ? config2.reply.template : "> **{author}** - *{date}*\n>\n{content}\n";
+          const gapTemplate = isRecord(config2.replies_gap) && typeof config2.replies_gap.template === "string" ? config2.replies_gap.template : "> *{missing} more replies are not included ({reason}).*\n";
           if (api.order === "time_desc") allPosts.reverse();
-          allPosts.forEach((post, index) => {
-            comments += renderTemplate(commentTemplate, {
+          const rendered = [];
+          const replyContext = { api, postFields, responseConfig, options, fetcher, threadId, signal: context.signal, progress };
+          for (const [index, post] of allPosts.entries()) {
+            const thread2 = await collectReplies(post, replyContext);
+            exported += thread2.replies.length;
+            missingTotal += thread2.missing;
+            let nested = thread2.replies.map((reply) => renderTemplate(replyTemplate, {
+              author: textField(field(reply, "author", postFields), "reply.author"),
+              date: dateField(field(reply, "posted_at", postFields), "reply.posted_at"),
+              content: quote(bodyToMarkdown(textField(field(reply, "content", postFields), "reply.content", true), format)),
+              delimiter
+            })).join("\n");
+            if (thread2.missing) nested += `${nested ? "\n" : ""}${renderTemplate(gapTemplate, { missing: thread2.missing, reason: thread2.reason ?? "not returned by the API" })}`;
+            if (nested) nested += "\n";
+            const values2 = {
               author: textField(field(post, "author", postFields), "post.author"),
               date: dateField(field(post, "posted_at", postFields), "post.posted_at"),
               content: bodyToMarkdown(textField(field(post, "content", postFields), "post.content"), format),
               index: index + 1,
-              delimiter
-            });
-          });
+              delimiter,
+              nested
+            };
+            rendered.push(commentTemplate.includes("{nested}") ? renderTemplate(commentTemplate, values2) : renderTemplate(commentTemplate, values2) + nested);
+          }
+          comments = renderTemplate(headerTemplate, { count: exported, delimiter }) + rendered.join("");
         }
         const downloadedAt = ( new Date()).toISOString();
         const values = {
@@ -8533,10 +8558,71 @@ substrUntilChar(char) {
           source,
           date: postedAt,
           downloaded: downloadedAt,
-          commentsExported: allPosts.length,
+          commentsExported: exported,
+          commentsMissing: missingTotal,
           commentsPages: pageCount
         });
         return result;
+      }
+      function quote(markdown) {
+        return markdown.split("\n").map((line) => line ? `> ${line}` : ">").join("\n");
+      }
+      async function collectReplies(post, context) {
+        const { api, postFields } = context;
+        const childPath = typeof postFields.children === "string" ? postFields.children : void 0;
+        if (!childPath) return { replies: [], missing: 0 };
+        const preview = readPath(post, childPath);
+        const replies = Array.isArray(preview) ? preview.filter(isRecord) : [];
+        const counted = typeof postFields.children_count === "string" ? readPath(post, postFields.children_count) : void 0;
+        const total = typeof counted === "number" && Number.isFinite(counted) ? counted : replies.length;
+        let reason = total > replies.length ? context.denied : void 0;
+        const postId = field(post, "id", postFields);
+        if (!reason && total > replies.length && typeof api.nested_endpoint === "string" && (typeof postId === "string" || typeof postId === "number")) {
+          try {
+            const seen2 = new Set(replies.map((reply) => String(field(reply, "id", postFields))));
+            const pageSize = typeof api.page_size === "number" ? api.page_size : 20;
+            const maxPages = typeof api.max_pages === "number" ? api.max_pages : 100;
+            const postsPath = typeof context.responseConfig.nested_posts_field === "string" ? context.responseConfig.nested_posts_field : textField(context.responseConfig.posts_field, "api.response.posts_field");
+            for (let page = 1; page <= maxPages && seen2.size < total; page++) {
+              context.progress?.(`Fetching replies to post ${postId}`);
+              const url2 = interpolate(api.nested_endpoint, { post_id: String(postId), thread_id: context.threadId, page_size: pageSize, page });
+              const response = await request(context.fetcher, url2, context.options, { stage: "replies", page });
+              if (response.status === 401 || response.status === 403) throw new ConversionError("ACCESS_DENIED", "login required", { stage: "replies", status: response.status });
+              if (!response.ok) throw new ConversionError("HTTP_ERROR", `HTTP ${response.status}`, { stage: "replies", status: response.status });
+              let message;
+              try {
+                message = readPath(JSON.parse(response.text), "msg");
+              } catch {
+              }
+              let pageData;
+              try {
+                pageData = parseJson(response.text, context.responseConfig, "replies");
+              } catch (error2) {
+                throw new ConversionError("API_REJECTED", typeof message === "string" && message ? message : error2.message);
+              }
+              const items = readPath(pageData, postsPath);
+              if (!Array.isArray(items)) throw new ConversionError("INVALID_RESPONSE", `Expected array at ${postsPath}`);
+              let added = 0;
+              for (const item of items.filter(isRecord)) {
+                const key = String(field(item, "id", postFields));
+                if (!seen2.has(key)) {
+                  seen2.add(key);
+                  replies.push(item);
+                  added++;
+                }
+              }
+              if (items.length < pageSize || added === 0) break;
+              await pageDelay(api, context.signal);
+            }
+          } catch (error2) {
+            assertNotAborted(context.signal);
+            if (error2 instanceof ConversionError && error2.code === "ABORTED") throw error2;
+            reason = error2 instanceof Error ? error2.message : String(error2);
+            if (error2 instanceof ConversionError && error2.code === "ACCESS_DENIED") context.denied = reason;
+          }
+        }
+        replies.sort((a2, b2) => Number(field(a2, "posted_at", postFields)) - Number(field(b2, "posted_at", postFields)));
+        return { replies, missing: Math.max(0, total - replies.length), reason };
       }
       const defaultAdapter = {
         name: "Default",
@@ -9141,7 +9227,7 @@ ${rawMarkdown}`;
         }
         return metadata;
       }
-      var define_MARKIFY_CONFIG_default = { adapters: { "1point3acres": { schema_version: 1, engine: "forum-json", transport: "gm", enabled: true, site: { id: "1point3acres", name: "1Point3Acres", base_url: "https://www.1point3acres.com", origins: ["https://www.1point3acres.com", "https://instant.1point3acres.com"], aliases: ["1point3acres"] }, activation: { matches: ["https://www.1point3acres.com/home/*", "https://www.1point3acres.com/bbs/thread-*", "https://instant.1point3acres.com/thread/*"], connect: ["api.1point3acres.com"] }, routes: [{ name: "discover", kind: "listing", pattern: "^/home/discover/([^/]+)/?$", id_group: 1, origins: ["https://www.1point3acres.com"], query_keys: ["page", "sort", "order", "tab", "type"] }, { name: "forum", kind: "listing", pattern: "^/home/forum/([^/]+)/?$", id_group: 1, origins: ["https://www.1point3acres.com"], query_keys: ["page", "sort", "order", "tab", "type"] }, { name: "tag", kind: "listing", pattern: "^/home/tag/([^/]+)/?$", id_group: 1, origins: ["https://www.1point3acres.com"], query_keys: ["page", "sort", "order", "tab", "type"] }, { name: "thread", kind: "thread", pattern: "^/home/thread/(\\d+)/?$", id_group: 1, origins: ["https://www.1point3acres.com"] }, { name: "pins", kind: "thread", pattern: "^/home/pins/(\\d+)/?$", id_group: 1, origins: ["https://www.1point3acres.com"] }, { name: "bbs-thread", kind: "thread", pattern: "^/bbs/thread-(\\d+)-\\d+-\\d+\\.html$", id_group: 1, origins: ["https://www.1point3acres.com"] }, { name: "instant-thread", kind: "thread", pattern: "^/thread/(\\d+)/?$", id_group: 1, origins: ["https://instant.1point3acres.com"] }, { name: "home", kind: "entry", pattern: "^/home/?$", origins: ["https://www.1point3acres.com"] }], batch: { layouts: [{ name: "forum-thread-items", route_names: ["discover", "forum", "tag"], root_selector: "main", row_selector: '[data-sentry-component="ForumThreadItem"]', link_selector: 'a[href*="/home/thread/"]:has(h3), a[href*="/home/pins/"]:has(h3)', title_selector: "h3", title_attribute: "title", exclude_selectors: ["aside", "[data-ad]"] }, { name: "legacy-home-thread-items", route_names: ["forum", "tag"], root_selector: "main", row_selector: '[data-sentry-component="HomeThreadItem"]', link_selector: 'a[href*="/home/pins/"]', title_selector: "h3", exclude_selectors: ["aside", "[data-ad]"] }], label_selector: "main h1" }, runtime: { poll_ms: 500, debounce_ms: 100, timeout_ms: 3e4 }, api: { thread_endpoint: "https://api.1point3acres.com/api/v3/home-threads/{thread_id}", posts_endpoint: "https://api.1point3acres.com/api/threads/{thread_id}/nested-posts?ps={page_size}&order={order}&pg={page}", max_pages: 100, page_size: 20, order: "time_asc", content_format: "bbcode", id_extraction: { patterns: ["thread-(\\d+)", "/pins/(\\d+)", "/thread/(\\d+)"] }, response: { success_field: "errno", success_value: 0, data_field: "thread", posts_field: "posts" }, fields: { title: "subject", author: "author", content: "message_bbcode", posted_at: "dateline", updated_at: "lastpost", views: "views", replies: "replies", favorites: "favtimes", post: { id: "pid", author: "author", content: "message_bbcode", posted_at: "dateline" } } }, metadata: { tags: ["1point3acres", "forum"], source_url: "https://www.1point3acres.com/bbs/thread-{thread_id}-1-1.html" }, delimiter: "---", frontmatter: { template: '---\ntitle: "{title}"\nauthor: {author}\nposted_at: {posted_at}\nupdated_at: {updated_at}\ndownloaded_at: {downloaded_at}\nsource: {url}\nviews: {views}\nreplies: {replies}\nfavorites: {favorites}\ntags:\n  - 1point3acres\n  - forum\n---\n' }, document: { template: "{frontmatter}\n# {title}\n\n**Author:** {author} | **Date:** {date}\n\n---\n\n{content}\n\n---\n\n**Views:** {views} | **Replies:** {replies} | **Favorites:** {favorites}\n\n{comments}" }, comment: { template: "**{author}** - *{date}*\n\n{content}\n\n{delimiter}\n" }, comments_header: { template: "\n{delimiter}\n\n## Comments ({count})\n" }, filename: { single: "{title}", batch_item: "{id} - {title}", batch: "{site}-{type}-{tagname}-{date}" } }, uscardforum: { schema_version: 1, engine: "discourse-raw", transport: "fetch", enabled: true, site: { id: "uscardforum", name: "US Card Forum", base_url: "https://www.uscardforum.com", origins: ["https://www.uscardforum.com"], aliases: ["USCardForum"] }, activation: { matches: ["https://www.uscardforum.com/*"], connect: ["self"] }, routes: [{ name: "thread", kind: "thread", pattern: "^/t/(?:[^/]+/)?(\\d+)(?:/\\d+)?/?$", id_group: 1 }, { name: "category", kind: "listing", pattern: "^/c/([^/]+)(?:/[^/]+)*/?$", id_group: 1, query_keys: ["page", "order", "ascending", "status", "q"] }, { name: "tag", kind: "listing", pattern: "^/tags?/([^/]+)/?$", id_group: 1, query_keys: ["page", "order", "ascending"] }, { name: "search", kind: "listing", pattern: "^/search/?$", query_keys: ["q", "page", "expanded"] }, { name: "home", kind: "entry", pattern: "^/(?:latest|top|categories)?/?$" }], batch: { layouts: [{ name: "topic-list", route_names: ["category", "tag"], root_selector: "#main-outlet", row_selector: "tr.topic-list-item", link_selector: 'a.title[href*="/t/"], a.raw-topic-link[href*="/t/"]', exclude_selectors: ["aside"] }, { name: "search-results", route_names: ["search"], root_selector: "#main-outlet", row_selector: ".fps-result", link_selector: 'a.search-link[href*="/t/"]', title_selector: ".topic-title", exclude_selectors: ["aside"] }], label_selector: "h1" }, runtime: { poll_ms: 500, debounce_ms: 100, timeout_ms: 3e4 }, api: { raw_endpoint: "{base_url}/raw/{topic_id}?page={page}", json_endpoint: "{base_url}/t/{topic_id}.json?print=true&include_raw=true", max_pages: 100, page_size: 20, page_delay: { min_ms: 100, max_ms: 100, jitter: 0 }, request: { credentials: true, accept: "text/plain" }, id_extraction: { patterns: ["/t/[^/]+/(\\d+)", "/t/(\\d+)"] } }, metadata: { title_cleanup: "[\\s\\-]+(美国信用卡指南|US Card Forum)$", tags: ["uscardforum", "forum", "credit-cards"], source_url: "{base_url}/t/{topic_id}" }, page_separator: "\n\n---\n\n", delimiter: "---", filename: { single: "{title}", batch_item: "{id} - {title}", batch: "{site}-{type}-{tagname}-{date}" } } }, templates: { document: { enabled: true, template: "{frontmatter}\n\n{content}\n" }, frontmatter: { enabled: true, fields: ["author", "date", "description", "downloaded", "source", "tags", "title"] }, content: { separator: "\n\n---\n\n" }, comment: { enabled: true, template: "## Comment {index} - {author}\n**Posted:** {date}\n\n{content}\n" }, filename: { single: "[{id}] {title}", batch_item: "{index} - [{id}] {title}", batch: "[{date}] [{site}] [{type}] [{id}] {tagname}" } } };
+      var define_MARKIFY_CONFIG_default = { adapters: { "1point3acres": { schema_version: 1, engine: "forum-json", transport: "gm", enabled: true, site: { id: "1point3acres", name: "1Point3Acres", base_url: "https://www.1point3acres.com", origins: ["https://www.1point3acres.com", "https://instant.1point3acres.com"], aliases: ["1point3acres"] }, activation: { matches: ["https://www.1point3acres.com/home/*", "https://www.1point3acres.com/bbs/thread-*", "https://instant.1point3acres.com/thread/*"], connect: ["api.1point3acres.com"] }, routes: [{ name: "discover", kind: "listing", pattern: "^/home/discover/([^/]+)/?$", id_group: 1, origins: ["https://www.1point3acres.com"], query_keys: ["page", "sort", "order", "tab", "type"] }, { name: "forum", kind: "listing", pattern: "^/home/forum/([^/]+)/?$", id_group: 1, origins: ["https://www.1point3acres.com"], query_keys: ["page", "sort", "order", "tab", "type"] }, { name: "tag", kind: "listing", pattern: "^/home/tag/([^/]+)/?$", id_group: 1, origins: ["https://www.1point3acres.com"], query_keys: ["page", "sort", "order", "tab", "type"] }, { name: "thread", kind: "thread", pattern: "^/home/thread/(\\d+)/?$", id_group: 1, origins: ["https://www.1point3acres.com"] }, { name: "pins", kind: "thread", pattern: "^/home/pins/(\\d+)/?$", id_group: 1, origins: ["https://www.1point3acres.com"] }, { name: "bbs-thread", kind: "thread", pattern: "^/bbs/thread-(\\d+)-\\d+-\\d+\\.html$", id_group: 1, origins: ["https://www.1point3acres.com"] }, { name: "instant-thread", kind: "thread", pattern: "^/thread/(\\d+)/?$", id_group: 1, origins: ["https://instant.1point3acres.com"] }, { name: "home", kind: "entry", pattern: "^/home/?$", origins: ["https://www.1point3acres.com"] }], batch: { layouts: [{ name: "forum-thread-items", route_names: ["discover", "forum", "tag"], root_selector: "main", row_selector: '[data-sentry-component="ForumThreadItem"]', link_selector: 'a[href*="/home/thread/"]:has(h3), a[href*="/home/pins/"]:has(h3)', title_selector: "h3", title_attribute: "title", exclude_selectors: ["aside", "[data-ad]"] }, { name: "legacy-home-thread-items", route_names: ["forum", "tag"], root_selector: "main", row_selector: '[data-sentry-component="HomeThreadItem"]', link_selector: 'a[href*="/home/pins/"]', title_selector: "h3", exclude_selectors: ["aside", "[data-ad]"] }], label_selector: "main h1" }, runtime: { poll_ms: 500, debounce_ms: 100, timeout_ms: 3e4 }, api: { thread_endpoint: "https://api.1point3acres.com/api/v3/home-threads/{thread_id}", posts_endpoint: "https://api.1point3acres.com/api/threads/{thread_id}/nested-posts?ps={page_size}&order={order}&pg={page}", nested_endpoint: "https://api.1point3acres.com/api/posts/{post_id}/nested-posts?ps={page_size}&pg={page}", max_pages: 100, page_size: 20, order: "time_asc", content_format: "bbcode", id_extraction: { patterns: ["thread-(\\d+)", "/pins/(\\d+)", "/thread/(\\d+)"] }, response: { success_field: "errno", success_value: 0, data_field: "thread", posts_field: "posts" }, fields: { title: "subject", author: "author", content: "message_bbcode", posted_at: "dateline", updated_at: "lastpost", views: "views", replies: "replies", favorites: "favtimes", post: { id: "pid", author: "author", content: "message_bbcode", posted_at: "dateline", children: "replies.data", children_count: "replies.count" } } }, metadata: { tags: ["1point3acres", "forum"], source_url: "https://www.1point3acres.com/bbs/thread-{thread_id}-1-1.html" }, delimiter: "---", frontmatter: { template: '---\ntitle: "{title}"\nauthor: {author}\nposted_at: {posted_at}\nupdated_at: {updated_at}\ndownloaded_at: {downloaded_at}\nsource: {url}\nviews: {views}\nreplies: {replies}\nfavorites: {favorites}\ntags:\n  - 1point3acres\n  - forum\n---\n' }, document: { template: "{frontmatter}\n# {title}\n\n**Author:** {author} | **Date:** {date}\n\n---\n\n{content}\n\n---\n\n**Views:** {views} | **Replies:** {replies} | **Favorites:** {favorites}\n\n{comments}" }, comment: { template: "**{author}** - *{date}*\n\n{content}\n\n{nested}{delimiter}\n" }, comments_header: { template: "\n{delimiter}\n\n## Comments ({count})\n" }, reply: { template: "> **{author}** - *{date}*\n>\n{content}\n" }, replies_gap: { template: "> *{missing} more replies are not included ({reason}).*\n" }, filename: { single: "{title}", batch_item: "{id} - {title}", batch: "{site}-{type}-{tagname}-{date}" } }, uscardforum: { schema_version: 1, engine: "discourse-raw", transport: "fetch", enabled: true, site: { id: "uscardforum", name: "US Card Forum", base_url: "https://www.uscardforum.com", origins: ["https://www.uscardforum.com"], aliases: ["USCardForum"] }, activation: { matches: ["https://www.uscardforum.com/*"], connect: ["self"] }, routes: [{ name: "thread", kind: "thread", pattern: "^/t/(?:[^/]+/)?(\\d+)(?:/\\d+)?/?$", id_group: 1 }, { name: "category", kind: "listing", pattern: "^/c/([^/]+)(?:/[^/]+)*/?$", id_group: 1, query_keys: ["page", "order", "ascending", "status", "q"] }, { name: "tag", kind: "listing", pattern: "^/tags?/([^/]+)/?$", id_group: 1, query_keys: ["page", "order", "ascending"] }, { name: "search", kind: "listing", pattern: "^/search/?$", query_keys: ["q", "page", "expanded"] }, { name: "home", kind: "entry", pattern: "^/(?:latest|top|categories)?/?$" }], batch: { layouts: [{ name: "topic-list", route_names: ["category", "tag"], root_selector: "#main-outlet", row_selector: "tr.topic-list-item", link_selector: 'a.title[href*="/t/"], a.raw-topic-link[href*="/t/"]', exclude_selectors: ["aside"] }, { name: "search-results", route_names: ["search"], root_selector: "#main-outlet", row_selector: ".fps-result", link_selector: 'a.search-link[href*="/t/"]', title_selector: ".topic-title", exclude_selectors: ["aside"] }], label_selector: "h1" }, runtime: { poll_ms: 500, debounce_ms: 100, timeout_ms: 3e4 }, api: { raw_endpoint: "{base_url}/raw/{topic_id}?page={page}", json_endpoint: "{base_url}/t/{topic_id}.json?print=true&include_raw=true", max_pages: 100, page_size: 20, page_delay: { min_ms: 100, max_ms: 100, jitter: 0 }, request: { credentials: true, accept: "text/plain" }, id_extraction: { patterns: ["/t/[^/]+/(\\d+)", "/t/(\\d+)"] } }, metadata: { title_cleanup: "[\\s\\-]+(美国信用卡指南|US Card Forum)$", tags: ["uscardforum", "forum", "credit-cards"], source_url: "{base_url}/t/{topic_id}" }, page_separator: "\n\n---\n\n", delimiter: "---", filename: { single: "{title}", batch_item: "{id} - {title}", batch: "{site}-{type}-{tagname}-{date}" } } }, templates: { document: { enabled: true, template: "{frontmatter}\n\n{content}\n" }, frontmatter: { enabled: true, fields: ["author", "date", "description", "downloaded", "source", "tags", "title"] }, content: { separator: "\n\n---\n\n" }, comment: { enabled: true, template: "## Comment {index} - {author}\n**Posted:** {date}\n\n{content}\n" }, filename: { single: "[{id}] {title}", batch_item: "{index} - [{id}] {title}", batch: "[{date}] [{site}] [{type}] [{id}] {tagname}" } } };
       var define_MARKIFY_NOTIFICATIONS_default = { messages: { clipboard_success: "Copied to clipboard!", download_success: "Downloaded as {filename}", history_cleared: "Download history cleared", settings_reset: "Settings reset to defaults", settings_saved: "Settings saved successfully!", stats_reset: "Stats reset successfully", api_fetching: "Fetching forum content via API...", downloading: "Downloading {current}/{total}...", processing: "Processing {item}...", conversion_failed: "Failed to convert page. Check console for details.", download_failed: "Failed to create ZIP: {error}", no_files: "No files were successfully downloaded", batch_complete: "Successfully downloaded all {total} items!", batch_partial: "Downloaded {success}/{total} items. {failed} failed.", stats_summary: "Downloaded: {total} total\n{single} single | {batch} batch\nHistory: {tracked} tracked", clear_history_confirm: "Clear all download history? This cannot be undone." }, timeouts: { long: 5e3, medium: 3e3, short: 2e3 }, delays: { cleanup: 100, dom_stabilize: 1e3, batch_item: { min_ms: 1e3, max_ms: 3e3, jitter: 0.25 }, api_page: { min_ms: 500, max_ms: 1500, jitter: 0.2 } }, http: { user_agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36" } };
       var define_MARKIFY_PACKAGE_default = { author: "isandrel", description: "Convert web pages to Obsidian-formatted Markdown with YAML frontmatter", name: "Markify", repository: "https://github.com/isandrel/Markify", version: "0.0.4", strings: { app_title: "Markify", app_title_batch: "Markify Batch Download", app_title_error: "Markify Batch Download Error", app_title_stats: "Markify Stats" }, menu: { clear_history: "🗑️ Clear History", history: "📜 Download History", reset_stats: "🔄 Reset Stats", settings: "⚙️ Settings", stats: "📊 View Stats" } };
       var define_MARKIFY_TEMPLATES_default = { document: { enabled: true, template: "{frontmatter}\n\n{content}\n" }, frontmatter: { enabled: true, fields: ["author", "date", "description", "downloaded", "source", "tags", "title"] }, content: { separator: "\n\n---\n\n" }, comment: { enabled: true, template: "## Comment {index} - {author}\n**Posted:** {date}\n\n{content}\n" }, filename: { single: "[{id}] {title}", batch_item: "{index} - [{id}] {title}", batch: "[{date}] [{site}] [{type}] [{id}] {tagname}" } };
@@ -10354,7 +10440,7 @@ enabledAdapters: ["all"],
           const adapter = captured.adapter;
           const filenameTemplate = profile?.filename.single ?? templates?.filename?.single ?? "{title}";
           const { applyFilenameTemplate: applyFilenameTemplate2 } = await __vitePreload(async () => {
-            const { applyFilenameTemplate: applyFilenameTemplate3 } = await module.import('./index-BTEXTDU6-6tN0huZ2.js');
+            const { applyFilenameTemplate: applyFilenameTemplate3 } = await module.import('./index-HdAlgQM_-b8Ea20IX.js');
             return { applyFilenameTemplate: applyFilenameTemplate3 };
           }, true ? void 0 : void 0);
           const filename = applyFilenameTemplate2(filenameTemplate, {
@@ -10664,7 +10750,7 @@ ${summary || "No history yet"}`);
   };
 }));
 
-System.register("./index-BTEXTDU6-6tN0huZ2.js", ['./__monkey.entry-DdE1_ntk.js'], (function (exports, module) {
+System.register("./index-HdAlgQM_-b8Ea20IX.js", ['./__monkey.entry-PwrGzOLb.js'], (function (exports, module) {
   'use strict';
   var applyFilenameTemplate;
   return {

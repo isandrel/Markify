@@ -6,6 +6,7 @@ export const profileOverrideSchema = z.strictObject({
     enabled: z.boolean().optional(),
     document: templateBlockSchema.optional(), frontmatter: templateBlockSchema.optional(),
     comment: templateBlockSchema.optional(), comments_header: templateBlockSchema.optional(),
+    reply: templateBlockSchema.optional(), replies_gap: templateBlockSchema.optional(),
     filename: filenameSchema.partial().optional(),
     runtime: runtimeSchema.partial().optional(),
 });

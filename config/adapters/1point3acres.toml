@@ -109,6 +109,11 @@ thread_endpoint  = "https://api.1point3acres.com/api/v3/home-threads/{thread_id}
 # Placeholders: {thread_id}, {page_size}, {order}, {page}
 posts_endpoint   = "https://api.1point3acres.com/api/threads/{thread_id}/nested-posts?ps={page_size}&order={order}&pg={page}"
 
+# Full nested replies (楼中楼) of one post; the comments page only carries a preview.
+# Needs a logged-in session; without one the export notes how many replies are missing.
+# Placeholders: {post_id}, {page_size}, {page}
+nested_endpoint  = "https://api.1point3acres.com/api/posts/{post_id}/nested-posts?ps={page_size}&pg={page}"
+
 # Pagination
 max_pages  = 100                 # Safety limit
 page_size  = 20                  # Comments per page (ps parameter)
@@ -152,6 +157,8 @@ id         = "pid"
 author     = "author"
 content    = "message_bbcode"
 posted_at  = "dateline"          # Unix timestamp
+children       = "replies.data"   # Nested reply preview (first few)
+children_count = "replies.count"  # Total nested replies of the post
 
 # ─── Metadata Configuration ──────────────────────────────────────────
 
@@ -205,14 +212,28 @@ template = """{frontmatter}
 {comments}"""
 
 # Individual comment template (builds {comments} variable)
-# Variables: {author}, {date}, {content}, {index}, {delimiter}
+# Variables: {author}, {date}, {content}, {index}, {delimiter},
+#            {nested} (its nested replies, rendered with [reply] and [replies_gap])
 [comment]
 template = """
 **{author}** - *{date}*
 
 {content}
 
-{delimiter}
+{nested}{delimiter}
+"""
+
+# One nested reply. {content} is already quoted ("> " on every line).
+[reply]
+template = """> **{author}** - *{date}*
+>
+{content}
+"""
+
+# Shown under a post when some of its nested replies could not be fetched.
+# Variables: {missing}, {reason}
+[replies_gap]
+template = """> *{missing} more replies are not included ({reason}).*
 """
 
 # Comments section header (prepended to all comments)
