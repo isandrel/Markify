@@ -94,3 +94,61 @@ describe('BBCode bodies', () => {
         expect(bodyToMarkdown('<p>a\nb</p>', 'html')).toBe('a b');
     });
 });
+
+describe('nested replies (楼中楼)', () => {
+    const top = (pid: number, replies?: { count: number; data: unknown[] }) => ({ pid, author: `top${pid}`, message_bbcode: `post ${pid}`, dateline: pid, ...(replies ? { replies } : {}) });
+    const child = (pid: number) => ({ pid, author: `child${pid}`, message_bbcode: `reply ${pid}\nsecond line`, dateline: pid });
+
+    function nestedFetcher(nested: (url: string) => { status: number; body: unknown }): HttpFetcher {
+        return { get: async url => {
+            if (url.includes('/api/posts/')) { const r = nested(url); return { status: r.status, ok: r.status < 300, text: JSON.stringify(r.body) }; }
+            if (url.includes('nested-posts')) return { status: 200, ok: true, text: JSON.stringify({ errno: 0, posts: [top(10, { count: 3, data: [child(11), child(12)] }), top(20)] }) };
+            return { status: 200, ok: true, text: JSON.stringify(thread(5)) };
+        } };
+    }
+
+    test('fetches replies beyond the preview and renders them quoted under their post', async () => {
+        let metadata: Record<string, unknown> = {};
+        const result = await fetchForumApiContent('123', nestedFetcher(() => ({ status: 200, body: { errno: 0, posts: [child(11), child(12), child(13)] } })), acres, undefined, {
+            onMetadata: value => { metadata = value; },
+        });
+        expect(result).toContain('## Comments (5)');
+        expect(result.indexOf('post 10')).toBeLessThan(result.indexOf('reply 11'));
+        expect(result.indexOf('reply 13')).toBeLessThan(result.indexOf('post 20'));
+        expect(result).toContain('> **child11**');
+        expect(result).toContain('> reply 11  \n> second line');
+        expect(result).not.toContain('more replies are not included');
+        expect(metadata).toMatchObject({ commentsExported: 5, commentsMissing: 0 });
+    });
+
+    test('a login-only remainder is noted visibly instead of dropped or failing the export', async () => {
+        let metadata: Record<string, unknown> = {};
+        let asked = 0;
+        const result = await fetchForumApiContent('123', nestedFetcher(() => { asked++; return { status: 401, body: { errno: -1, msg: '请先登录' } }; }), acres, undefined, {
+            onMetadata: value => { metadata = value; },
+        });
+        expect(result).toContain('## Comments (4)');
+        expect(result).toContain('> *1 more replies are not included (login required).*');
+        expect(metadata).toMatchObject({ commentsExported: 4, commentsMissing: 1 });
+        expect(asked).toBe(1);
+    });
+
+    test('after a login refusal, later posts are noted without asking again', async () => {
+        let asked = 0;
+        const fetcher: HttpFetcher = { get: async url => {
+            if (url.includes('/api/posts/')) { asked++; return { status: 401, ok: false, text: '{"errno":-1,"msg":"请先登录"}' }; }
+            if (url.includes('nested-posts')) return { status: 200, ok: true, text: JSON.stringify({ errno: 0, posts: [top(10, { count: 3, data: [child(11)] }), top(20, { count: 5, data: [] })] }) };
+            return { status: 200, ok: true, text: JSON.stringify(thread(10)) };
+        } };
+        const result = await fetchForumApiContent('123', fetcher, acres);
+        expect(asked).toBe(1);
+        expect(result).toContain('> *2 more replies are not included (login required).*');
+        expect(result).toContain('> *5 more replies are not included (login required).*');
+    });
+
+    test('cancellation while fetching replies still aborts the export', async () => {
+        const controller = new AbortController();
+        const fetcher = nestedFetcher(() => { controller.abort(); return { status: 200, body: { errno: 0, posts: [] } }; });
+        await expect(fetchForumApiContent('123', fetcher, acres, undefined, { signal: controller.signal })).rejects.toMatchObject({ code: 'ABORTED' });
+    });
+});
