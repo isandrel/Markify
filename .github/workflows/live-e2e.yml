@@ -1,7 +1,8 @@
-name: Live E2E (1Point3Acres)
+name: Live E2E
 
-# Real-site checks, logged out and public content only. Failures open or update
-# a "live-e2e" issue; the next passing run closes it.
+# Real-site checks for 1Point3Acres, US Card Forum and LINUX DO, logged out and
+# public content only. Failures open or update a "live-e2e" issue; the next
+# passing run closes it.
 on:
   schedule:
     - cron: "23 14 * * *" # daily
@@ -9,7 +10,7 @@ on:
   push:
     branches: [main]
     paths:
-      - "config/adapters/1point3acres.toml"
+      - "config/adapters/**"
       - "packages/core/src/**"
       - "packages/userscript/src/**"
       - "packages/e2e/tests/live/**"
@@ -19,7 +20,7 @@ on:
   # Informational on PRs: shows whether a change still works on the real site.
   pull_request:
     paths:
-      - "config/adapters/1point3acres.toml"
+      - "config/adapters/**"
       - "packages/core/src/**"
       - "packages/userscript/src/**"
       - "packages/e2e/tests/live/**"
@@ -36,8 +37,8 @@ concurrency:
   cancel-in-progress: false
 
 # Repository variables (Settings → Secrets and variables → Actions → Variables):
-#   LIVE_RUNNER      runner label; default ubuntu-latest, whose IPs get the site's bot challenge,
-#                    so page checks are skipped there. Set e.g. "self-hosted" to run them for real.
+#   LIVE_RUNNER      runner label; default ubuntu-latest, whose IPs get the sites' bot challenge,
+#                    so those checks are skipped there. Set e.g. "self-hosted" to run them for real.
 #   LIVE_THREAD_IDS  comma-separated public thread ids probed when the discover page is blocked.
 jobs:
   live:
@@ -67,7 +68,7 @@ jobs:
         id: live
         continue-on-error: true
         working-directory: packages/e2e
-        run: ./node_modules/.bin/playwright test --project=live-1point3acres
+        run: ./node_modules/.bin/playwright test --project=live
         env:
           CI: "true"
           MARKIFY_E2E_LIVE: "1"

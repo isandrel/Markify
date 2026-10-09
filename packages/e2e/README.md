@@ -19,39 +19,53 @@ Use the local `./node_modules/.bin/playwright`, not a global `npx playwright`. T
 
 | Project | Folder | Covers |
 | --- | --- | --- |
-| `1point3acres` | `tests/1point3acres/` | Thread export on every route, BBCode, comment pagination, API failure modes, cancellation, discover/forum/tag listings, batch ZIPs, SPA navigation, history |
-| `uscardforum` | `tests/uscardforum/` | Thread export and category/search batch (smoke level) |
+| `1point3acres` | `tests/1point3acres/` | Thread export on every route, BBCode, nested replies, comment pagination, API failure modes, cancellation, discover/forum/tag listings, batch ZIPs, SPA navigation, history |
+| `uscardforum` | `tests/uscardforum/` | The shared Discourse suite (`support/discourse-suite.ts`) for US Card Forum |
+| `linuxdo` | `tests/linuxdo/` | The same Discourse suite for LINUX DO |
 | `userscript` | `tests/userscript/` | Site-independent behaviour: metadata, toolbar, drag, menus, settings, config import/export/migration |
 | `tools` | `tests/tools/` | CLI subcommands and MCP tools |
-| `live-dryrun` | `tests/live/` | The real-site spec run against the fixtures, which keeps it correct in every run |
-| `live-1point3acres` | `tests/live/` | The same spec against www.1point3acres.com, logged out (only when `MARKIFY_E2E_LIVE=1`) |
+| `live-dryrun` | `tests/live/` | The real-site specs run against the fixtures, which keeps them correct in every run |
+| `live` | `tests/live/` | The same specs against the real sites, logged out (only when `MARKIFY_E2E_LIVE=1`) |
+
+The Discourse suite covers raw-page joining, the clean topic title (Discourse page titles are "Topic - Category - Site"), slugless and post-number URLs, Copy, 403/404/429/500 failures, category/latest/tag/search batches, infinite-scroll rows, and history markers.
 
 ## Real-site checks
 
-`.github/workflows/live-e2e.yml` runs `live-1point3acres` daily and on pushes or PRs that touch 1Point3Acres code. It uses public threads only and covers:
+`.github/workflows/live-e2e.yml` runs the `live` project daily and on pushes or PRs that touch site profiles or site code. It uses public content only.
 
-- the thread and comments API against the profile's field mapping;
-- a real thread converted end to end by the CLI (BBCode, comments, frontmatter);
-- in the browser: discover feed extraction, single and batch export, the legacy BBS URL and client-side pagination.
+- **1Point3Acres:**
+  - the thread and comments API against the profile's field mapping;
+  - real threads converted end to end by the CLI, where every reply must be either exported or noted as missing (nested replies behind login);
+  - in the browser: discover feed, single and batch export, the legacy BBS URL and pagination.
+- **US Card Forum, LINUX DO:**
+  - `/latest.json` and the `/raw/` page contract;
+  - a real topic converted by the CLI;
+  - in the browser: the latest list and a topic export.
 
-The site serves GitHub-hosted runners a bot-protection page ("请稍候…", HTTP 403). The API checks still run there, and the browser checks are **skipped** with that reason. They are never bypassed. To run the browser checks too, register a runner on a network the site accepts (for example your own machine as a [self-hosted runner](https://docs.github.com/actions/hosting-your-own-runners)) and set these repository variables:
+Data-centre IPs (GitHub-hosted runners, cloud sandboxes) get bot-protection pages ("请稍候…" / "Just a moment…", HTTP 403) from www.1point3acres.com, and from **every** URL of both Discourse sites. 1Point3Acres' API still answers, so its API checks run. Everything that's challenged is **skipped** with that reason, never bypassed. To run it all, register a runner on a network the sites accept (for example your own machine as a [self-hosted runner](https://docs.github.com/actions/hosting-your-own-runners)) and set these repository variables:
 
 - `LIVE_RUNNER`: the runner label, for example `self-hosted`. On such a runner a blocked page fails instead of skipping.
-- `LIVE_THREAD_IDS` (optional): comma-separated public thread ids to use when the discover page is blocked. The default is `1184303`.
+- `LIVE_THREAD_IDS` (optional): comma-separated public 1Point3Acres thread ids, used when the group listing API is unavailable. The default is `1184303`.
 
 Results:
 
 - A failing scheduled or `main` run opens a `live-e2e` issue, which is commented on only when the failures change. The next passing run closes it.
-- The run summary lists skipped checks and BBCode tags that Markify does not convert yet.
-- The `live-e2e-report` artifact holds traces plus `discover-main.html`, `thread.json`, `posts.json` and `export-<id>.md` samples, so a site change can be turned into an updated profile and fixture.
+- The run summary lists skipped checks and notes (e.g. replies behind login).
+- The `live-e2e-report` artifact holds traces plus page, API and export samples, so a site change can be turned into an updated profile and fixture.
 - To run locally (needs internet): `bun run --filter @markify/e2e test:e2e:live`. Add `MARKIFY_E2E_BLOCKED=fail` to treat blocked pages as failures.
 
 ## Adding a site
 
-A site on an existing protocol (`forum-json` or `discourse-raw`) needs no harness changes:
+**Another Discourse forum** needs no new test code:
+
+1. Add `config/adapters/<site>.toml`, copied from `linuxdo.toml`, with the new origin, title cleanup and tags.
+2. Add `fixtures/sites/<site>.ts` with one `discourseSite({...})` call describing a few topics, a category, a tag, the latest list and a search, and register it in `fixtures/index.ts`.
+3. Add `tests/<site>/<site>.spec.ts` with one line: `discourseSuite({ id, spec, tags })`. Then add a project in `playwright.config.ts` and an entry in `tests/live/discourse.spec.ts`.
+
+**A site on another protocol** (`forum-json`, or a new engine) also needs no harness changes:
 
 1. Add the profile in `config/adapters/<site>.toml`, as described in `DEVELOPMENT.md`.
-2. Add `fixtures/sites/<site>.ts`. It exports a `FakeSite` (`origins` plus `respond(url)`) serving the pages, listings and API responses the profile uses. Start from `uscardforum.ts` for a small example, or `1point3acres.ts` for SPA navigation and failure modes.
+2. Add `fixtures/sites/<site>.ts`. It exports a `FakeSite` (`origins` plus `respond(url)`) serving the pages, listings and API responses the profile uses. `1point3acres.ts` is the example for SPA navigation and failure modes.
 3. Register it in `fixtures/index.ts` (`sites` array) and re-export its constants.
 4. Add `tests/<site>/*.spec.ts` using `test`/`expect` from `support/harness`, and a project entry in `playwright.config.ts`.
 
@@ -62,3 +76,4 @@ Harness helpers available to every site:
 - `markify.store` holds GM storage (seed it before `open`). `markify.notifications` and `markify.clipboard` record GM output. `markify.requests` and `markify.apiRequests(prefix)` record traffic, including `via: 'gm'` and `anonymous`.
 - `markify.intercept(url, handler)` replaces a response for one test, and `'hang'` never answers. `markify.hold(url)` pauses a request until `release()`. `markify.abortedRequests` lists cancelled GM requests.
 - `markify.runMenu(label)` invokes a registered menu command.
+- In live specs, `markify.get(url)` fetches through the same fixture/live switch. `isChallenge()` and `skipBlocked()` apply the shared bot-protection policy.

@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test, expect } from '@playwright/test';
-import { blogArticle, BLOG, JINA, P3A, P3A_API, P3A_INSTANT, USCF } from '../../fixtures';
+import { blogArticle, BLOG, JINA, LINUXDO, P3A, P3A_API, P3A_INSTANT, USCF } from '../../fixtures';
 import { runCli, serve, tempDir } from '../../support/processes';
 import { repoRoot, version } from '../../support/harness';
 
@@ -25,21 +25,21 @@ test.describe('markify CLI', () => {
 
     test('adapters and config are listed from the profile registry', async () => {
         const adapters = JSON.parse((await runCli(['adapters', '--json'])).stdout) as { name: string; hasApi: boolean; patterns: string[] }[];
-        expect(adapters.filter(a => a.hasApi).map(a => a.name)).toEqual(['1Point3Acres', 'US Card Forum']);
+        expect(adapters.filter(a => a.hasApi).map(a => a.name)).toEqual(['1Point3Acres', 'LINUX DO', 'US Card Forum']);
         expect(adapters.map(a => a.name)).toEqual(expect.arrayContaining(['Medium', 'Substack', 'Wikipedia', 'GitHub', 'Reddit', 'Dev.to']));
         expect(adapters.map(a => a.name)).not.toContain('Default');
 
         const profiles = JSON.parse((await runCli(['config', '--adapters', '--json'])).stdout);
-        expect(Object.keys(profiles).sort()).toEqual(['1point3acres', 'uscardforum']);
+        expect(Object.keys(profiles).sort()).toEqual(['1point3acres', 'linuxdo', 'uscardforum']);
         const config = JSON.parse((await runCli(['config', '--json'])).stdout);
         expect(Object.keys(config)).toEqual(expect.arrayContaining(['adapters', 'package', 'templates', 'ui', 'notifications']));
-        expect((await runCli(['config'])).stdout).toContain('Adapters loaded: 2');
+        expect((await runCli(['config'])).stdout).toContain('Adapters loaded: 3');
     });
 
     test('config is found when run from outside the repository', async () => {
         const result = await runCli(['config', '--adapters', '--json'], { cwd: tempDir() });
         expect(result.status).toBe(0);
-        expect(Object.keys(JSON.parse(result.stdout))).toHaveLength(2);
+        expect(Object.keys(JSON.parse(result.stdout))).toHaveLength(3);
     });
 
     test('convert: 1Point3Acres thread through the forum JSON API', async () => {
@@ -85,6 +85,17 @@ test.describe('markify CLI', () => {
         const raw = result.requests.filter(r => r.url.startsWith(`${USCF}/raw/`));
         expect(raw.map(r => r.url)).toEqual([1, 2, 3].map(n => `${USCF}/raw/2001?page=${n}`));
         expect(raw.every(r => r.headers.accept === 'text/plain')).toBe(true);
+    });
+
+    test('convert: LINUX DO topic through Discourse /raw/ with the clean title', async () => {
+        const result = await runCli(['convert', `${LINUXDO}/t/topic/400001`]);
+        expect(result.status).toBe(0);
+        expect(result.stderr).toContain('Adapter:    LINUX DO');
+        expect(result.stderr).toContain('Filename:   [开源] 把网页转成 Markdown 的油猴脚本.md');
+        expect(result.stdout).toMatch(/^---\ntitle: "\[开源\] 把网页转成 Markdown 的油猴脚本"\n/);
+        expect(result.stdout).toContain('  - linuxdo');
+        expect(result.stdout).toContain('第二页：感谢分享');
+        expect(result.requests.filter(r => r.url.startsWith(`${LINUXDO}/raw/`)).map(r => r.url)).toEqual([1, 2, 3].map(n => `${LINUXDO}/raw/400001?page=${n}`));
     });
 
     test('convert: generic page via Jina Reader, honouring --jina-token', async () => {
@@ -141,11 +152,11 @@ test.describe('markify CLI', () => {
 
     test('batch writes one file per URL and reports failures', async () => {
         const dir = join(tempDir(), 'out');
-        const result = await runCli(['batch', `${P3A}/home/thread/1002`, `${USCF}/t/slug/2002`, `${P3A}/home/thread/1003`, '-d', dir]);
+        const result = await runCli(['batch', `${P3A}/home/thread/1002`, `${USCF}/t/slug/2002`, `${LINUXDO}/t/topic/400002`, `${P3A}/home/thread/1003`, '-d', dir]);
         expect(result.status).toBe(0);
-        expect(readdirSync(dir).sort()).toEqual(['Chase 5-24 rule.md', 'Visa timeline 2026.md']);
+        expect(readdirSync(dir).sort()).toEqual(['Chase 5-24 rule.md', 'Visa timeline 2026.md', '求助：Docker 容器无法访问外网 - DNS 问题.md']);
         expect(readFileSync(join(dir, 'Chase 5-24 rule.md'), 'utf8')).toContain('Single page topic.');
-        expect(result.stderr).toContain('Done: 2 succeeded, 1 failed');
+        expect(result.stderr).toContain('Done: 3 succeeded, 1 failed');
         expect(result.stderr).toContain('HTTP 403 during thread');
     });
 });

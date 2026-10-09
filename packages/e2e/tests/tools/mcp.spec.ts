@@ -2,7 +2,7 @@ import { join } from 'node:path';
 import { test, expect } from '@playwright/test';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
-import { blogArticle, BLOG, P3A, USCF } from '../../fixtures';
+import { blogArticle, BLOG, LINUXDO, P3A, USCF } from '../../fixtures';
 import { mcpEntry, preload, readRequests, serve, tempDir } from '../../support/processes';
 import { repoRoot, version } from '../../support/harness';
 
@@ -43,10 +43,11 @@ test$.describe('markify MCP server (stdio)', () => {
         const adapters = (await mcp.call('list_adapters')).content[0].text;
         expect(adapters).toContain('### 1Point3Acres (🔌 **API**)');
         expect(adapters).toContain('### US Card Forum (🔌 **API**)');
+        expect(adapters).toContain('### LINUX DO (🔌 **API**)');
         expect(adapters).toContain('### Medium (📄 DOM)');
 
         const config = (await mcp.call('get_config', { section: 'adapters' })).content[0].text;
-        expect(Object.keys(JSON.parse(config.replace(/^```json\n|\n```$/g, ''))).sort()).toEqual(['1point3acres', 'uscardforum']);
+        expect(Object.keys(JSON.parse(config.replace(/^```json\n|\n```$/g, ''))).sort()).toEqual(['1point3acres', 'linuxdo', 'uscardforum']);
         expect((await mcp.call('get_config', { section: 'nope' })).content[0].text).toMatch(/Section \\"nope\\" not found\. Available: .*adapters/);
     });
 
@@ -72,6 +73,11 @@ test$.describe('markify MCP server (stdio)', () => {
         expect(topic).toContain('| Filename | `Amex Platinum offer.md` |');
         expect(topic).toContain('title: "Amex Platinum offer"');
         expect(topic).toContain('Second page reply.');
+
+        const linuxdo = (await mcp.call('convert_url', { url: `${LINUXDO}/t/topic/400002` })).content[0].text;
+        expect(linuxdo).toContain('| Adapter | LINUX DO |');
+        expect(linuxdo).toContain('title: "求助：Docker 容器无法访问外网 / DNS 问题"');
+        expect(linuxdo).toContain('试试 `--dns 1.1.1.1`。');
     });
 
     test$('convert_url via Jina Reader, DOM fallback and dom-only', async ({ mcp }) => {
