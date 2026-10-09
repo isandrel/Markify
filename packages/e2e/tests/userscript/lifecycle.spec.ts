@@ -71,7 +71,7 @@ test.describe('toolbar and configuration', () => {
     test('menu commands are registered with readable labels', async ({ markify, page }) => {
         await markify.open(`${P3A}/home/thread/1002`);
         const names = await page.evaluate(() => Object.keys((window as any).__markifyMenu));
-        expect(names).toHaveLength(8);
+        expect(names).toHaveLength(10);
         for (const name of names) expect(name, `menu label ${JSON.stringify(name)}`).not.toContain('�');
     });
 

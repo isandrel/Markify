@@ -8,8 +8,10 @@
  */
 
 import {
+    applyFilenameTemplate,
     convert,
     classifyRegistryRoute,
+    classifyRoute,
     createProfileAdapter,
     findProfileAdapter,
     findSiteAdapter,
@@ -24,8 +26,10 @@ import { getProfiles, initializeConfig, loadOverrides, notifications, pkg, reset
 import { createFetchFetcher, createProfileFetcher } from './http';
 import { NavigationController } from './navigation';
 import { ProfileBatchCapability } from './adapters/profile-batch';
-import { BatchDownloadManager } from './batch/BatchDownloadManager';
-import { configureHistoryProfiles } from './utils/download-history';
+import { BatchDownloadManager, initiateDownload } from './batch/BatchDownloadManager';
+import { configureHistoryProfiles, getDownloadHistory, markAsDownloaded, markManyAsDownloaded } from './utils/download-history';
+import { AGENT_API_STORAGE_KEY, createAgentApi, installAgentApi, newAgentToken, normalizeAgentSettings, type AgentHost } from './agent-api';
+import { downloadZip } from 'client-zip';
 
 // Global button references for progress updates
 let downloadButton: HTMLButtonElement | null = null;
@@ -435,6 +439,102 @@ async function createDownloadButton() {
     document.body.appendChild(container);
 }
 
+/** The enabled profile whose origins include the current page. */
+function currentProfile(): AdapterConfig | undefined {
+    return Object.values(getProfiles()).find(profile => profile.enabled && profile.site.origins.includes(window.location.origin));
+}
+
+const agentHost: AgentHost = {
+    version: pkg?.package?.version ?? 'dev',
+    location: () => window.location.href,
+    profile: currentProfile,
+    async exportThread(url, options) {
+        const profile = currentProfile()!;
+        const route = classifyRoute(url, profile);
+        const current = classifyRoute(window.location.href, profile);
+        // The open thread page has the real title; other threads get what the API returns.
+        const snapshot: SiteMetadata = current?.kind === 'thread' && current.id === route?.id
+            ? (await getPageMetadata(window.location.href)).metadata
+            : { title: options.title || 'Untitled', url, id: route?.id, tags: profile.metadata?.tags, date: formatDate(), downloaded: formatDate() };
+        const result = await convertToMarkdown(url, { ...snapshot, url }, profile, options.signal ?? new AbortController().signal);
+        const title = result.metadata.title || snapshot.title || 'untitled';
+        const filename = applyFilenameTemplate(profile.filename.single, { title, id: route?.id, author: result.metadata.author, site: profile.site.id, date: formatDate() }) + '.md';
+        if (options.download) {
+            downloadMarkdown(result.markdown, filename);
+            if (route?.id) await markAsDownloaded(route.id, profile.site.id, title, 'single');
+        }
+        return { markdown: result.markdown, filename, title, metadata: { ...result.metadata } };
+    },
+    async listRows() {
+        const profile = currentProfile();
+        if (!profile || classifyRoute(window.location.href, profile)?.kind !== 'listing') return null;
+        const rows = new ProfileBatchCapability(profile, async () => null, { document, url: () => window.location.href }).extractRows();
+        const done = new Set((await getDownloadHistory()).filter(record => record.site === profile.site.id).map(record => record.id));
+        return rows.map(row => ({ id: row.id, title: row.title, url: row.url, downloaded: done.has(row.id) }));
+    },
+    async history(siteId) {
+        return (await getDownloadHistory()).filter(record => record.site === siteId)
+            .map(({ id, title, downloadedAt, type }) => ({ id, title, downloadedAt, type }));
+    },
+    async downloadZip(items) {
+        const profile = currentProfile()!;
+        const context = { site: profile.site.id, date: formatDate() };
+        const used = new Set<string>();
+        const files = items.map((item, index) => {
+            const base = applyFilenameTemplate(profile.filename.batch_item, { ...context, id: item.id, title: item.title, index: String(index + 1).padStart(3, '0') });
+            let name = `${base}.md`;
+            if (used.has(name.toLowerCase())) name = `${base} [${item.id}].md`;
+            used.add(name.toLowerCase());
+            return { name, input: item.markdown };
+        });
+        const archive = `${applyFilenameTemplate(profile.filename.batch, context)}.zip`;
+        initiateDownload(await downloadZip(files).blob(), archive);
+        await markManyAsDownloaded(items.map(({ id, title }) => ({ id, title })), profile.site.id, 'batch');
+        return archive;
+    },
+    delay: signal => configuredBatchDelay(signal ?? new AbortController().signal),
+    async token(siteId) {
+        return normalizeAgentSettings(await GM.getValue(AGENT_API_STORAGE_KEY, null)).sites[siteId]?.token;
+    },
+};
+const agentApi = createAgentApi(agentHost);
+let agentApiInstalled = false;
+
+/** Defines window.markify on sites where the user enabled it (it stays until reload; a revoked token disables it). */
+function installAgentApiOnce(): boolean {
+    if (!agentApiInstalled) agentApiInstalled = installAgentApi(typeof unsafeWindow !== 'undefined' ? unsafeWindow : window, agentApi);
+    return agentApiInstalled;
+}
+
+async function agentApiMenu(action: 'token' | 'disable'): Promise<void> {
+    const profile = currentProfile();
+    if (!profile) {
+        GM.notification({ text: 'Markify has no profile for this site.', title: 'Markify', timeout: 3000 });
+        return;
+    }
+    const settings = normalizeAgentSettings(await GM.getValue(AGENT_API_STORAGE_KEY, null));
+    if (action === 'disable') {
+        delete settings.sites[profile.site.id];
+        await GM.setValue(AGENT_API_STORAGE_KEY, settings);
+        GM.notification({ text: `AI console API turned off for ${profile.site.name}; its token is revoked.`, title: 'Markify', timeout: 4000 });
+        return;
+    }
+    // Never shown in the page (prompt/alert/DOM are readable by page scripts); it only goes to the clipboard.
+    const token = settings.sites[profile.site.id]?.token ?? newAgentToken();
+    settings.sites[profile.site.id] = { token, createdAt: settings.sites[profile.site.id]?.createdAt || new Date().toISOString() };
+    await GM.setValue(AGENT_API_STORAGE_KEY, settings);
+    agentApi.resetLock();
+    const installed = installAgentApiOnce();
+    await GM.setClipboard(token, 'text');
+    GM.notification({
+        text: installed
+            ? `AI console API on for ${profile.site.name}. Token copied; give it to your agent: await markify.connect(token)`
+            : 'Token copied, but this page blocks window.markify. Reload and try again.',
+        title: 'Markify',
+        timeout: 6000,
+    });
+}
+
 /**
  * Main entry point
  */
@@ -523,6 +623,11 @@ async function createDownloadButton() {
         GM.notification({ text: `Reset ${route.profileId} configuration. Reloading the page.`, title: 'Markify', timeout: 2000 });
         window.location.reload();
     });
+
+    GM.registerMenuCommand('🤖 AI Console API: copy token (turns it on for this site)', () => agentApiMenu('token'));
+    GM.registerMenuCommand('🤖 AI Console API: turn off and revoke token (this site)', () => agentApiMenu('disable'));
+    const agentSite = currentProfile();
+    if (agentSite && await agentHost.token(agentSite.site.id)) installAgentApiOnce();
 
     // Create download button
     await createDownloadButton();
