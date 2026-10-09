@@ -3,6 +3,7 @@ import type { SiteAdapter } from './base';
 import type { ApiConversionContext, HttpFetcher } from '../types';
 import { getAdapterConfig, interpolate } from '../config';
 import { classifyRoute } from './routes';
+import { pageTitle } from './title';
 import { ConversionError, assertNotAborted } from '../errors';
 import { record, textField, numberField, requestOptions, request, requireOk, pageDelay, fetchHttpFetcher } from './protocol';
 
@@ -17,8 +18,7 @@ export const usCardForumAdapter: SiteAdapter = {
     hasApi: true,
     extractMetadata(doc, url) {
         const config = getAdapterConfig('uscardforum');
-        const title = config?.metadata?.title_cleanup ? doc.title.replace(new RegExp(config.metadata.title_cleanup), '').trim() : doc.title;
-        return { title, url, tags: config?.metadata?.tags };
+        return { title: config ? pageTitle(doc, config) : doc.title, url, tags: config?.metadata?.tags };
     },
     async fetchViaApi(url, fetcher, override, context) {
         const config = override ?? getAdapterConfig('uscardforum');

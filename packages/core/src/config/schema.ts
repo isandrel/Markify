@@ -49,7 +49,12 @@ export const profileSchema = z.strictObject({
         response: z.strictObject({ success_field: path.optional(), success_value: z.union([z.number(), z.string(), z.boolean()]).optional(), data_field: path.optional(), posts_field: path.optional(), nested_posts_field: path.optional() }).optional(),
         fields: z.record(z.string(), z.union([path, z.record(z.string(), path)])).optional(),
     }),
-    metadata: z.strictObject({ title_cleanup: text.optional(), tags: z.array(text).optional(), source_url: endpoint.optional() }).optional(),
+    metadata: z.strictObject({
+        title_cleanup: text.optional(),
+        /** Elements holding the clean title, tried in order before document.title + title_cleanup. */
+        title_selectors: z.array(text).optional(),
+        tags: z.array(text).optional(), source_url: endpoint.optional(),
+    }).optional(),
     http: z.strictObject({ user_agent: text.optional() }).optional(),
     page_separator: z.string().optional(), delimiter: z.string().default('---'),
     frontmatter: templateBlockSchema.optional(), document: templateBlockSchema.optional(), comment: templateBlockSchema.optional(), comments_header: templateBlockSchema.optional(),

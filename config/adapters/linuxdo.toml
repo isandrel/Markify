@@ -1,0 +1,103 @@
+# Validated site profile for LINUX DO (Discourse). Same engine and layouts as
+# US Card Forum: adding a Discourse site needs only a profile like this one.
+schema_version = 1
+engine = "discourse-raw"
+transport = "fetch"
+page_separator = "\n\n---\n\n"
+
+[site]
+id = "linuxdo"
+name = "LINUX DO"
+base_url = "https://linux.do"
+origins = ["https://linux.do"]
+aliases = ["linux.do", "LinuxDo"]
+
+[activation]
+matches = ["https://linux.do/*"]
+connect = ["self"]
+
+[[routes]]
+name = "thread"
+kind = "thread"
+pattern = '^/t/(?:[^/]+/)?(\d+)(?:/\d+)?/?$'
+id_group = 1
+
+[[routes]]
+name = "category"
+kind = "listing"
+pattern = '^/c/([^/]+)(?:/[^/]+)*/?$'
+id_group = 1
+query_keys = ["page", "order", "ascending", "status", "q"]
+
+[[routes]]
+name = "tag"
+kind = "listing"
+pattern = '^/tags?/([^/]+)/?$'
+id_group = 1
+query_keys = ["page", "order", "ascending"]
+
+[[routes]]
+name = "search"
+kind = "listing"
+pattern = '^/search/?$'
+query_keys = ["q", "page", "expanded"]
+
+[[routes]]
+name = "latest"
+kind = "listing"
+pattern = '^/(latest|new|top|hot)/?$'
+id_group = 1
+query_keys = ["order", "ascending", "period", "page"]
+
+[[routes]]
+name = "home"
+kind = "entry"
+pattern = '^/(?:categories)?/?$'
+
+[runtime]
+poll_ms = 500
+debounce_ms = 100
+timeout_ms = 30000
+
+[batch]
+label_selector = "h1"
+
+[[batch.layouts]]
+name = "topic-list"
+route_names = ["category", "tag", "latest"]
+root_selector = "#main-outlet"
+row_selector = "tr.topic-list-item"
+link_selector = 'a.title[href*="/t/"], a.raw-topic-link[href*="/t/"]'
+exclude_selectors = ["aside"]
+
+[[batch.layouts]]
+name = "search-results"
+route_names = ["search"]
+root_selector = "#main-outlet"
+row_selector = ".fps-result"
+link_selector = 'a.search-link[href*="/t/"]'
+title_selector = ".topic-title"
+exclude_selectors = ["aside"]
+
+[api]
+# Discourse raw Markdown endpoint; an empty page ends the topic.
+raw_endpoint  = "{base_url}/raw/{topic_id}?page={page}"
+json_endpoint = "{base_url}/t/{topic_id}.json?print=true&include_raw=true"
+max_pages     = 100
+page_delay    = { min_ms = 200, max_ms = 200, jitter = 0 }
+
+[api.request]
+credentials = true                # The logged-in session sees restricted categories
+accept      = "text/plain"
+
+[metadata]
+# The topic title element; the page title is "Topic - Category - LINUX DO".
+title_selectors = ["#topic-title .fancy-title", "#topic-title h1"]
+title_cleanup   = '[\s\-]+LINUX DO$'
+tags            = ["linuxdo", "forum"]
+source_url      = "{base_url}/t/{topic_id}"
+
+[filename]
+single     = "{title}"
+batch_item = "{id} - {title}"
+batch      = "{site}-{type}-{tagname}-{date}"

@@ -144,6 +144,8 @@ See [DEVELOPMENT.md](DEVELOPMENT.md) for:
 - Reddit
 - Dev.to
 - US Card Forum (with pagination)
+- LINUX DO (with pagination)
+- 1Point3Acres (thread API with nested replies)
 - Default fallback for other sites
 
 ## License

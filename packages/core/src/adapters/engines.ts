@@ -1,6 +1,8 @@
 import type { AdapterConfig } from '../config';
 import { getConfig } from '../config';
 import type { ApiConversionContext, HttpFetcher } from '../types';
+import { pageTitle } from './title';
+export { pageTitle };
 import type { SiteAdapter } from './base';
 import { classifyRoute, classifyRegistryRoute } from './routes';
 import { fetchForumApiContent } from './1point3acres';
@@ -23,10 +25,7 @@ export function createProfileAdapter(profile: AdapterConfig): SiteAdapter {
         hasApi: true, includesFrontmatter: profile.engine === 'forum-json',
         extractMetadata(doc, url) {
             const route = classifyRoute(url, profile);
-            return {
-                title: profile.metadata?.title_cleanup ? doc.title.replace(new RegExp(profile.metadata.title_cleanup), '').trim() : doc.title,
-                url, id: route?.id, tags: profile.metadata?.tags,
-            };
+            return { title: pageTitle(doc, profile), url, id: route?.id, tags: profile.metadata?.tags };
         },
         async fetchViaApi(url, fetcher, override, context) {
             const resolved = (override ?? profile) as AdapterConfig;
