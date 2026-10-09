@@ -46,7 +46,8 @@ export const RICH_BODY = [
 ].join('\n');
 
 export const p3aThreads: Record<string, P3AThread> = {
-    '1001': { subject: 'Offer 比较: Google vs Meta', author: 'alice', bbcode: RICH_BODY, replies: 25 },
+    // 25 top-level posts plus 5 nested replies (楼中楼): post 2 has 4 (preview shows 2), post 5 has 1.
+    '1001': { subject: 'Offer 比较: Google vs Meta', author: 'alice', bbcode: RICH_BODY, replies: 30, posts: 25 },
     '1002': { subject: 'Visa timeline 2026', author: 'bob', bbcode: 'No replies yet.', replies: 0 },
     '1003': { subject: 'Members only thread', author: 'carol', bbcode: 'hidden', replies: 0, status: 403 },
     '1004': { subject: 'Hot sidebar thread', author: 'hot', bbcode: 'hot', replies: 0 },
@@ -193,12 +194,28 @@ function instant(url: URL): FakeResponse {
     return match ? threadPage(match[1]) : page(html('Not found', '<h1>404</h1>'), 404);
 }
 
-export function p3aPost(threadId: string, index: number) {
+/** Nested replies per top-level post (thread 1001 only), as the live API models them. */
+export const NESTED: Record<number, number> = { 2: 4, 5: 1 };
+const NESTED_PREVIEW = 2;
+
+export function p3aChild(parentPid: number, k: number) {
     return {
-        pid: Number(threadId) * 1000 + index,
+        pid: parentPid * 10 + k,
+        author: `nested${k}`,
+        message_bbcode: `Nested reply ${k} to ${parentPid}`,
+        dateline: EPOCH + 5000 + k,
+    };
+}
+
+export function p3aPost(threadId: string, index: number) {
+    const pid = Number(threadId) * 1000 + index;
+    const nested = threadId === '1001' ? NESTED[index] : undefined;
+    return {
+        pid,
         author: `user${index}`,
         message_bbcode: `Reply number ${index} with [b]emphasis ${index}[/b]`,
         dateline: EPOCH + index * 60,
+        ...(nested ? { replies: { count: nested, data: Array.from({ length: Math.min(nested, NESTED_PREVIEW) }, (_, k) => p3aChild(pid, k + 1)) } } : {}),
     };
 }
 
@@ -223,6 +240,14 @@ function api(url: URL): FakeResponse {
         const start = (number - 1) * size;
         const count = Math.max(0, Math.min(size, (data?.posts ?? data?.replies ?? 0) - start));
         return json({ errno: 0, posts: Array.from({ length: count }, (_, i) => p3aPost(match![1], start + i + 1)) });
+    }
+    // Full nested replies of one post (the live API wants a logged-in session here).
+    if ((match = url.pathname.match(/^\/api\/posts\/(\d+)\/nested-posts$/))) {
+        const pid = Number(match[1]);
+        const count = Number(String(pid).slice(0, 4)) === 1001 ? NESTED[pid % 1000] ?? 0 : 0;
+        const size = Number(url.searchParams.get('ps'));
+        const start = (Number(url.searchParams.get('pg')) - 1) * size;
+        return json({ errno: 0, posts: Array.from({ length: Math.max(0, Math.min(size, count - start)) }, (_, i) => p3aChild(pid, start + i + 1)) });
     }
     return json({ errno: 404 }, 404);
 }

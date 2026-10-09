@@ -31,12 +31,12 @@ test.describe('single thread export', () => {
             title: 'Offer 比较: Google vs Meta', author: 'alice',
             posted_at: EPOCH_ISO, updated_at: '2026-01-01T01:00:00.000Z',
             source: `[Offer 比较: Google vs Meta](${P3A}/bbs/thread-1001-1-1.html)`,
-            views: 4321, replies: 25, favorites: 7, tags: ['1point3acres', 'forum'],
+            views: 4321, replies: 30, favorites: 7, tags: ['1point3acres', 'forum'],
         });
         expect(Date.parse(meta.downloaded_at as string)).toBeGreaterThan(Date.now() - 60_000);
 
         expect(text).toContain(`# Offer 比较: Google vs Meta\n\n**Author:** alice | **Date:** ${EPOCH_ISO}`);
-        expect(text).toContain('**Views:** 4321 | **Replies:** 25 | **Favorites:** 7');
+        expect(text).toContain('**Views:** 4321 | **Replies:** 30 | **Favorites:** 7');
         // BBCode: paragraphs and line breaks survive, block structures become Markdown.
         expect(text).toContain('**面经**: Google L4 onsite, *bay area*.  \n  \nTimeline:');
         expect(text).toContain('1.  电面 in January\n2.  Onsite in ~~February~~ March');
@@ -46,13 +46,19 @@ test.describe('single thread export', () => {
         expect(text).toContain('![](https://example.org/offer.png)');
         expect(text).toContain('Literal tokens: $& $1 {title} 😀');
 
-        expect(text).toContain('## Comments (25)');
+        // 25 top-level comments plus 5 nested replies, each under its own post.
+        expect(text).toContain('## Comments (30)');
         const replies = [...text.matchAll(/Reply number (\d+) with \*\*emphasis \1\*\*/g)].map(m => Number(m[1]));
         expect(replies).toEqual(Array.from({ length: 25 }, (_, i) => i + 1));
+        const nested = [...text.matchAll(/^> Nested reply (\d) to (\d+)$/gm)].map(m => `${m[2]}/${m[1]}`);
+        expect(nested).toEqual(['1001002/1', '1001002/2', '1001002/3', '1001002/4', '1001005/1']);
+        expect(text.indexOf('Nested reply 4 to 1001002')).toBeLessThan(text.indexOf('Reply number 3 with'));
+        expect(text).toContain('> **nested1** - *');
+        expect(text).not.toContain('more replies are not included');
         expect(text).toContain(`**user1** - *${EPOCH_ISO.replace('00:00:00', '00:01:00')}*`);
 
         const api = markify.apiRequests(P3A_API);
-        expect(api.map(r => r.url)).toEqual([threadApi('1001'), postsApi('1001', 1), postsApi('1001', 2)]);
+        expect(api.map(r => r.url)).toEqual([threadApi('1001'), postsApi('1001', 1), postsApi('1001', 2), `${P3A_API}/api/posts/1001002/nested-posts?ps=20&pg=1`]);
         // Privileged GM requests that carry the logged-in session (not anonymous).
         expect(api.every(r => r.via === 'gm' && r.anonymous === false)).toBe(true);
 
@@ -104,6 +110,17 @@ test.describe('single thread export', () => {
         expect(meta.title).toBe(p3aThreads['1016'].subject);
         expect(meta.author).toBe('o"neil');
         expect(text).toContain(`# ${p3aThreads['1016'].subject}`);
+    });
+
+    test('nested replies the API keeps behind login are noted, never silently dropped', async ({ markify, page }) => {
+        markify.intercept(`${P3A_API}/api/posts/`, () => ({ status: 401, contentType: 'application/json', body: JSON.stringify({ errno: -1, msg: '请先登录' }) }));
+        await markify.open(`${P3A}/home/thread/1001`);
+        const { text } = await markify.download(() => page.locator('#markify-download-btn').click());
+        // 25 top-level + 3 previewed nested replies; the other 2 are reported where they belong.
+        expect(text).toContain('## Comments (28)');
+        expect(text).toContain('> Nested reply 2 to 1001002\n\n> *2 more replies are not included (login required).*');
+        expect(text).not.toContain('Nested reply 3 to 1001002');
+        await markify.lastNotification('Downloaded as');
     });
 
     test('a page of exactly 20 replies needs the empty terminal page', async ({ markify, page }) => {

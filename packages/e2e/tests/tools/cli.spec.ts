@@ -49,10 +49,11 @@ test.describe('markify CLI', () => {
         expect(result.stderr).toContain('Adapter:    1Point3Acres');
         expect(result.stderr).toContain('Filename:   Offer 比较- Google vs Meta.md');
         expect(result.stdout).toContain('title: "Offer 比较: Google vs Meta"');
-        expect(result.stdout).toContain('## Comments (25)');
+        expect(result.stdout).toContain('## Comments (30)');
         expect(result.stdout).toContain('Reply number 25 with **emphasis 25**');
         const api = result.requests.filter(r => r.url.startsWith(P3A_API));
-        expect(api).toHaveLength(3);
+        // Thread, two comment pages, and the nested replies of one post.
+        expect(api).toHaveLength(4);
         expect(api.every(r => r.headers['user-agent'] === UA)).toBe(true);
         expect(result.requests.some(r => r.url.startsWith(JINA))).toBe(false);
     });

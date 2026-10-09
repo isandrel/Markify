@@ -66,7 +66,7 @@ test$.describe('markify MCP server (stdio)', () => {
         expect(forum).toContain('| Adapter | 1Point3Acres |');
         expect(forum).toContain('| Source | Site API (dedicated) |');
         expect(forum).toContain('| Filename | `Offer 比较- Google vs Meta.md` |');
-        expect(forum).toContain('## Comments (25)');
+        expect(forum).toContain('## Comments (30)');
 
         const topic = (await mcp.call('convert_url', { url: `${USCF}/t/amex-platinum-offer/2001` })).content[0].text;
         expect(topic).toContain('| Filename | `Amex Platinum offer.md` |');
