@@ -10,10 +10,21 @@ export const filenameSchema = z.strictObject({
     batch_item: template(['title', 'author', 'id', 'date', 'site', 'index']),
     batch: template(['site', 'type', 'id', 'date', 'tagname']),
 });
+const runtimeFields = {
+    poll_ms: z.number().int().min(100).max(10000),
+    debounce_ms: z.number().int().min(10).max(2000),
+    timeout_ms: z.number().int().min(1000).max(120000),
+};
 export const runtimeSchema = z.strictObject({
-    poll_ms: z.number().int().min(100).max(10000).default(500),
-    debounce_ms: z.number().int().min(10).max(2000).default(100),
-    timeout_ms: z.number().int().min(1000).max(120000).default(30000),
+    poll_ms: runtimeFields.poll_ms.default(500),
+    debounce_ms: runtimeFields.debounce_ms.default(100),
+    timeout_ms: runtimeFields.timeout_ms.default(30000),
+});
+/** For overrides: no defaults, so setting one value never resets the profile's others. */
+export const runtimeOverrideSchema = z.strictObject({
+    poll_ms: runtimeFields.poll_ms.optional(),
+    debounce_ms: runtimeFields.debounce_ms.optional(),
+    timeout_ms: runtimeFields.timeout_ms.optional(),
 });
 export const routeSchema = z.strictObject({
     name: text, kind: z.enum(['listing', 'thread', 'entry']), pattern,

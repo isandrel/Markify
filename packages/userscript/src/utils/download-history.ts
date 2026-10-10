@@ -79,6 +79,11 @@ export async function removeDownload(id: string, site: string): Promise<void> {
         for (const [key, record] of Object.entries(history)) if (keyFor(record.id, record.site) === keyFor(id, site)) delete history[key];
     }, storage);
 }
+export async function clearSiteHistory(site: string): Promise<void> {
+    await mutate(history => {
+        for (const [key, record] of Object.entries(history)) if (record && canonical(record.site) === canonical(site)) delete history[key];
+    }, storage);
+}
 export async function clearHistory(): Promise<void> {
     await mutate(history => { for (const key of Object.keys(history)) delete history[key]; }, storage);
 }

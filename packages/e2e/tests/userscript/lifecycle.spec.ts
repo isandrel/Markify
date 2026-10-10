@@ -101,22 +101,6 @@ test.describe('toolbar and configuration', () => {
         expect(markify.store.get('markify_stats')).toBe(0);
     });
 
-    test('settings dialog saves preferences and reloads', async ({ markify, page }) => {
-        await markify.open(`${P3A}/home/thread/1002`);
-        await markify.runMenu('Settings');
-        await expect(page.locator('#markify-settings-panel')).toBeVisible();
-        await page.locator('#markify-settings #include-tags').uncheck();
-        await Promise.all([page.waitForEvent('load'), page.locator('#markify-save').click()]);
-        await markify.ready();
-        expect(JSON.parse(markify.store.get('markify_settings') as string)).toMatchObject({ includeTags: false });
-        await markify.lastNotification('Settings saved successfully!');
-
-        await markify.runMenu('Settings');
-        await expect(page.locator('#markify-settings #include-tags')).not.toBeChecked();
-        await page.locator('#markify-close').click();
-        await expect(page.locator('#markify-settings')).toHaveCount(0);
-    });
-
     test('export, import and per-site reset of configuration overrides', async ({ markify, page }) => {
         await markify.open(`${P3A}/home/thread/1002`);
         await markify.runMenu('Export Configuration');

@@ -93,6 +93,10 @@ describe('overrides and migration', () => {
         expect(acres.filename.single).toBe('{title}');
         expect(applyUserOverrides(profiles, resetSiteOverrides(input, '1point3acres'))['1point3acres'].filename.single).toBe('global-{title}');
         expect(first['1point3acres'].runtime.timeout_ms).toBe(5000);
+        // Overriding one runtime value keeps the profile's others and stores only that value.
+        const custom = resolveProfile({ ...acres, runtime: { ...acres.runtime, poll_ms: 1500 } }, [{ runtime: { timeout_ms: 7000 } }]);
+        expect(custom.runtime).toMatchObject({ poll_ms: 1500, timeout_ms: 7000 });
+        expect(parseUserOverrides({ schema_version: 1, global: { runtime: { timeout_ms: 7000 } } }).global).toEqual({ runtime: { timeout_ms: 7000 } });
         expect(resolveProfile(acres, [{ comment: { template: '{author}: {content}' } }]).comment?.template).toBe('{author}: {content}');
     });
     test('unknown key, unknown site, null, invalid field and endpoint overrides fail', () => {
