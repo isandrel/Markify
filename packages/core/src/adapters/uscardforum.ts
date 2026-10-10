@@ -52,7 +52,8 @@ async function topicMetadata(topicId: string, fetcher: HttpFetcher, config: Reco
         // Newer Discourse versions send tags as objects.
         const tags = Array.isArray(topic.tags) ? topic.tags.map(tag => (isRecord(tag) ? tag.name : tag)).filter((tag): tag is string => typeof tag === 'string' && !!tag) : [];
         const profileTags = isRecord(config.metadata) && Array.isArray(config.metadata.tags) ? config.metadata.tags.filter((tag): tag is string => typeof tag === 'string') : [];
-        if (tags.length) metadata.tags = [...new Set([...profileTags, ...tags])];
+        // Always the site's tags, then the topic's: callers without a page (CLI, MCP) have no other source.
+        if (tags.length || profileTags.length) metadata.tags = [...new Set([...profileTags, ...tags])];
         if (typeof topic.views === 'number') metadata.views = topic.views;
         if (typeof topic.posts_count === 'number') metadata.replies = Math.max(0, topic.posts_count - 1);
         if (typeof topic.like_count === 'number') metadata.likes = topic.like_count;
