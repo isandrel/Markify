@@ -1,12 +1,12 @@
 import type { AdapterConfig } from '../config';
 import { getConfig } from '../config';
-import type { ApiConversionContext, HttpFetcher } from '../types';
+import type { ApiConversionContext, HttpFetcher, ThreadState } from '../types';
 import { pageTitle } from './title';
 export { pageTitle };
 import type { SiteAdapter } from './base';
 import { classifyRoute, classifyRegistryRoute } from './routes';
-import { fetchForumApiContent } from './1point3acres';
-import { fetchDiscourseRawContent } from './uscardforum';
+import { fetchForumApiContent, fetchForumThreadState } from './1point3acres';
+import { fetchDiscourseRawContent, fetchDiscourseThreadState } from './uscardforum';
 import { ConversionError } from '../errors';
 
 type Engine = (id: string, fetcher: HttpFetcher, profile: AdapterConfig, context?: ApiConversionContext) => Promise<string>;
@@ -16,6 +16,18 @@ export const contentEngines: Record<AdapterConfig['engine'], Engine> = {
     'forum-json': (id, fetcher, profile, context) => fetchForumApiContent(id, fetcher, profile, context?.onProgress, context),
     'discourse-raw': fetchDiscourseRawContent,
 };
+
+/** One light request per thread: its reply count and last activity, without exporting it. */
+export const stateEngines: Record<AdapterConfig['engine'], (id: string, fetcher: HttpFetcher, profile: AdapterConfig, context?: ApiConversionContext) => Promise<ThreadState>> = {
+    'forum-json': fetchForumThreadState,
+    'discourse-raw': fetchDiscourseThreadState,
+};
+
+export function fetchThreadState(id: string, fetcher: HttpFetcher, profile: AdapterConfig, context?: ApiConversionContext): Promise<ThreadState> {
+    const engine = stateEngines[profile.engine];
+    if (!engine) throw new ConversionError('CONFIG_INVALID', `Unknown engine: ${profile.engine}`);
+    return engine(id, fetcher, profile, context);
+}
 
 export function createProfileAdapter(profile: AdapterConfig): SiteAdapter {
     return {

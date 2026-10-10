@@ -31,6 +31,7 @@ export type {
     ConvertStrategy,
     ConversionConfig,
     SiteMetadata,
+    ThreadState,
     MinimalDocument,
     MinimalElement,
     HttpFetcher,
@@ -51,7 +52,7 @@ export {
     fetch1Point3AcresContent,
     fetchForumApiContent,
 } from './adapters';
-export { createProfileAdapter, getProfileAdapters, findProfileAdapter, contentEngines } from './adapters/engines';
+export { createProfileAdapter, getProfileAdapters, findProfileAdapter, contentEngines, fetchThreadState } from './adapters/engines';
 export { classifyRoute, classifyRegistryRoute } from './adapters/routes';
 export type { SiteAdapter } from './adapters/base';
 export { ConversionError } from './errors';

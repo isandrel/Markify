@@ -112,6 +112,13 @@ export interface ConversionConfig {
 /**
  * Metadata extracted from a page
  */
+/** A thread's state on the site: compared with the state saved at download time. */
+export interface ThreadState {
+    replies?: number;
+    /** ISO time of the last post or activity. */
+    updated?: string;
+}
+
 export interface SiteMetadata {
     title: string;
     url: string;

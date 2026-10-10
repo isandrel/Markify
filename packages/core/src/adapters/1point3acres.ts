@@ -1,6 +1,6 @@
 /** Configured forum JSON protocol. Site endpoints and mappings live in profiles. */
 import type { SiteAdapter } from './base';
-import type { ApiConversionContext, HttpFetcher } from '../types';
+import type { ApiConversionContext, HttpFetcher, ThreadState } from '../types';
 import { getAdapterConfig, interpolate } from '../config';
 import { classifyRoute } from './routes';
 import { ConversionError, assertNotAborted } from '../errors';
@@ -49,6 +49,21 @@ function attachmentsOf(item: unknown, mapping: JsonRecord, fields: JsonRecord): 
         files.set(String(id), { url, name: typeof name === 'string' ? name : undefined, image: image === true || image === 1 || image === '1' });
     }
     return files;
+}
+
+/** The thread's reply count and last activity, from the thread endpoint alone. */
+export async function fetchForumThreadState(threadId: string, fetcher: HttpFetcher, config: Record<string, unknown>, context: ApiConversionContext = {}): Promise<ThreadState> {
+    const api = record(config.api, 'api');
+    const fields = record(api.fields, 'api.fields');
+    const responseConfig = record(api.response, 'api.response');
+    const response = await request(fetcher, interpolate(textField(api.thread_endpoint, 'api.thread_endpoint'), { thread_id: threadId }), requestOptions(config, context), { stage: 'thread' });
+    requireOk(response, 'thread');
+    const dataPath = textField(responseConfig.data_field, 'api.response.data_field');
+    const thread = record(readPath(parseJson(response.text, responseConfig, 'thread'), dataPath), dataPath);
+    return {
+        replies: numberField(field(thread, 'replies', fields), 'thread.replies'),
+        updated: dateField(field(thread, 'updated_at', fields), 'thread.updated_at'),
+    };
 }
 
 /**
@@ -179,7 +194,8 @@ export async function fetchForumApiContent(
         ...values, frontmatter, content: bodyToMarkdown(content, format, attachmentsOf(thread, fields, fields)), comments, delimiter, date: postedAt,
     });
     context.onMetadata?.({
-        title, author, id: threadId, source, date: postedAt, downloaded: downloadedAt,
+        // replies/updated: the thread's state when exported, so later checks can tell it changed.
+        title, author, id: threadId, source, date: postedAt, downloaded: downloadedAt, replies, updated: updatedAt,
         commentsExported: exported, commentsMissing: missingTotal, commentsPages: pageCount,
     });
     return result;

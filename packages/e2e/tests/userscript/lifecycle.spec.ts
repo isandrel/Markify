@@ -88,8 +88,9 @@ test.describe('toolbar and configuration', () => {
         const dialogs: string[] = [];
         page.on('dialog', dialog => { dialogs.push(`${dialog.type()}:${dialog.message()}`); void dialog.accept(); });
         await markify.runMenu('Download History');
-        expect(dialogs.at(-1)).toContain('alert:Download History (1 items)');
-        expect(dialogs.at(-1)).toContain('Visa timeline 2026 (1point3acres)');
+        await expect(page.locator('#markify-history [role="dialog"]')).toBeVisible();
+        await expect(page.locator('#markify-history td.title')).toContainText('Visa timeline 2026');
+        await page.keyboard.press('Escape');
 
         await markify.runMenu('Clear History');
         expect(dialogs.at(-1)).toMatch(/^confirm:/);

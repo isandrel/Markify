@@ -12,6 +12,17 @@ export interface ExtractionDiagnostic {
     count: number;
 }
 
+/** A row's last activity as ISO time: epoch milliseconds or seconds in an attribute, or a date string. */
+function activityOf(element: HTMLElement, layout: AdapterConfig['batch']['layouts'][number]): string | undefined {
+    if (!layout.activity_selector) return undefined;
+    const node = element.querySelector(layout.activity_selector);
+    const raw = (layout.activity_attribute ? node?.getAttribute(layout.activity_attribute) : node?.textContent)?.trim();
+    if (!raw) return undefined;
+    const number = /^\d+$/.test(raw) ? Number(raw) : NaN;
+    const time = Number.isFinite(number) ? (number < 1e12 ? number * 1000 : number) : Date.parse(raw);
+    return Number.isFinite(time) ? new Date(time).toISOString() : undefined;
+}
+
 /** DOM behavior is selected by a validated profile; protocols remain injected. */
 export class ProfileBatchCapability implements BatchCapability {
     readonly document: Document;
@@ -62,7 +73,7 @@ export class ProfileBatchCapability implements BatchCapability {
                             // Reject structural fallback rows without a verified title node.
                             if (!title) continue;
                             seen.add(thread.id);
-                            rows.push({ id: thread.id, title, url: url.href, element, link });
+                            rows.push({ id: thread.id, title, url: url.href, element, link, activity: activityOf(element, layout) });
                             break;
                         }
                     }

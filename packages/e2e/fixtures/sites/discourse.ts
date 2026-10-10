@@ -17,6 +17,8 @@ export interface DiscourseTopic {
     /** Topic tags and starter in /t/{id}.json. */
     tags?: string[];
     author?: string;
+    /** Last post time (listing rows and last_posted_at); defaults to 2026-02-02. */
+    updated?: string;
 }
 
 export interface DiscourseSpec {
@@ -32,6 +34,7 @@ export interface DiscourseSpec {
     rich?: { id: string; expect: string[] };
 }
 
+export const DEFAULT_UPDATED = '2026-02-02T00:00:00.000Z';
 const slug = (title: string) => title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'topic';
 const escape = (value: string) => value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
 
@@ -43,7 +46,9 @@ export function discourseRows(spec: DiscourseSpec, ids: string[]): string {
             + `<td class="main-link topic-list-data"><span class="link-top-line">`
             + `<a href="/t/${slug(topic.title)}/${id}" class="title raw-link raw-topic-link" data-topic-id="${id}">${escape(topic.title)}</a>`
             + `</span><div class="link-bottom-line"><span class="badge-category__name">${escape(topic.category)}</span></div></td>`
-            + `<td class="num posts-map">${topic.pages.length * 20}</td></tr>`;
+            + `<td class="num posts-map">${topic.pages.length * 20}</td>`
+            + `<td class="num activity topic-list-data age"><a class="post-activity" href="/t/${slug(topic.title)}/${id}/last">`
+            + `<span class="relative-date" data-time="${Date.parse(topic.updated ?? DEFAULT_UPDATED)}">1d</span></a></td></tr>`;
     }).join('');
 }
 
@@ -70,6 +75,7 @@ export function discourseSite(spec: DiscourseSpec): FakeSite {
             if (topic.status) return json({ errors: ['denied'] }, topic.status);
             return json({
                 id: Number(topicJson[1]), title: topic.title, created_at: '2026-02-01T08:00:00.000Z', views: 321,
+                last_posted_at: topic.updated ?? DEFAULT_UPDATED,
                 posts_count: topic.pages.length * 20, like_count: 12,
                 // Current Discourse sends tag objects; older versions send names.
                 tags: (topic.tags ?? []).map((name, index) => (index % 2 ? name : { id: index + 1, name, slug: name })),

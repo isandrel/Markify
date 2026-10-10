@@ -1,10 +1,17 @@
 import { downloadZip } from 'client-zip';
 import { applyFilenameTemplate } from '@markify/core';
 import type { FilenameContext } from '@markify/core';
-import { getDownloadHistory, markManyAsDownloaded } from '../utils/download-history';
+import { getDownloadHistory, markManyAsDownloaded, updateStatus, type DownloadRecord } from '../utils/download-history';
+
+type HistoryRecord = Pick<DownloadRecord, 'id' | 'site'> & Partial<Pick<DownloadRecord, 'downloadedAt' | 'replies' | 'check'>>;
 
 export interface BatchItem { id: string; title: string; url: string }
-export interface BatchRow extends BatchItem { element: HTMLElement; link: HTMLAnchorElement }
+export interface BatchRow extends BatchItem {
+    element: HTMLElement;
+    link: HTMLAnchorElement;
+    /** ISO time of the thread's last activity, when the listing shows it. */
+    activity?: string;
+}
 export interface BatchCapability {
     readonly siteId: string;
     readonly pageKey: string;
@@ -18,7 +25,7 @@ export interface BatchCapability {
 export interface BatchFile { name: string; input: string }
 export interface BatchServices {
     document: Document;
-    history: () => Promise<readonly { id: string; site: string }[]>;
+    history: () => Promise<readonly HistoryRecord[]>;
     saveHistory: (items: readonly BatchItem[], site: string, active: () => boolean) => Promise<void>;
     zip: (files: BatchFile[]) => Promise<Blob>;
     download: (blob: Blob, filename: string) => void;
@@ -126,14 +133,14 @@ export class BatchDownloadManager {
             for (const row of current.values()) {
                 const existing = this.rows.get(row.id);
                 if (existing) { existing.row = row; continue; }
-                const downloaded = records.some(record => record.site === this.adapter.siteId && record.id === row.id);
-                this.rows.set(row.id, this.attach(row, downloaded));
+                const record = records.find(entry => entry.site === this.adapter.siteId && entry.id === row.id);
+                this.rows.set(row.id, this.attach(row, record));
             }
             this.updateControls();
         }
     }
 
-    private attach(row: BatchRow, downloaded: boolean): OwnedRow {
+    private attach(row: BatchRow, record?: HistoryRecord): OwnedRow {
         const doc = this.services.document;
         const wrapper = doc.createElement('div');
         wrapper.className = 'markify-checkbox-wrapper';
@@ -154,11 +161,16 @@ export class BatchDownloadManager {
             this.updateControls();
         });
         wrapper.appendChild(checkbox);
-        if (downloaded) {
+        if (record) {
+            // Changed since download: the listing shows later activity, or a check found it.
+            const listed = !!(row.activity && record.downloadedAt && Date.parse(row.activity) > Date.parse(record.downloadedAt));
+            const changed = listed || (!!record.downloadedAt && updateStatus(record as DownloadRecord).changed);
             const indicator = doc.createElement('span');
-            indicator.textContent = '✓';
-            indicator.title = 'Already downloaded';
-            indicator.style.cssText = 'color:#22c55e;margin-left:4px;';
+            indicator.className = 'markify-history-indicator';
+            indicator.dataset.markifyStatus = changed ? 'updated' : 'downloaded';
+            indicator.textContent = changed ? '✓↻' : '✓';
+            indicator.title = changed ? 'Downloaded; updated since' : 'Already downloaded';
+            indicator.style.cssText = `color:${changed ? '#f59e0b' : '#22c55e'};margin-left:4px;`;
             wrapper.appendChild(indicator);
         }
         const host = row.element.tagName === 'TR' ? row.link.closest<HTMLElement>('td, th') ?? row.element : row.element;
