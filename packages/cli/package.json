@@ -1,6 +1,6 @@
 {
   "name": "@markify/cli",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "Markify CLI — convert web pages to Markdown from the terminal",
   "type": "module",
   "main": "src/index.ts",

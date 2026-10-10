@@ -1,6 +1,6 @@
 {
   "name": "@markify/userscript",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "Markify Tampermonkey userscript \u2014 browser interface",
   "type": "module",
   "scripts": {
