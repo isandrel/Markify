@@ -75,7 +75,7 @@ export interface AgentHost {
     listRows(): Promise<AgentItem[] | null>;
     history(siteId: string): Promise<{ id: string; title: string; downloadedAt: string; type: string }[]>;
     /** Downloads a ZIP named like a batch download, records history, returns the archive name. */
-    downloadZip(items: { id: string; title: string; markdown: string }[]): Promise<string>;
+    downloadZip(items: { id: string; title: string; markdown: string; metadata?: Record<string, unknown> }[]): Promise<string>;
     delay(signal?: AbortSignal): Promise<void>;
     /** The site's current token, or undefined when the API is off for it. Read on every call, so the menu revokes at once. */
     token(siteId: string): Promise<string | undefined>;
@@ -223,7 +223,7 @@ export function createAgentApi(host: AgentHost) {
                 if (args.zip) {
                     const ok = results.filter((result): result is Extract<ExportResult, { ok: true }> => result.ok);
                     if (ok.length) {
-                        const zip = await host.downloadZip(ok.map(result => ({ id: result.id, title: result.title, markdown: result.markdown })));
+                        const zip = await host.downloadZip(ok.map(result => ({ id: result.id, title: result.title, markdown: result.markdown, metadata: result.metadata })));
                         return { results, zip };
                     }
                 }

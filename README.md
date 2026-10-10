@@ -8,7 +8,8 @@ Convert web pages to Obsidian-formatted Markdown with YAML frontmatter using a T
 - 🎯 **Draggable UI** - Move buttons anywhere on screen (position auto-saved)
 - 📝 **Configurable Templates** - Customize markdown output with placeholders
 - 🎨 **Site Adapters** - Smart content extraction for different websites
-- ⚙️ **Settings UI** - Configure templates and preferences via Tampermonkey menu
+- ⚙️ **Settings page** - Per-site or all-site file names, timeout, templates, on/off, AI console token, config import/export (Tampermonkey menu → Settings)
+- 📜 **Download history with update checks** - Each download keeps the thread's reply count and last activity. Thread pages, Discourse listings and the history page mark threads that changed since; check, re-download or remove them
 - 🔧 **Modular Config** - Organized TOML files in `config/` directory
 - 🤖 **AI Console API** - Opt-in, token-gated `window.markify` so an AI agent driving your logged-in browser can export threads
 

@@ -36,6 +36,8 @@ export const layoutSchema = z.strictObject({
     row_selector: text, link_selector: text, title_selector: text.optional(),
     title_attribute: text.optional(), exclude_selectors: z.array(text).default([]),
     empty_selector: text.optional(), loading_selector: text.optional(),
+    /** A row's last activity time (marks downloaded threads that changed since), read from this attribute or the text. */
+    activity_selector: text.optional(), activity_attribute: text.optional(),
 });
 const bodyVars = ['title', 'author', 'posted_at', 'updated_at', 'downloaded_at', 'url', 'views', 'replies', 'favorites', 'frontmatter', 'date', 'content', 'comments', 'index', 'delimiter', 'count', 'nested', 'missing', 'reason'];
 export const templateBlockSchema = z.strictObject({ template: template(bodyVars) });

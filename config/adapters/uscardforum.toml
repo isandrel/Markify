@@ -67,6 +67,9 @@ root_selector = "#main-outlet"
 row_selector = "tr.topic-list-item"
 link_selector = 'a.title[href*="/t/"], a.raw-topic-link[href*="/t/"]'
 exclude_selectors = ["aside"]
+# Last activity (epoch ms): downloaded topics with later activity are marked as updated.
+activity_selector  = ".activity .relative-date, .age .relative-date"
+activity_attribute = "data-time"
 
 [[batch.layouts]]
 name = "search-results"

@@ -16,18 +16,22 @@ import {
     findProfileAdapter,
     findSiteAdapter,
     builtInAdapters,
+    fetchThreadState,
+    interpolate,
     formatDate,
     formatMessage,
     logger,
 } from '@markify/core';
 import type { AdapterConfig, ConvertResult, SiteMetadata } from '@markify/core';
 import { showSettings } from './settings';
+import { showHistory } from './history-page';
+import { t } from './dialog';
 import { compiledConfig, getProfiles, initializeConfig, loadOverrides, notifications, pkg, resetOverridesForSite, saveOverrides, templates, theme, ui } from './config';
 import { createFetchFetcher, createProfileFetcher } from './http';
 import { NavigationController } from './navigation';
 import { ProfileBatchCapability } from './adapters/profile-batch';
 import { BatchDownloadManager, initiateDownload } from './batch/BatchDownloadManager';
-import { clearHistory, clearSiteHistory, configureHistoryProfiles, getDownloadHistory, markAsDownloaded, markManyAsDownloaded } from './utils/download-history';
+import { clearHistory, clearSiteHistory, configureHistoryProfiles, getDownloadHistory, markAsDownloaded, markManyAsDownloaded, recordCheck, removeDownload, type ThreadSnapshot } from './utils/download-history';
 import { AGENT_API_STORAGE_KEY, createAgentApi, installAgentApi, newAgentToken, normalizeAgentSettings, type AgentHost } from './agent-api';
 import { downloadZip } from 'client-zip';
 
@@ -38,6 +42,14 @@ let activeButton: HTMLButtonElement | null = null;
 let activeSingleAbort: AbortController | null = null;
 let activeBatchManager: BatchDownloadManager | null = null;
 let routeGeneration = 0;
+
+/** The thread state an export reported (reply count, last activity), saved with its history record. */
+function snapshotOf(metadata: Record<string, unknown> | undefined): ThreadSnapshot {
+    return {
+        replies: typeof metadata?.replies === 'number' ? metadata.replies : undefined,
+        updated: typeof metadata?.updated === 'string' ? metadata.updated : undefined,
+    };
+}
 
 type ActiveRoute = NonNullable<ReturnType<typeof classifyRegistryRoute>> & { pollMs: number };
 
@@ -74,11 +86,14 @@ async function activateRoute(route: ActiveRoute | null, url: string): Promise<vo
     }
     if (route.kind !== 'listing' || generation !== routeGeneration) return;
     const contentAdapter = createProfileAdapter(profile);
-    const capability = new ProfileBatchCapability(profile, async (_id, onProgress, signal, item) => {
+    // Each export reports its thread state; the history record keeps it.
+    const snapshots = new Map<string, ThreadSnapshot>();
+    const capability = new ProfileBatchCapability(profile, async (id, onProgress, signal, item) => {
         if (!item) throw new Error('Batch item URL is missing');
-        return contentAdapter.fetchViaApi!(item.url, createProfileFetcher(profile), profile, { onProgress, signal });
+        return contentAdapter.fetchViaApi!(item.url, createProfileFetcher(profile), profile, { onProgress, signal, onMetadata: metadata => snapshots.set(id, snapshotOf(metadata)) });
     }, { document, url: () => window.location.href });
     const manager = new BatchDownloadManager(capability, {
+        saveHistory: (items, site, active) => markManyAsDownloaded(items.map(item => ({ ...item, ...snapshots.get(item.id) })), site, 'batch', active),
         delay: configuredBatchDelay,
         notify: text => GM.notification({
             text,
@@ -236,7 +251,7 @@ async function handleDownload(mode: 'download' | 'clipboard' = 'download') {
 
             if (route?.id && profile) {
                 const { markAsDownloaded } = await import('./utils/download-history');
-                await markAsDownloaded(route.id, profile.site.id, metadata.title || captured.metadata.title, 'single');
+                await markAsDownloaded(route.id, profile.site.id, metadata.title || captured.metadata.title, 'single', snapshotOf(metadata));
                 logger.info(`Marked ${route.id} as downloaded`);
             }
         }
@@ -273,24 +288,34 @@ async function showDownloadStatus(url = window.location.href, active: () => bool
 
     const { isDownloaded } = await import('./utils/download-history');
     const downloaded = await isDownloaded(route.id, profile.site.id);
-    if (!active()) return;
+    if (!active() || !downloaded) return;
 
-    if (downloaded) {
-        const titleElement = document.querySelector('h1.text-xl, h1.font-bold, h1') as HTMLElement;
-        if (titleElement) {
-            const indicator = document.createElement('span');
-            indicator.dataset.markifyOwned = 'history';
-            indicator.textContent = ui?.ui?.indicators?.downloaded_icon || '✓';
-            indicator.title = ui?.ui?.indicators?.downloaded_tooltip || 'Already downloaded';
-            indicator.style.cssText = `
-                color: ${theme?.colors?.success || '#22c55e'};
-                font-size: ${ui?.ui?.indicators?.font_size_title || '1.2em'};
-                margin-right: 6px;
-                font-weight: bold;
-            `;
-            titleElement.insertBefore(indicator, titleElement.firstChild);
-            logger.info('Download status indicator added to post page');
-        }
+    const titleElement = document.querySelector('h1.text-xl, h1.font-bold, h1') as HTMLElement;
+    if (!titleElement) return;
+    const indicator = document.createElement('span');
+    indicator.dataset.markifyOwned = 'history';
+    indicator.dataset.markifyStatus = 'downloaded';
+    indicator.textContent = ui?.ui?.indicators?.downloaded_icon || '✓';
+    indicator.title = ui?.ui?.indicators?.downloaded_tooltip || 'Already downloaded';
+    indicator.style.cssText = `
+        color: ${theme?.colors?.success || '#22c55e'};
+        font-size: ${ui?.ui?.indicators?.font_size_title || '1.2em'};
+        margin-right: 6px;
+        font-weight: bold;
+    `;
+    titleElement.insertBefore(indicator, titleElement.firstChild);
+    logger.info('Download status indicator added to post page');
+
+    // One light request: has the thread changed since it was downloaded?
+    try {
+        const status = await recordCheck(route.id, profile.site.id, await fetchThreadState(route.id, createProfileFetcher(profile), profile));
+        if (!active() || !status?.changed) return;
+        indicator.dataset.markifyStatus = 'updated';
+        indicator.textContent = `${indicator.textContent} ↻${status.newReplies ? ` +${status.newReplies}` : ''}`;
+        indicator.title = status.newReplies ? t(`Downloaded; ${status.newReplies} new replies since`, `已下载；之后新增 ${status.newReplies} 条回复`) : t('Downloaded; updated since', '已下载；之后有更新');
+        indicator.style.color = theme?.colors?.warning || '#f59e0b';
+    } catch (error) {
+        logger.info(`Update check skipped: ${error instanceof Error ? error.message : String(error)}`);
     }
 }
 
@@ -459,7 +484,7 @@ const agentHost: AgentHost = {
         const filename = applyFilenameTemplate(profile.filename.single, { title, id: route?.id, author: result.metadata.author, site: profile.site.id, date: formatDate() }) + '.md';
         if (options.download) {
             downloadMarkdown(result.markdown, filename);
-            if (route?.id) await markAsDownloaded(route.id, profile.site.id, title, 'single');
+            if (route?.id) await markAsDownloaded(route.id, profile.site.id, title, 'single', snapshotOf(result.metadata));
         }
         return { markdown: result.markdown, filename, title, metadata: { ...result.metadata } };
     },
@@ -487,7 +512,7 @@ const agentHost: AgentHost = {
         });
         const archive = `${applyFilenameTemplate(profile.filename.batch, context)}.zip`;
         initiateDownload(await downloadZip(files).blob(), archive);
-        await markManyAsDownloaded(items.map(({ id, title }) => ({ id, title })), profile.site.id, 'batch');
+        await markManyAsDownloaded(items.map(({ id, title, metadata }) => ({ id, title, ...snapshotOf(metadata) })), profile.site.id, 'batch');
         return archive;
     },
     delay: signal => configuredBatchDelay(signal ?? new AbortController().signal),
@@ -533,6 +558,44 @@ async function agentApiMenu(action: 'token' | 'disable', profile: AdapterConfig 
     });
 }
 
+/** A thread's canonical URL on its site, from the profile's source_url template. */
+function threadUrl(profile: AdapterConfig, id: string): string | undefined {
+    const template = profile.metadata?.source_url;
+    return template ? interpolate(template, { base_url: profile.site.base_url, thread_id: id, topic_id: id }) : undefined;
+}
+
+/** Pause between update checks: gentler than nothing, quicker than a batch download. */
+function checkDelay(signal: AbortSignal): Promise<void> {
+    return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => { signal.removeEventListener('abort', stop); resolve(); }, 800 + Math.random() * 700);
+        function stop() { clearTimeout(timer); reject(new DOMException('Stopped', 'AbortError')); }
+        if (signal.aborted) stop(); else signal.addEventListener('abort', stop, { once: true });
+    });
+}
+
+/** The download history page, wired to storage, the site API and the export pipeline. */
+function openHistory(): Promise<void> {
+    const builtIn = Object.values(compiledConfig.adapters);
+    const profileFor = (siteId: string) => getProfiles()[siteId] ?? compiledConfig.adapters[siteId];
+    return showHistory({
+        profiles: builtIn,
+        currentSiteId: currentProfile()?.site.id,
+        history: getDownloadHistory,
+        check: (siteId, id) => fetchThreadState(id, createProfileFetcher(profileFor(siteId)), profileFor(siteId)),
+        recordCheck: (siteId, id, state) => recordCheck(id, siteId, state),
+        async redownload(record) {
+            const url = threadUrl(profileFor(record.site), record.id);
+            if (!url) throw new Error(`${record.site} has no thread URL template`);
+            const { filename } = await agentHost.exportThread(url, { title: record.title, download: true });
+            GM.notification({ text: formatMessage(notifications?.messages?.download_success || 'Downloaded {filename}', { filename }), title: 'Markify', timeout: 3000 });
+        },
+        remove: (siteId, id) => removeDownload(id, siteId),
+        sourceUrl: (siteId, id) => threadUrl(profileFor(siteId), id),
+        delay: checkDelay,
+        notify: text => { GM.notification({ text, title: 'Markify', timeout: 3000 }); },
+    });
+}
+
 /** The settings page, wired to the real storage and actions. */
 function openSettings(): Promise<void> {
     const builtIn = Object.values(compiledConfig.adapters);
@@ -556,6 +619,7 @@ function openSettings(): Promise<void> {
         copy: text => GM.setClipboard(text, 'text'),
         notify: text => { GM.notification({ text, title: pkg?.package?.strings?.app_title || 'Markify', timeout: notifications?.timeouts?.short || 2000 }); },
         reload: () => window.location.reload(),
+        openHistory: () => { void openHistory(); },
     });
 }
 
@@ -594,13 +658,7 @@ function openSettings(): Promise<void> {
         });
     });
 
-    GM.registerMenuCommand(pkg?.package?.menu?.history || '📜 Download History', async () => {
-        const { getDownloadHistory } = await import('./utils/download-history');
-        const history = await getDownloadHistory();
-        const recent = history.slice(-10).reverse();
-        const summary = recent.map(r => `${r.title} (${r.site})`).join('\n');
-        alert(`Download History (${history.length} items)\n\nRecent:\n${summary || 'No history yet'}`);
-    });
+    GM.registerMenuCommand(pkg?.package?.menu?.history || '📜 Download History', () => openHistory().catch(error => console.error('[Markify] History failed to open', error)));
 
     GM.registerMenuCommand(pkg?.package?.menu?.clear_history || '🗑️ Clear History', async () => {
         if (confirm(notifications?.messages?.clear_history_confirm || 'Clear download history?')) {

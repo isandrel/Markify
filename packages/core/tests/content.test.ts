@@ -228,3 +228,16 @@ describe('Discourse raw Markdown around code', () => {
             .toBe('\n> **neo**:\n>\n> see:\n> ```\n> line 1\n> line 2\n> ```\n');
     });
 });
+
+describe('thread state checks', () => {
+    test('one light request per engine: reply count and last activity', async () => {
+        const { fetchThreadState } = await import('../src/adapters/engines');
+        const calls: string[] = [];
+        const discourse = await fetchThreadState('7', { get: async (url: string) => { calls.push(url); return { status: 200, ok: true, text: JSON.stringify({ posts_count: 5, last_posted_at: '2026-03-01T00:00:00.000Z' }) }; } }, profiles.linuxdo);
+        expect(discourse).toEqual({ replies: 4, updated: '2026-03-01T00:00:00.000Z' });
+        const forum = await fetchThreadState('9', { get: async (url: string) => { calls.push(url); return { status: 200, ok: true, text: JSON.stringify({ errno: 0, thread: { replies: 12, lastpost: 1767229200 } }) }; } }, profiles['1point3acres']);
+        expect(forum).toEqual({ replies: 12, updated: '2026-01-01T01:00:00.000Z' });
+        expect(calls).toEqual(['https://linux.do/t/7.json', 'https://api.1point3acres.com/api/v3/home-threads/9']);
+        await expect(fetchThreadState('8', { get: async () => ({ status: 404, ok: false, text: '' }) }, profiles.linuxdo)).rejects.toMatchObject({ code: 'HTTP_ERROR' });
+    });
+});

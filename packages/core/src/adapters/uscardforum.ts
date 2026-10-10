@@ -7,7 +7,7 @@ import { pageTitle } from './title';
 import { ConversionError, assertNotAborted } from '../errors';
 import { record, isRecord, textField, numberField, requestOptions, request, requireOk, pageDelay, fetchHttpFetcher, type JsonRecord } from './protocol';
 import { discourseToMarkdown } from './discourse-markdown';
-import type { SiteMetadata } from '../types';
+import type { SiteMetadata, ThreadState } from '../types';
 
 /** Compatibility export. Matching is compiled from the current profile. */
 export const usCardForumAdapter: SiteAdapter = {
@@ -56,11 +56,29 @@ async function topicMetadata(topicId: string, fetcher: HttpFetcher, config: Reco
         if (typeof topic.views === 'number') metadata.views = topic.views;
         if (typeof topic.posts_count === 'number') metadata.replies = Math.max(0, topic.posts_count - 1);
         if (typeof topic.like_count === 'number') metadata.likes = topic.like_count;
+        if (typeof topic.last_posted_at === 'string') metadata.updated = topic.last_posted_at;
         return metadata;
     } catch (error) {
         if ((error as { name?: string })?.name === 'AbortError' || (error as { code?: string })?.code === 'ABORTED') throw error;
         return {};
     }
+}
+
+/** The topic's reply count and last post time, from the topic JSON alone. */
+export async function fetchDiscourseThreadState(topicId: string, fetcher: HttpFetcher, config: Record<string, unknown>, context: ApiConversionContext = {}): Promise<ThreadState> {
+    const api = record(config.api, 'api');
+    const site = record(config.site, 'site');
+    const options = requestOptions(config, context);
+    const url = interpolate(textField(api.json_endpoint, 'api.json_endpoint'), { base_url: String(site.base_url), topic_id: topicId });
+    const response = await request(fetcher, url, { ...options, headers: { ...options.headers, Accept: 'application/json' } }, { stage: 'topic-json' });
+    requireOk(response, 'topic');
+    let topic: unknown;
+    try { topic = JSON.parse(response.text); } catch { throw new ConversionError('INVALID_RESPONSE', 'Topic JSON is not valid JSON', { stage: 'topic-json' }); }
+    if (!isRecord(topic)) throw new ConversionError('INVALID_RESPONSE', 'Topic JSON is not an object', { stage: 'topic-json' });
+    return {
+        replies: typeof topic.posts_count === 'number' ? Math.max(0, topic.posts_count - 1) : undefined,
+        updated: typeof topic.last_posted_at === 'string' ? topic.last_posted_at : undefined,
+    };
 }
 
 /**

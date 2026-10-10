@@ -159,3 +159,17 @@ test('history aliases normalize without dropping unrelated records', () => {
     expect(Object.keys(history).sort()).toEqual(['1point3acres:1', 'other:2']);
     expect(history['1point3acres:1'].title).toBe('new');
 });
+
+describe('update status of downloaded threads', () => {
+    test('later activity or more replies than at download time', async () => {
+        const { updateStatus } = await import('../src/utils/download-history');
+        const record = { downloadedAt: '2026-02-01T00:00:00.000Z', replies: 10 };
+        expect(updateStatus(record)).toEqual({ changed: false, checked: false });
+        expect(updateStatus(record, { replies: 10, updated: '2026-01-31T00:00:00.000Z' })).toEqual({ changed: false, newReplies: undefined, checked: true });
+        expect(updateStatus(record, { replies: 13, updated: '2026-02-03T00:00:00.000Z' })).toEqual({ changed: true, newReplies: 3, checked: true });
+        // An edit or nested reply can move the activity without the count.
+        expect(updateStatus(record, { replies: 10, updated: '2026-02-03T00:00:00.000Z' }).changed).toBe(true);
+        // Records from older versions have no reply count: activity alone decides.
+        expect(updateStatus({ downloadedAt: '2026-02-01T00:00:00.000Z' }, { replies: 50, updated: '2026-01-01T00:00:00.000Z' }).changed).toBe(false);
+    });
+});

@@ -12,6 +12,7 @@
 import { applyFilenameTemplate } from '@markify/core';
 import type { AdapterConfig } from '@markify/core';
 import type { UserOverrides } from '@markify/core/config';
+import { DIALOG_STYLE as STYLE, escape, mountDialog, t } from './dialog';
 
 export interface HistoryEntry { id: string; site: string; title: string; downloadedAt: string; type: string }
 
@@ -30,6 +31,8 @@ export interface SettingsHost {
     history(): Promise<HistoryEntry[]>;
     clearHistory(siteId?: string): Promise<void>;
     resetButtonPosition(): Promise<void>;
+    /** Opens the download history page. */
+    openHistory(): void;
     copy(text: string): Promise<void>;
     notify(text: string): void;
     reload(): void;
@@ -40,8 +43,6 @@ const TEMPLATE_BLOCKS = ['document', 'frontmatter', 'comments_header', 'comment'
 const FILENAMES = ['single', 'batch_item', 'batch'] as const;
 const SAMPLE = { title: '示例标题 Example', id: '12345', author: 'author', date: '2026-01-01', index: '001', type: 'category', tagname: 'tag' };
 
-const zh = typeof navigator !== 'undefined' && /^zh\b/i.test(navigator.language);
-const t = (english: string, chinese: string) => (zh ? chinese : english);
 const L = {
     title: t('Markify Settings', 'Markify 设置'),
     scope: t('Applies to', '应用于'),
@@ -69,6 +70,7 @@ const L = {
     historyCount: (all: number, site?: number) => site === undefined ? t(`${all} downloads`, `共 ${all} 条`) : t(`${site} on this site, ${all} in total`, `本站 ${site} 条，共 ${all} 条`),
     clearSite: t('Clear this site', '清除本站记录'),
     clearAll: t('Clear all', '清除全部记录'),
+    manageHistory: t('Manage and check for updates…', '管理与检查更新…'),
     resetButton: t('Reset button position', '重置按钮位置'),
     config: t('Configuration', '配置'),
     export: t('Copy configuration (JSON)', '复制配置（JSON）'),
@@ -85,7 +87,6 @@ const L = {
     done: t('Done', '完成'),
 };
 
-const escape = (value: unknown) => String(value ?? '').replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value ?? null));
 
 /** Drops empty values so a layer only holds what the user actually set. */
@@ -101,53 +102,15 @@ function prune(layer: Layer): Layer {
     return out;
 }
 
-const STYLE = `
-:host { all: initial; }
-.overlay { position: fixed; inset: 0; background: rgba(0,0,0,.55); display: flex; align-items: center; justify-content: center; z-index: 2147483646;
-  font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif; color: #e5e7eb; }
-.panel { background: #18181b; border: 1px solid #3f3f46; border-radius: 14px; width: min(680px, calc(100vw - 32px)); max-height: calc(100vh - 48px);
-  display: flex; flex-direction: column; box-shadow: 0 24px 64px rgba(0,0,0,.5); }
-header, footer { padding: 16px 20px; display: flex; gap: 12px; align-items: center; }
-header { border-bottom: 1px solid #3f3f46; }
-footer { border-top: 1px solid #3f3f46; justify-content: flex-end; }
-h2 { margin: 0; font-size: 18px; color: #c4b5fd; flex: 1; }
-main { padding: 4px 20px 16px; overflow-y: auto; }
-section { padding: 14px 0; border-bottom: 1px solid #27272a; }
-section:last-child { border-bottom: 0; }
-h3 { margin: 0 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: #a1a1aa; }
-label.row { display: grid; grid-template-columns: 170px 1fr; gap: 10px; align-items: center; margin: 8px 0; }
-label.check { display: flex; gap: 8px; align-items: center; white-space: nowrap; }
-input[type=text], input[type=number], select, textarea { box-sizing: border-box; width: 100%; padding: 7px 10px; border-radius: 8px; border: 1px solid #52525b;
-  background: #27272a; color: #f4f4f5; font: inherit; }
-textarea { min-height: 84px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
-input::placeholder, textarea::placeholder { color: #71717a; }
-.hint { color: #a1a1aa; font-size: 12px; margin: 4px 0 0; }
-.preview { color: #a7f3d0; font-family: ui-monospace, monospace; font-size: 12px; }
-.buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
-button { padding: 8px 14px; border-radius: 8px; border: 1px solid #52525b; background: #3f3f46; color: #fafafa; font: inherit; cursor: pointer; }
-button:hover { background: #52525b; }
-button.primary { background: #7c3aed; border-color: #7c3aed; }
-button.primary:hover { background: #6d28d9; }
-button.danger { border-color: #7f1d1d; background: #450a0a; }
-.error { color: #fca5a5; white-space: pre-wrap; flex: 1; font-size: 12px; }
-details summary { cursor: pointer; color: #d4d4d8; }
-@media (max-width: 560px) { label.row { grid-template-columns: 1fr; } }
-`;
 
 /** Opens the settings dialog; resolves once it is shown. */
 export async function showSettings(host: SettingsHost): Promise<void> {
-    document.getElementById('markify-settings')?.remove();
     const saved = await host.loadOverrides();
     const draft: { global: Layer; sites: Record<string, Layer> } = { global: clone(saved.global), sites: clone(saved.sites) };
     const profiles = host.profiles;
     let scope = profiles.some(profile => profile.site.id === host.currentSiteId) ? host.currentSiteId! : '';
 
-    const element = document.createElement('div');
-    element.id = 'markify-settings';
-    element.setAttribute('data-markify-owned', 'settings');
-    const root = element.attachShadow({ mode: 'open' });
-    document.body.appendChild(element);
-    const close = () => element.remove();
+    const { root, close } = mountDialog('markify-settings');
 
     const layerOf = (id: string): Layer => (id ? (draft.sites[id] ??= {}) : draft.global);
     const profileOf = (id: string) => profiles.find(profile => profile.site.id === id);
@@ -208,7 +171,7 @@ export async function showSettings(host: SettingsHost): Promise<void> {
                     <div class="buttons"><button data-action="agent-copy">${L.agentCopy}</button>${agentOn ? `<button class="danger" data-action="agent-revoke">${L.agentRevoke}</button>` : ''}</div></section>` : ''}
                 <section><h3>${L.history}</h3><p class="hint" data-status="history">${L.historyCount(history.length, siteCount)}</p>
                     <div class="buttons">${scope ? `<button data-action="clear-site">${L.clearSite}</button>` : ''}
-                    <button class="danger" data-action="clear-all">${L.clearAll}</button><button data-action="reset-button">${L.resetButton}</button></div></section>
+                    <button class="danger" data-action="clear-all">${L.clearAll}</button><button data-action="reset-button">${L.resetButton}</button><button class="primary" data-action="open-history">${L.manageHistory}</button></div></section>
                 ${templates}
                 <section><h3>${L.config}</h3>
                     <div class="buttons"><button data-action="export">${L.export}</button>
@@ -274,6 +237,7 @@ export async function showSettings(host: SettingsHost): Promise<void> {
             case 'clear-site': await host.clearHistory(scope); break;
             case 'clear-all': if (!confirm(L.confirmClearAll)) return; await host.clearHistory(); break;
             case 'reset-button': await host.resetButtonPosition(); host.notify(L.done); return;
+            case 'open-history': close(); host.openHistory(); return;
             case 'export': collect(); await host.copy(JSON.stringify(overrides(), null, 2)); host.notify(L.copied); return;
             case 'import': {
                 const text = root.querySelector<HTMLTextAreaElement>('[data-input="import"]')!.value;

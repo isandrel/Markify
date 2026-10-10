@@ -5,6 +5,25 @@ export interface DownloadRecord {
     title: string;
     downloadedAt: string;
     type: 'single' | 'batch';
+    /** The thread's state when downloaded (absent in records from older versions). */
+    replies?: number;
+    updated?: string;
+    /** The latest state Markify saw on the site, from a check or a listing. */
+    check?: { at: string; replies?: number; updated?: string };
+}
+/** What a thread looked like at download time; saved with the record. */
+export interface ThreadSnapshot { replies?: number; updated?: string }
+export interface UpdateStatus { changed: boolean; newReplies?: number; checked: boolean }
+
+/**
+ * Whether a downloaded thread changed since: activity after the download, or
+ * more replies than it had then. Works for old records without a snapshot too.
+ */
+export function updateStatus(record: Pick<DownloadRecord, 'downloadedAt' | 'replies' | 'check'>, latest: ThreadSnapshot | undefined = record.check): UpdateStatus {
+    if (!latest) return { changed: false, checked: false };
+    const newReplies = typeof latest.replies === 'number' && typeof record.replies === 'number' && latest.replies > record.replies ? latest.replies - record.replies : undefined;
+    const active = latest.updated ? Date.parse(latest.updated) > Date.parse(record.downloadedAt) : false;
+    return { changed: active || newReplies !== undefined, newReplies, checked: true };
 }
 export type DownloadHistory = Record<string, DownloadRecord>;
 export interface HistoryStorage {
@@ -62,17 +81,33 @@ function mutate(change: (history: DownloadHistory) => void, store: HistoryStorag
     writes = task;
     return task;
 }
+const snapshotOf = (value: ThreadSnapshot | undefined): ThreadSnapshot => ({
+    ...(typeof value?.replies === 'number' ? { replies: value.replies } : {}),
+    ...(typeof value?.updated === 'string' && value.updated ? { updated: value.updated } : {}),
+});
 export async function markManyAsDownloaded(
-    items: readonly { id: string; title: string }[], site: string, type: DownloadRecord['type'],
+    items: readonly ({ id: string; title: string } & ThreadSnapshot)[], site: string, type: DownloadRecord['type'],
     active: () => boolean = () => true, store: HistoryStorage = storage,
 ): Promise<void> {
     const downloadedAt = new Date().toISOString();
     await mutate(history => {
-        for (const item of items) history[keyFor(item.id, site)] = { ...item, site: canonical(site), type, downloadedAt };
+        for (const item of items) history[keyFor(item.id, site)] = { id: item.id, title: item.title, ...snapshotOf(item), site: canonical(site), type, downloadedAt };
     }, store, active);
 }
-export async function markAsDownloaded(id: string, site: string, title: string, type: DownloadRecord['type']): Promise<void> {
-    await markManyAsDownloaded([{ id, title }], site, type);
+export async function markAsDownloaded(id: string, site: string, title: string, type: DownloadRecord['type'], snapshot?: ThreadSnapshot): Promise<void> {
+    await markManyAsDownloaded([{ id, title, ...snapshot }], site, type);
+}
+/** Saves the latest state seen on the site for a downloaded thread; returns its update status. */
+export async function recordCheck(id: string, site: string, latest: ThreadSnapshot): Promise<UpdateStatus | undefined> {
+    let status: UpdateStatus | undefined;
+    await mutate(history => {
+        for (const record of Object.values(history)) {
+            if (!record || keyFor(record.id, record.site) !== keyFor(id, site)) continue;
+            record.check = { at: new Date().toISOString(), ...snapshotOf(latest) };
+            status = updateStatus(record);
+        }
+    }, storage);
+    return status;
 }
 export async function removeDownload(id: string, site: string): Promise<void> {
     await mutate(history => {
