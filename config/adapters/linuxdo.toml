@@ -82,7 +82,7 @@ exclude_selectors = ["aside"]
 [api]
 # Discourse raw Markdown endpoint; an empty page ends the topic.
 raw_endpoint  = "{base_url}/raw/{topic_id}?page={page}"
-json_endpoint = "{base_url}/t/{topic_id}.json?print=true&include_raw=true"
+json_endpoint = "{base_url}/t/{topic_id}.json"   # Title, author, tags and counts for the frontmatter
 max_pages     = 100
 page_delay    = { min_ms = 200, max_ms = 200, jitter = 0 }
 

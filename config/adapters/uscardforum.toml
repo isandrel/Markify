@@ -84,7 +84,7 @@ raw_endpoint  = "{base_url}/raw/{topic_id}?page={page}"
 
 # Fallback: JSON API (returns structured data with cooked HTML)
 # Append ?print=true to get up to 1000 posts in one request
-json_endpoint = "{base_url}/t/{topic_id}.json?print=true&include_raw=true"
+json_endpoint = "{base_url}/t/{topic_id}.json"   # Title, author, tags and counts for the frontmatter
 
 # Pagination
 max_pages      = 100              # Safety limit for paginated fetching

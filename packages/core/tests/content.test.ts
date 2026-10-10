@@ -69,12 +69,32 @@ describe('profile extension and filenames', () => {
         const result = await convert({
             url: 'https://forum.example.com/t/welcome/42',
             metadataSnapshot: { title: 'Welcome', url: 'https://forum.example.com/t/welcome/42', date: '2026-01-01' },
-            fetcher: { get: async () => ({ status: 200, ok: true, text: page++ === 0 ? '# Body' : '' }) },
+            // No topic JSON: metadata is best effort, the raw pages still export.
+            fetcher: { get: async (url: string) => (url.includes('/raw/') ? { status: 200, ok: true, text: page++ === 0 ? '# Body' : '' } : { status: 404, ok: false, text: '' }) },
             strategy: 'api-only',
         });
         expect(result.adapter).toBe('Third Forum');
         expect(result.markdown).toContain('# Body');
         expect(result.filename).toBe('Welcome');
+    });
+
+    test('Discourse topic JSON fills title, author, date, topic tags and counts', async () => {
+        setConfig({ adapters: profiles });
+        let page = 0;
+        const topic = { title: 'He said "hi": a #test', created_at: '2026-02-01T08:00:00.000Z', views: 120, posts_count: 4, like_count: 9,
+            tags: ['docker', { id: 3, name: 'dns', slug: 'dns' }], details: { created_by: { username: 'neo' } } };
+        const result = await convert({
+            url: 'https://linux.do/t/topic/7',
+            fetcher: { get: async (url: string) => (url.endsWith('/t/7.json')
+                ? { status: 200, ok: true, text: JSON.stringify(topic) }
+                : { status: 200, ok: true, text: page++ === 0 ? 'neo | 2026-02-01 | #1\n\nhi' : '' }) },
+            strategy: 'api-only',
+        });
+        // Quotes, colons and # are escaped, so the YAML stays valid.
+        expect(result.markdown).toContain('title: "He said \\"hi\\": a #test"\nsource: https://linux.do/t/topic/7\ndate: 2026-02-01T08:00:00.000Z\n');
+        expect(result.markdown).toContain('author: "neo"\ntags:\n  - linuxdo\n  - forum\n  - docker\n  - dns\n');
+        expect(result.markdown).toMatch(/\nviews: 120\n(?:.*\n)*replies: 3\nlikes: 9\n/);
+        expect(result.filename).toBe('He said -hi- a #test');
     });
 
     test('filename templates support index and preserve literal replacement tokens', () => {
@@ -176,5 +196,35 @@ describe('page titles', () => {
         expect(pageTitle(doc('Amex offer - 信用卡 - 美国信用卡指南', '  Amex\n offer '), profile)).toBe('Amex offer');
         expect(pageTitle(doc('Amex offer - 美国信用卡指南'), profile)).toBe('Amex offer');
         expect(pageTitle(doc('Topic - 开发调优 - LINUX DO', '[开源] Topic'), profiles.linuxdo)).toBe('[开源] Topic');
+    });
+});
+
+describe('Discourse raw Markdown', () => {
+    test('uploads, quotes, details, spoilers and polls become portable Markdown; code is untouched', async () => {
+        const { discourseToMarkdown } = await import('../src/adapters/discourse-markdown');
+        const base = 'https://linux.do';
+        expect(discourseToMarkdown('![shot|690x388](upload://aBc123.png) [log.txt|attachment](upload://xYz.txt) (123 KB)', base))
+            .toBe('![shot|690x388](https://linux.do/uploads/short-url/aBc123.png) [log.txt](https://linux.do/uploads/short-url/xYz.txt) (123 KB)');
+        expect(discourseToMarkdown('before\n[quote="neo, post:3, topic:42"]\nouter\n[quote="trinity, post:1, topic:42, full:true"]\ninner $&\n[/quote]\n[/quote]\nafter', base))
+            .toBe('before\n\n> **neo** [#3](https://linux.do/t/42/3):\n>\n> outer\n>\n> > **trinity** [#1](https://linux.do/t/42/1):\n> >\n> > inner $&\n\nafter');
+        expect(discourseToMarkdown('[quote]\nanon\n[/quote]', base)).toBe('\n> anon\n');
+        expect(discourseToMarkdown('[details="配置"]\nline 1\nline 2\n[/details]', base))
+            .toBe('<details>\n<summary>配置</summary>\n\nline 1\nline 2\n\n</details>');
+        expect(discourseToMarkdown('答案是 [spoiler]42[/spoiler]。\n[spoiler]\nblock\n[/spoiler]', base))
+            .toBe('答案是 42。\n<details>\n<summary>Spoiler</summary>\n\nblock\n\n</details>');
+        expect(discourseToMarkdown('[poll type=regular results=always]\n* A\n* B\n[/poll]', base)).toBe('**Poll:**\n\n* A\n* B');
+        // Code shows the syntax literally.
+        const code = '```\n[quote="x"]\n![a](upload://k.png)\n```\nand `[details]` inline';
+        expect(discourseToMarkdown(code, base)).toBe(code);
+    });
+});
+
+describe('Discourse raw Markdown around code', () => {
+    test('details and quotes may wrap fenced code', async () => {
+        const { discourseToMarkdown } = await import('../src/adapters/discourse-markdown');
+        expect(discourseToMarkdown('[details="compose"]\n```yaml\na: [quote]\n```\n[/details]', 'https://linux.do'))
+            .toBe('<details>\n<summary>compose</summary>\n\n```yaml\na: [quote]\n```\n\n</details>');
+        expect(discourseToMarkdown('[quote="neo"]\nsee:\n```\nline 1\nline 2\n```\n[/quote]', 'https://linux.do'))
+            .toBe('\n> **neo**:\n>\n> see:\n> ```\n> line 1\n> line 2\n> ```\n');
     });
 });

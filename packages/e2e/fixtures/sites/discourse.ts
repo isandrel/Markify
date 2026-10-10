@@ -14,6 +14,9 @@ export interface DiscourseTopic {
     pages: string[];
     /** HTTP status of /raw/ (403 restricted category, 404 deleted, 429 rate limited). */
     status?: number;
+    /** Topic tags and starter in /t/{id}.json. */
+    tags?: string[];
+    author?: string;
 }
 
 export interface DiscourseSpec {
@@ -25,6 +28,8 @@ export interface DiscourseSpec {
     tag: { name: string; ids: string[] };
     latest: string[];
     search: { query: string; ids: string[] };
+    /** A topic using Discourse-only syntax, and what its export must contain. */
+    rich?: { id: string; expect: string[] };
 }
 
 const slug = (title: string) => title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'topic';
@@ -57,6 +62,19 @@ export function discourseSite(spec: DiscourseSpec): FakeSite {
             if (!topic) return text('not found', 404);
             if (topic.status) return text(topic.status === 429 ? 'You have performed this action too many times.' : 'error', topic.status);
             return text(topic.pages[Number(url.searchParams.get('page') ?? '1') - 1] ?? '');
+        }
+        const topicJson = url.pathname.match(/^\/t\/(\d+)\.json$/);
+        if (topicJson) {
+            const topic = spec.topics[topicJson[1]];
+            if (!topic) return json({ errors: ['not found'] }, 404);
+            if (topic.status) return json({ errors: ['denied'] }, topic.status);
+            return json({
+                id: Number(topicJson[1]), title: topic.title, created_at: '2026-02-01T08:00:00.000Z', views: 321,
+                posts_count: topic.pages.length * 20, like_count: 12,
+                // Current Discourse sends tag objects; older versions send names.
+                tags: (topic.tags ?? []).map((name, index) => (index % 2 ? name : { id: index + 1, name, slug: name })),
+                details: { created_by: { username: topic.author ?? 'starter' } },
+            });
         }
         const thread = url.pathname.match(/^\/t\/(?:[^/]+\/)?(\d+)(?:\/\d+)?\/?$/);
         if (thread && spec.topics[thread[1]]) {
