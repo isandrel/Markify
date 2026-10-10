@@ -1,6 +1,6 @@
 {
   "name": "@markify/mcp",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "Markify MCP Server — expose page-to-markdown conversion to AI agents",
   "type": "module",
   "main": "src/index.ts",

@@ -34,15 +34,15 @@ bun install
 bun run validate
 
 # Versioned output
-open packages/userscript/dist/markify-v0.0.4.user.js
+open packages/userscript/dist/markify-v0.0.5.user.js
 
 # Stage the stable update artifact at dist/markify.user.js
-bun run stage:release -- 0.0.4
+bun run stage:release -- 0.0.5
 ```
 
 ### Install in Tampermonkey
 
-1. Copy contents of `packages/userscript/dist/markify-v0.0.4.user.js` (or the staged `dist/markify.user.js`)
+1. Copy contents of `packages/userscript/dist/markify-v0.0.5.user.js` (or the staged `dist/markify.user.js`)
 2. Open Tampermonkey Dashboard → Create new script
 3. Paste and save
 

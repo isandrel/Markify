@@ -1,6 +1,6 @@
 {
   "name": "@markify/e2e",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "private": true,
   "description": "End-to-end tests: built userscript in Chromium, CLI and MCP server as subprocesses",
   "type": "module",

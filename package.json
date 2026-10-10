@@ -1,7 +1,7 @@
 {
   "name": "markify",
   "private": true,
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "Convert web pages to Obsidian-formatted Markdown with YAML frontmatter",
   "workspaces": [
     "packages/*"

@@ -14,13 +14,13 @@ bun run build
 The installable versioned file is written to `packages/userscript/dist/markify-v<version>.user.js`. The release staging command validates the version and copies it to `dist/markify.user.js` for the stable update URL:
 
 ```bash
-bun run stage:release -- 0.0.4
+bun run stage:release -- 0.0.5
 ```
 
 For a local Tampermonkey development script, enable **Allow access to file URLs** and use a stub whose `@require` points to the absolute versioned file, for example:
 
 ```text
-file:///Users/neo/Documents/Git/Markify/packages/userscript/dist/markify-v0.0.4.user.js
+file:///Users/neo/Documents/Git/Markify/packages/userscript/dist/markify-v0.0.5.user.js
 ```
 
 Rebuild after source or profile changes, then reload the target page. The `@match` and `@connect` metadata are generated from validated profiles during the userscript build.

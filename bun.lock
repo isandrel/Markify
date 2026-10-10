@@ -11,7 +11,7 @@
     },
     "packages/cli": {
       "name": "@markify/cli",
-      "version": "0.0.4",
+      "version": "0.0.5",
       "bin": {
         "markify": "src/index.ts",
       },
@@ -26,7 +26,7 @@
     },
     "packages/core": {
       "name": "@markify/core",
-      "version": "0.0.4",
+      "version": "0.0.5",
       "dependencies": {
         "@bbob/html": "^4.3.1",
         "@bbob/preset-html5": "^4.3.1",
@@ -42,7 +42,7 @@
     },
     "packages/e2e": {
       "name": "@markify/e2e",
-      "version": "0.0.4",
+      "version": "0.0.5",
       "devDependencies": {
         "@iarna/toml": "^2.2.5",
         "@modelcontextprotocol/sdk": "^1.12.1",
@@ -56,7 +56,7 @@
     },
     "packages/mcp": {
       "name": "@markify/mcp",
-      "version": "0.0.4",
+      "version": "0.0.5",
       "dependencies": {
         "@markify/core": "workspace:*",
         "@modelcontextprotocol/sdk": "^1.12.1",
@@ -70,7 +70,7 @@
     },
     "packages/userscript": {
       "name": "@markify/userscript",
-      "version": "0.0.4",
+      "version": "0.0.5",
       "dependencies": {
         "@markify/core": "workspace:*",
         "@violentmonkey/dom": "^2.2.1",
