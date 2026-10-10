@@ -93,8 +93,19 @@ export function discourseSite(spec: DiscourseSpec): FakeSite {
         if (url.pathname === `/c/${spec.category.path}`) return list(spec, spec.category.name, `<h1>${escape(spec.category.name)}</h1>`, spec.category.ids);
         if (url.pathname === `/tag/${spec.tag.name}`) return list(spec, `Topics tagged ${spec.tag.name}`, `<h1>${escape(spec.tag.name)}</h1>`, spec.tag.ids);
         if (url.pathname === '/latest.json') {
-            return json({ topic_list: { topics: spec.latest.map(id => ({ id: Number(id), title: spec.topics[id].title, slug: slug(spec.topics[id].title), posts_count: spec.topics[id].pages.length * 20 })) } });
+            return json({ topic_list: { topics: spec.latest.map(id => ({
+                id: Number(id), title: spec.topics[id].title, slug: slug(spec.topics[id].title), posts_count: spec.topics[id].pages.length * 20,
+                pinned: false, closed: false, archived: false,
+                tags: spec.tag.ids.includes(id) ? [spec.tag.name] : [],
+                last_posted_at: spec.topics[id].updated ?? DEFAULT_UPDATED,
+            })) } });
         }
+        if (url.pathname === '/categories.json') {
+            const [categorySlug, categoryId] = spec.category.path.split('/');
+            return json({ category_list: { categories: [{ id: Number(categoryId), slug: categorySlug, name: spec.category.name }] } });
+        }
+        // Discourse redirects short upload URLs to the file; the stand-in serves it directly.
+        if (url.pathname.startsWith('/uploads/short-url/')) return { status: 200, body: 'image', contentType: 'image/png' };
         if (/^\/(latest|new|top|hot)\/?$/.test(url.pathname)) return list(spec, 'Latest topics', '', spec.latest);
         if (url.pathname === '/search') {
             const results = spec.search.ids.map(id => `<div class="fps-result"><div class="topic"><a class="search-link" href="/t/${slug(spec.topics[id].title)}/${id}">`

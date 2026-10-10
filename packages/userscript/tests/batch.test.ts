@@ -173,3 +173,27 @@ describe('update status of downloaded threads', () => {
         expect(updateStatus({ downloadedAt: '2026-02-01T00:00:00.000Z' }, { replies: 50, updated: '2026-01-01T00:00:00.000Z' }).changed).toBe(false);
     });
 });
+
+describe('real US Card Forum topic list markup', () => {
+    // A row as www.uscardforum.com serves it (captured from the live site), trimmed of avatars and SVG.
+    const row = `<table><tbody><tr class="topic-list-item category-rewards-credit-cards has-excerpt" data-topic-id="15">
+        <td class="main-link topic-list-data" colspan="1"><span aria-level="2" class="link-top-line" role="heading">
+        <a class="title raw-link raw-topic-link" data-topic-id="15" href="/t/topic/15">关于“信用卡”分类</a></span>
+        <div class="link-bottom-line"></div></td>
+        <td class="num posts-map posts  topic-list-data"><a aria-label="0 条回复，跳转到第一个帖子" class="badge-posts" href="/t/topic/15/1"><span class="number">0</span></a></td>
+        <td class="num views topic-list-data heatmap-med"><span class="number" title="此话题已被浏览 4,674 次">4.7k</span></td>
+        <td class="activity num topic-list-data age" title="创建日期：2020 年 7月 3 日 22:33\n最新：2020 年 7月 7 日 02:46">
+        <a class="post-activity" href="/t/topic/15/1"><span class="relative-date" data-time="1594090013771" data-format="tiny">2020 年 7月</span></a></td>
+        </tr></tbody></table>`;
+
+    test('rows give the topic id, title, URL and last activity', () => {
+        const document = parseHTML(`<html><body><div id="main-outlet">${row}</div></body></html>`).document;
+        const capability = new ProfileBatchCapability(uscfProfile, async () => 'ok', {
+            document: document as unknown as Document,
+            url: () => 'https://www.uscardforum.com/latest',
+        });
+        expect(capability.extractRows().map(({ id, title, url, activity }) => ({ id, title, url, activity }))).toEqual([{
+            id: '15', title: '关于“信用卡”分类', url: 'https://www.uscardforum.com/t/topic/15', activity: '2020-07-07T02:46:53.771Z',
+        }]);
+    });
+});

@@ -12,7 +12,6 @@ import {
     convert,
     classifyRegistryRoute,
     classifyRoute,
-    createProfileAdapter,
     findProfileAdapter,
     findSiteAdapter,
     builtInAdapters,
@@ -85,12 +84,18 @@ async function activateRoute(route: ActiveRoute | null, url: string): Promise<vo
         return;
     }
     if (route.kind !== 'listing' || generation !== routeGeneration) return;
-    const contentAdapter = createProfileAdapter(profile);
     // Each export reports its thread state; the history record keeps it.
     const snapshots = new Map<string, ThreadSnapshot>();
     const capability = new ProfileBatchCapability(profile, async (id, onProgress, signal, item) => {
         if (!item) throw new Error('Batch item URL is missing');
-        return contentAdapter.fetchViaApi!(item.url, createProfileFetcher(profile), profile, { onProgress, signal, onMetadata: metadata => snapshots.set(id, snapshotOf(metadata)) });
+        // The same conversion as a single download, so every ZIP entry has its frontmatter.
+        const result = await convert({
+            url: item.url, templates, fetcher: createProfileFetcher(profile), adapterConfig: profile, signal, onProgress,
+            metadataSnapshot: { title: item.title, url: item.url, id, tags: profile.metadata?.tags, date: formatDate(), downloaded: formatDate() },
+            includeFrontmatter: true, strategy: 'api-only',
+        });
+        snapshots.set(id, snapshotOf(result.metadata));
+        return result.markdown;
     }, { document, url: () => window.location.href });
     const manager = new BatchDownloadManager(capability, {
         saveHistory: (items, site, active) => markManyAsDownloaded(items.map(item => ({ ...item, ...snapshots.get(item.id) })), site, 'batch', active),

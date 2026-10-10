@@ -37,12 +37,11 @@ The Discourse suite covers raw-page joining, Discourse-only syntax (uploads, quo
   - the thread and comments API against the profile's field mapping;
   - real threads converted end to end by the CLI, where every reply must be either exported or noted as missing (nested replies behind login);
   - in the browser: discover feed, single and batch export, the legacy BBS URL and pagination.
-- **US Card Forum, LINUX DO:**
-  - `/latest.json` and the `/raw/` page contract;
-  - a real topic converted by the CLI;
-  - in the browser: the latest list and a topic export.
+- **US Card Forum, LINUX DO:** every userscript feature in the browser, finding topics on the real `/latest` page and reading data from inside the page, the way the userscript does:
+  - checks that need only the page: list checkboxes, "updated since download" markers from the list's activity times, list → topic navigation, the console API's `status`/`list`, settings;
+  - checks that need data (`/raw/`, `*.json`): batch ZIP with frontmatter, topic export (title, author, tags, every raw page, portable Markdown, upload links), Copy, thread-page update check, history-page checks, console API export, the CLI.
 
-Data-centre IPs (GitHub-hosted runners, cloud sandboxes) get bot-protection pages ("请稍候…" / "Just a moment…", HTTP 403) from www.1point3acres.com, and from **every** URL of both Discourse sites. 1Point3Acres' API still answers, so its API checks run. Everything that's challenged is **skipped** with that reason, never bypassed. To run it all, register a runner on a network the sites accept (for example your own machine as a [self-hosted runner](https://docs.github.com/actions/hosting-your-own-runners)) and set these repository variables:
+Data-centre IPs (GitHub-hosted runners, cloud sandboxes) get bot-protection pages ("请稍候…" / "Just a moment…", HTTP 403) from www.1point3acres.com and LINUX DO. US Card Forum often lets the browser load pages but challenges its data requests, and sometimes the pages too: page-only checks then still run, and data checks skip with that reason. 1Point3Acres' API still answers, so its API checks run. Everything that's challenged is **skipped** with that reason, never bypassed. To run it all, register a runner on a network the sites accept (for example your own machine as a [self-hosted runner](https://docs.github.com/actions/hosting-your-own-runners)) and set these repository variables:
 
 - `LIVE_RUNNER`: the runner label, for example `self-hosted`. On such a runner a blocked page fails instead of skipping.
 - `LIVE_THREAD_IDS` (optional): comma-separated public 1Point3Acres thread ids, used when the group listing API is unavailable. The default is `1184303`.
