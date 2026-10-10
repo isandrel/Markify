@@ -2,6 +2,7 @@
  * The userscript contract every Discourse site must meet, derived from its fixture
  * spec. A site's spec file is a single `discourseSuite(...)` call.
  */
+import { parse as parseYaml } from 'yaml';
 import { test, expect } from './harness';
 import { discourseRows, type DiscourseSpec } from '../fixtures';
 
@@ -68,6 +69,19 @@ export function discourseSuite({ id, spec, tags }: DiscourseSite): void {
                 expect(downloads).toBe(0);
                 expect(markify.store.get('markify_download_history')).toBeUndefined();
                 await expect(page.locator('#markify-download-btn')).toHaveText('📥 Download');
+            });
+        }
+
+        if (spec.rich) {
+            const { id: richId, expect: expected } = spec.rich;
+            const rich = spec.topics[richId];
+            test('Discourse-only syntax becomes portable Markdown, with topic details from /t/{id}.json', async ({ markify, page }) => {
+                await markify.open(`${origin}/t/x/${richId}`);
+                const { text } = await markify.download(() => page.locator('#markify-download-btn').click());
+                for (const fragment of expected) expect(text).toContain(fragment);
+                expect(text).not.toMatch(/upload:\/\/|\[\/?(?:quote|details|spoiler)\b/);
+                const meta = parseYaml(text.match(/^---\n([\s\S]*?)\n---\n/)![1]);
+                expect(meta).toMatchObject({ title: rich.title, author: rich.author, views: 321, likes: 12, tags: [...tags, ...(rich.tags ?? [])] });
             });
         }
 

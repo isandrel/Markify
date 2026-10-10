@@ -210,8 +210,11 @@ See [DEVELOPMENT.md](DEVELOPMENT.md) for:
 - GitHub
 - Reddit
 - Dev.to
-- US Card Forum (with pagination)
-- LINUX DO (with pagination)
+- US Card Forum and LINUX DO (Discourse):
+  - every page of a topic;
+  - author, date, topic tags, views and likes;
+  - images and attachments with real links;
+  - quotes, `[details]`, spoilers and polls converted to plain Markdown
 - 1Point3Acres (thread API with nested replies)
 - Default fallback for other sites
 

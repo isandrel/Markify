@@ -27,7 +27,7 @@ Use the local `./node_modules/.bin/playwright`, not a global `npx playwright`. T
 | `live-dryrun` | `tests/live/` | The real-site specs run against the fixtures, which keeps them correct in every run |
 | `live` | `tests/live/` | The same specs against the real sites, logged out (only when `MARKIFY_E2E_LIVE=1`) |
 
-The Discourse suite covers raw-page joining, the clean topic title (Discourse page titles are "Topic - Category - Site"), slugless and post-number URLs, Copy, 403/404/429/500 failures, category/latest/tag/search batches, infinite-scroll rows, and history markers.
+The Discourse suite covers raw-page joining, Discourse-only syntax (uploads, quotes, `[details]`) and topic JSON metadata, the clean topic title (Discourse page titles are "Topic - Category - Site"), slugless and post-number URLs, Copy, 403/404/429/500 failures, category/latest/tag/search batches, infinite-scroll rows, and history markers.
 
 ## Real-site checks
 

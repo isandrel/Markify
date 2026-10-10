@@ -16,37 +16,42 @@ export function formatDate(date: Date = new Date()): string {
     return date.toISOString().split('T')[0];
 }
 
+/** A YAML scalar: plain when that is unambiguous, otherwise a JSON (double-quoted YAML) string. */
+const yamlItem = (value: unknown): string => (typeof value === 'string' && !/^[\p{L}\p{N}_][\p{L}\p{N}_ ./+-]*$/u.test(value) ? JSON.stringify(value) : String(value));
+
 /**
- * Generate YAML frontmatter for Obsidian
+ * Generate YAML frontmatter for Obsidian. Strings are always quoted and
+ * escaped, so titles with quotes, colons or # stay valid YAML.
  */
 export function generateFrontmatter(metadata: Record<string, any>): string {
     const lines = ['---'];
 
     // Always include core fields
-    if (metadata.title) lines.push(`title: "${metadata.title}"`);
+    if (metadata.title) lines.push(`title: ${JSON.stringify(String(metadata.title))}`);
     if (metadata.url) lines.push(`source: ${metadata.url}`);
     if (metadata.date) lines.push(`date: ${metadata.date}`);
     if (metadata.downloaded) lines.push(`downloaded: ${metadata.downloaded}`);
 
     // Optional fields
-    if (metadata.author) lines.push(`author: "${metadata.author}"`);
-    if (metadata.description) lines.push(`description: "${metadata.description}"`);
+    if (metadata.author) lines.push(`author: ${JSON.stringify(String(metadata.author))}`);
+    if (metadata.description) lines.push(`description: ${JSON.stringify(String(metadata.description))}`);
 
     // Tags (as YAML list)
     if (metadata.tags && metadata.tags.length > 0) {
         lines.push('tags:');
-        metadata.tags.forEach((tag: string) => lines.push(`  - ${tag}`));
+        metadata.tags.forEach((tag: string) => lines.push(`  - ${yamlItem(tag)}`));
     }
 
     // Add any other custom fields
     Object.keys(metadata).forEach(key => {
         if (!['title', 'url', 'date', 'downloaded', 'author', 'description', 'tags', 'source'].includes(key)) {
             const value = metadata[key];
+            if (value === undefined || value === null) return;
             if (typeof value === 'string') {
-                lines.push(`${key}: "${value}"`);
+                lines.push(`${key}: ${JSON.stringify(value)}`);
             } else if (Array.isArray(value)) {
                 lines.push(`${key}:`);
-                value.forEach(item => lines.push(`  - ${item}`));
+                value.forEach(item => lines.push(`  - ${yamlItem(item)}`));
             } else {
                 lines.push(`${key}: ${value}`);
             }
