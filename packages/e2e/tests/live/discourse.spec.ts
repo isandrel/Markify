@@ -63,7 +63,14 @@ for (const site of sites) {
         async function discover(markify: MarkifyBrowser, page: Page): Promise<Discovery> {
             if (discovered) return discovered;
             await markify.open(`${site.origin}/latest`);
-            await expect.poll(() => page.locator('#main-outlet tr.topic-list-item[data-topic-id]').count(), { message: 'topic rows on /latest', timeout: 30_000 }).toBeGreaterThanOrEqual(3);
+            const rows = page.locator('#main-outlet tr.topic-list-item[data-topic-id]');
+            await expect.poll(() => rows.count(), { timeout: 30_000 }).toBeGreaterThanOrEqual(3).catch(() => undefined);
+            if (await rows.count() < 3) {
+                // No topic list at all: a bot check, login wall or outage served instead. A list without matching rows is our bug.
+                await attach('latest-unavailable.html', await page.content());
+                if (!await page.locator('.topic-list').count()) skipBlocked(`${site.origin}/latest served no topic list to this browser (title "${await page.title()}"): bot check, login wall or outage`);
+                expect(await rows.count(), 'topic rows on /latest').toBeGreaterThanOrEqual(3);
+            }
             const found = await page.evaluate(() => {
                 const rows = Array.from(document.querySelectorAll<HTMLElement>('#main-outlet tr.topic-list-item[data-topic-id]'));
                 return {
