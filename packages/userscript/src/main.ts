@@ -21,13 +21,13 @@ import {
     logger,
 } from '@markify/core';
 import type { AdapterConfig, ConvertResult, SiteMetadata } from '@markify/core';
-import { loadSettings, showSettings } from './settings';
-import { getProfiles, initializeConfig, loadOverrides, notifications, pkg, resetOverridesForSite, saveOverrides, templates, theme, ui } from './config';
+import { showSettings } from './settings';
+import { compiledConfig, getProfiles, initializeConfig, loadOverrides, notifications, pkg, resetOverridesForSite, saveOverrides, templates, theme, ui } from './config';
 import { createFetchFetcher, createProfileFetcher } from './http';
 import { NavigationController } from './navigation';
 import { ProfileBatchCapability } from './adapters/profile-batch';
 import { BatchDownloadManager, initiateDownload } from './batch/BatchDownloadManager';
-import { configureHistoryProfiles, getDownloadHistory, markAsDownloaded, markManyAsDownloaded } from './utils/download-history';
+import { clearHistory, clearSiteHistory, configureHistoryProfiles, getDownloadHistory, markAsDownloaded, markManyAsDownloaded } from './utils/download-history';
 import { AGENT_API_STORAGE_KEY, createAgentApi, installAgentApi, newAgentToken, normalizeAgentSettings, type AgentHost } from './agent-api';
 import { downloadZip } from 'client-zip';
 
@@ -298,8 +298,6 @@ async function showDownloadStatus(url = window.location.href, active: () => bool
  * Create and inject download buttons
  */
 async function createDownloadButton() {
-    const settings = await loadSettings();
-
     const container = document.createElement('div');
     container.id = 'markify-container';
 
@@ -506,8 +504,7 @@ function installAgentApiOnce(): boolean {
     return agentApiInstalled;
 }
 
-async function agentApiMenu(action: 'token' | 'disable'): Promise<void> {
-    const profile = currentProfile();
+async function agentApiMenu(action: 'token' | 'disable', profile: AdapterConfig | undefined = currentProfile()): Promise<void> {
     if (!profile) {
         GM.notification({ text: 'Markify has no profile for this site.', title: 'Markify', timeout: 3000 });
         return;
@@ -524,7 +521,8 @@ async function agentApiMenu(action: 'token' | 'disable'): Promise<void> {
     settings.sites[profile.site.id] = { token, createdAt: settings.sites[profile.site.id]?.createdAt || new Date().toISOString() };
     await GM.setValue(AGENT_API_STORAGE_KEY, settings);
     agentApi.resetLock();
-    const installed = installAgentApiOnce();
+    // window.markify only exists on the site it is for; other sites get it on their next load.
+    const installed = profile.site.id !== currentProfile()?.site.id || installAgentApiOnce();
     await GM.setClipboard(token, 'text');
     GM.notification({
         text: installed
@@ -532,6 +530,32 @@ async function agentApiMenu(action: 'token' | 'disable'): Promise<void> {
             : 'Token copied, but this page blocks window.markify. Reload and try again.',
         title: 'Markify',
         timeout: 6000,
+    });
+}
+
+/** The settings page, wired to the real storage and actions. */
+function openSettings(): Promise<void> {
+    const builtIn = Object.values(compiledConfig.adapters);
+    return showSettings({
+        profiles: builtIn,
+        // Also on a site the user turned off, so it can be turned back on.
+        currentSiteId: builtIn.find(profile => profile.site.origins.includes(window.location.origin))?.site.id,
+        loadOverrides,
+        saveOverrides,
+        agentEnabled: async siteId => !!(await agentHost.token(siteId)),
+        agentCopyToken: siteId => agentApiMenu('token', getProfiles()[siteId] ?? compiledConfig.adapters[siteId]),
+        agentRevoke: siteId => agentApiMenu('disable', getProfiles()[siteId] ?? compiledConfig.adapters[siteId]),
+        history: getDownloadHistory,
+        clearHistory: siteId => (siteId ? clearSiteHistory(siteId) : clearHistory()),
+        async resetButtonPosition() {
+            await GM.deleteValue('markify_button_x');
+            await GM.deleteValue('markify_button_y');
+            const toolbar = document.querySelector<HTMLElement>('#markify-container');
+            if (toolbar) Object.assign(toolbar.style, { left: '', top: ui?.ui?.position?.default_top || '20px', right: ui?.ui?.position?.default_right || '20px' });
+        },
+        copy: text => GM.setClipboard(text, 'text'),
+        notify: text => { GM.notification({ text, title: pkg?.package?.strings?.app_title || 'Markify', timeout: notifications?.timeouts?.short || 2000 }); },
+        reload: () => window.location.reload(),
     });
 }
 
@@ -550,7 +574,7 @@ async function agentApiMenu(action: 'token' | 'disable'): Promise<void> {
 
     // Register menu commands
     GM.registerMenuCommand(pkg?.package?.menu?.settings || '⚙️ Settings', () => {
-        showSettings();
+        void openSettings().catch(error => console.error('[Markify] Settings failed to open', error));
     });
 
     GM.registerMenuCommand(pkg?.package?.menu?.stats || '📊 View Stats', async () => {

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ConfigError, deepFreeze, filenameSchema, normalizeProfile, runtimeSchema, templateBlockSchema, type AdapterConfig } from './schema';
+import { ConfigError, deepFreeze, filenameSchema, normalizeProfile, runtimeOverrideSchema, templateBlockSchema, type AdapterConfig } from './schema';
 
 /** Deliberately limited: endpoint/route/layout updates belong to reviewed profiles. */
 export const profileOverrideSchema = z.strictObject({
@@ -8,7 +8,7 @@ export const profileOverrideSchema = z.strictObject({
     comment: templateBlockSchema.optional(), comments_header: templateBlockSchema.optional(),
     reply: templateBlockSchema.optional(), replies_gap: templateBlockSchema.optional(),
     filename: filenameSchema.partial().optional(),
-    runtime: runtimeSchema.partial().optional(),
+    runtime: runtimeOverrideSchema.optional(),
 });
 export const userOverridesSchema = z.strictObject({
     schema_version: z.literal(1),
