@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Markify
 // @namespace    https://github.com/isandrel/Markify
-// @version      0.0.4
+// @version      0.0.5
 // @author       isandrel
 // @description  Convert web pages to Obsidian-formatted Markdown with YAML frontmatter
 // @license      AGPL-3.0-or-later
@@ -33,7 +33,7 @@
 // ==/UserScript==
 
 
-System.register("./__entry.js", ['./__monkey.entry-LtsE0_mx.js'], (function (exports, module) {
+System.register("./__entry.js", ['./__monkey.entry-oE3Twt20.js'], (function (exports, module) {
 	'use strict';
 	return {
 		setters: [null],
@@ -45,22 +45,23 @@ System.register("./__entry.js", ['./__monkey.entry-LtsE0_mx.js'], (function (exp
 	};
 }));
 
-System.register("./__monkey.entry-LtsE0_mx.js", [], (function (exports, module) {
+System.register("./__monkey.entry-oE3Twt20.js", [], (function (exports, module) {
   'use strict';
   return {
     execute: (function () {
 
       exports({
-        A: getProfileAdapters,
-        B: hasSiteApi,
-        D: interpolate,
-        E: listAdapters,
-        G: matchesPattern,
-        H: parseForumPosts,
-        I: replacePlaceholders,
-        J: routeLogsToStderr,
-        K: sanitizeFilename,
-        M: setConfig,
+        A: getConfig,
+        B: getProfileAdapters,
+        D: hasSiteApi,
+        E: interpolate,
+        F: listAdapters,
+        H: matchesPattern,
+        I: parseForumPosts,
+        J: replacePlaceholders,
+        K: routeLogsToStderr,
+        M: sanitizeFilename,
+        N: setConfig,
         a: applyFilenameTemplate,
         d: applyCommentTemplate,
         e: applyDocumentTemplate,
@@ -72,15 +73,15 @@ System.register("./__monkey.entry-LtsE0_mx.js", [], (function (exports, module) 
         o: extractMainContent,
         p: fetchForumApiContent,
         q: fetchDiscourseRawContent,
-        r: fetchViaJinaReader,
-        s: findProfileAdapter,
-        t: findSiteAdapter,
-        u: formatDate,
-        v: formatMessage,
-        w: generateFrontmatter,
-        x: getAdapterConfig,
-        y: getBuiltInAdapters,
-        z: getConfig
+        r: fetchThreadState,
+        s: fetchViaJinaReader,
+        t: findProfileAdapter,
+        u: findSiteAdapter,
+        v: formatDate,
+        w: formatMessage,
+        x: generateFrontmatter,
+        y: getAdapterConfig,
+        z: getBuiltInAdapters
       });
 
       const scriptRel = (function detectScriptRel() {
@@ -790,8 +791,8 @@ remove: function(filter) {
           return this;
         },
 escape: function(string2) {
-          return escapes.reduce(function(accumulator, escape) {
-            return accumulator.replace(escape[0], escape[1]);
+          return escapes.reduce(function(accumulator, escape2) {
+            return accumulator.replace(escape2[0], escape2[1]);
           }, string2);
         }
       };
@@ -1175,7 +1176,7 @@ escape: function(string2) {
       function escapeRegex(str) {
         return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       }
-      function clone(inst, def, params) {
+      function clone$1(inst, def, params) {
         const cl = new inst._zod.constr(def ?? inst._zod.def);
         if (!def || params?.parent)
           cl._zod.parent = inst;
@@ -1229,7 +1230,7 @@ escape: function(string2) {
         }
         const newShape = {};
         mirrorShape(newShape, schema, maskedKeys(schema, mask));
-        return clone(schema, mergeDefs(currDef, { shape: newShape, checks: [] }));
+        return clone$1(schema, mergeDefs(currDef, { shape: newShape, checks: [] }));
       }
       function maskedKeys(schema, mask) {
         const raw = sourceShape(schema);
@@ -1253,7 +1254,7 @@ escape: function(string2) {
         const omitted = new Set(maskedKeys(schema, mask));
         const newShape = {};
         mirrorShape(newShape, schema, Reflect.ownKeys(sourceShape(schema)).filter((key) => !omitted.has(key)));
-        return clone(schema, mergeDefs(currDef, { shape: newShape, checks: [] }));
+        return clone$1(schema, mergeDefs(currDef, { shape: newShape, checks: [] }));
       }
       function extend(schema, shape) {
         if (!isPlainObject(shape)) {
@@ -1269,7 +1270,7 @@ escape: function(string2) {
             }
           }
         }
-        return clone(schema, mergeDefs(schema._zod.def, { shape: extended(schema, shape) }));
+        return clone$1(schema, mergeDefs(schema._zod.def, { shape: extended(schema, shape) }));
       }
       function extended(schema, shape) {
         const newShape = {};
@@ -1281,7 +1282,7 @@ escape: function(string2) {
         if (!isPlainObject(shape)) {
           throw new Error("Invalid input to safeExtend: expected a plain object");
         }
-        return clone(schema, mergeDefs(schema._zod.def, { shape: extended(schema, shape) }));
+        return clone$1(schema, mergeDefs(schema._zod.def, { shape: extended(schema, shape) }));
       }
       function merge(a2, b2) {
         if (!b2?._zod?.def) {
@@ -1300,7 +1301,7 @@ escape: function(string2) {
           },
           checks: b2._zod.def.checks ?? []
         });
-        return clone(a2, def);
+        return clone$1(a2, def);
       }
       function partial(Class, schema, mask, name = "partial") {
         const currDef = schema._zod.def;
@@ -1312,7 +1313,7 @@ escape: function(string2) {
         const selected = mask ? new Set(maskedKeys(schema, mask)) : void 0;
         const newShape = {};
         mirrorShape(newShape, schema, Reflect.ownKeys(sourceShape(schema)), Class && ((value, key) => selected && !selected.has(key) ? value : new Class({ type: "optional", innerType: value })));
-        return clone(schema, mergeDefs(schema._zod.def, { shape: newShape, checks: [] }));
+        return clone$1(schema, mergeDefs(schema._zod.def, { shape: newShape, checks: [] }));
       }
       function required(Class, schema, mask) {
         const selected = mask ? new Set(maskedKeys(schema, mask)) : void 0;
@@ -1320,7 +1321,7 @@ escape: function(string2) {
         mirrorShape(newShape, schema, Reflect.ownKeys(sourceShape(schema)), (value, key) => (
 selected && !selected.has(key) ? value : new Class({ type: "nonoptional", innerType: value })
         ));
-        return clone(schema, mergeDefs(schema._zod.def, { shape: newShape }));
+        return clone$1(schema, mergeDefs(schema._zod.def, { shape: newShape }));
       }
       function aborted(x, startIndex = 0) {
         if (x.aborted === true)
@@ -5878,7 +5879,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
           return this.check(...chks);
         },
         clone(def, params) {
-          return clone(this, def, params);
+          return clone$1(this, def, params);
         },
         brand() {
           return this;
@@ -6768,10 +6769,20 @@ derived({
         batch_item: template(["title", "author", "id", "date", "site", "index"]),
         batch: template(["site", "type", "id", "date", "tagname"])
       });
+      const runtimeFields = {
+        poll_ms: number().int().min(100).max(1e4),
+        debounce_ms: number().int().min(10).max(2e3),
+        timeout_ms: number().int().min(1e3).max(12e4)
+      };
       const runtimeSchema = strictObject({
-        poll_ms: number().int().min(100).max(1e4).default(500),
-        debounce_ms: number().int().min(10).max(2e3).default(100),
-        timeout_ms: number().int().min(1e3).max(12e4).default(3e4)
+        poll_ms: runtimeFields.poll_ms.default(500),
+        debounce_ms: runtimeFields.debounce_ms.default(100),
+        timeout_ms: runtimeFields.timeout_ms.default(3e4)
+      });
+      const runtimeOverrideSchema = strictObject({
+        poll_ms: runtimeFields.poll_ms.optional(),
+        debounce_ms: runtimeFields.debounce_ms.optional(),
+        timeout_ms: runtimeFields.timeout_ms.optional()
       });
       const routeSchema = strictObject({
         name: text,
@@ -6791,7 +6802,9 @@ derived({
         title_attribute: text.optional(),
         exclude_selectors: array(text).default([]),
         empty_selector: text.optional(),
-        loading_selector: text.optional()
+        loading_selector: text.optional(),
+activity_selector: text.optional(),
+        activity_attribute: text.optional()
       });
       const bodyVars = ["title", "author", "posted_at", "updated_at", "downloaded_at", "url", "views", "replies", "favorites", "frontmatter", "date", "content", "comments", "index", "delimiter", "count", "nested", "missing", "reason"];
       const templateBlockSchema = strictObject({ template: template(bodyVars) });
@@ -6919,7 +6932,7 @@ title_selectors: array(text).optional(),
         reply: templateBlockSchema.optional(),
         replies_gap: templateBlockSchema.optional(),
         filename: filenameSchema.partial().optional(),
-        runtime: runtimeSchema.partial().optional()
+        runtime: runtimeOverrideSchema.optional()
       });
       const userOverridesSchema = strictObject({
         schema_version: literal(1),
@@ -7057,6 +7070,7 @@ title_selectors: array(text).optional(),
         resolveProfile,
         resolveProfiles,
         routeSchema,
+        runtimeOverrideSchema,
         runtimeSchema,
         setConfig,
         templateBlockSchema,
@@ -7213,6 +7227,99 @@ credentials: typeof request2.credentials === "boolean" ? request2.credentials : 
           signal?.addEventListener("abort", cancel, { once: true });
         });
       }
+      const CODE = /(^|\n)(```|~~~)[^\n]*\n[\s\S]*?\n\2[ \t]*(?=\n|$)|`[^`\n]+`/g;
+      function outsideCode(text2, transform2) {
+        const codes = [];
+        const hidden = text2.replace(CODE, (match2, lead) => `${lead ?? ""}${codes.push(match2.slice((lead ?? "").length)) - 1}`);
+        return transform2(hidden).replace(/\uE000(\d+)\uE001/g, (_, index, offset, whole) => {
+          const code = codes[Number(index)];
+          const prefix = whole.slice(whole.lastIndexOf("\n", offset - 1) + 1, offset);
+          return /^(?:> ?)+$/.test(prefix) ? code.replace(/\n/g, `
+${prefix}`) : code;
+        });
+      }
+      const quoteLines = (body) => body.trim().split("\n").map((line) => line ? `> ${line}` : ">").join("\n");
+      function quoteHeader(attributes, baseUrl) {
+        if (!attributes) return "";
+        const [name, ...rest] = attributes.split(",").map((part) => part.trim());
+        const fields = Object.fromEntries(rest.map((part) => part.split(":").map((value) => value.trim())).filter((pair) => pair.length === 2));
+        const link = fields.topic && /^\d+$/.test(fields.topic) ? ` [#${fields.post ?? 1}](${baseUrl}/t/${fields.topic}${fields.post && /^\d+$/.test(fields.post) ? `/${fields.post}` : ""})` : "";
+        return name ? `**${name}**${link}:
+
+` : "";
+      }
+      function discourseToMarkdown(raw, baseUrl) {
+        return outsideCode(raw, (text2) => {
+          let out = text2.replace(/\]\(upload:\/\/([A-Za-z0-9]+(?:\.[A-Za-z0-9]+)?)\)/g, `](${baseUrl}/uploads/short-url/$1)`).replace(/\[([^\]\n|]+)\|attachment\]\(/g, "[$1](");
+          const quote2 = /\[quote(?:="([^"\]]*)")?\]\s*\n?((?:(?!\[quote[=\]])[\s\S])*?)\n?\s*\[\/quote\]/i;
+          for (let match2 = out.match(quote2); match2; match2 = out.match(quote2)) {
+            const block = `
+${quoteLines(quoteHeader(match2[1], baseUrl) + match2[2])}
+`;
+            out = out.replace(match2[0], () => block);
+          }
+          return out.replace(
+            /\[details(?:=(?:"([^"\]]*)"|([^\]]*)))?\]\s*\n?([\s\S]*?)\n?\s*\[\/details\]/gi,
+            (_, quoted, bare, body) => `<details>
+<summary>${(quoted ?? bare ?? "Details").trim() || "Details"}</summary>
+
+${body.trim()}
+
+</details>`
+          ).replace(/\[spoiler\]\s*\n([\s\S]*?)\n\s*\[\/spoiler\]/gi, (_, body) => `<details>
+<summary>Spoiler</summary>
+
+${body.trim()}
+
+</details>`).replace(/\[spoiler\]([\s\S]*?)\[\/spoiler\]/gi, "$1").replace(/\[poll\b[^\]]*\]\s*\n?/gi, "**Poll:**\n\n").replace(/\n?\s*\[\/poll\]/gi, "").replace(/\n{3,}/g, "\n\n");
+        });
+      }
+      async function topicMetadata(topicId, fetcher, config2, options) {
+        const api = record(config2.api, "api");
+        const site = record(config2.site, "site");
+        if (typeof api.json_endpoint !== "string") return {};
+        try {
+          const url2 = interpolate(api.json_endpoint, { base_url: String(site.base_url), topic_id: topicId });
+          const response = await request(fetcher, url2, { ...options, headers: { ...options.headers, Accept: "application/json" } }, { stage: "topic-json" });
+          if (!response.ok) return {};
+          const topic = JSON.parse(response.text);
+          const metadata = {};
+          if (typeof topic.title === "string" && topic.title.trim()) metadata.title = topic.title;
+          const creator = isRecord(topic.details) && isRecord(topic.details.created_by) ? topic.details.created_by.username : void 0;
+          if (typeof creator === "string") metadata.author = creator;
+          if (typeof topic.created_at === "string") metadata.date = topic.created_at;
+          const tags = Array.isArray(topic.tags) ? topic.tags.map((tag) => isRecord(tag) ? tag.name : tag).filter((tag) => typeof tag === "string" && !!tag) : [];
+          const profileTags = isRecord(config2.metadata) && Array.isArray(config2.metadata.tags) ? config2.metadata.tags.filter((tag) => typeof tag === "string") : [];
+          if (tags.length || profileTags.length) metadata.tags = [... new Set([...profileTags, ...tags])];
+          if (typeof topic.views === "number") metadata.views = topic.views;
+          if (typeof topic.posts_count === "number") metadata.replies = Math.max(0, topic.posts_count - 1);
+          if (typeof topic.like_count === "number") metadata.likes = topic.like_count;
+          if (typeof topic.last_posted_at === "string") metadata.updated = topic.last_posted_at;
+          return metadata;
+        } catch (error2) {
+          if (error2?.name === "AbortError" || error2?.code === "ABORTED") throw error2;
+          return {};
+        }
+      }
+      async function fetchDiscourseThreadState(topicId, fetcher, config2, context = {}) {
+        const api = record(config2.api, "api");
+        const site = record(config2.site, "site");
+        const options = requestOptions(config2, context);
+        const url2 = interpolate(textField(api.json_endpoint, "api.json_endpoint"), { base_url: String(site.base_url), topic_id: topicId });
+        const response = await request(fetcher, url2, { ...options, headers: { ...options.headers, Accept: "application/json" } }, { stage: "topic-json" });
+        requireOk(response, "topic");
+        let topic;
+        try {
+          topic = JSON.parse(response.text);
+        } catch {
+          throw new ConversionError("INVALID_RESPONSE", "Topic JSON is not valid JSON", { stage: "topic-json" });
+        }
+        if (!isRecord(topic)) throw new ConversionError("INVALID_RESPONSE", "Topic JSON is not an object", { stage: "topic-json" });
+        return {
+          replies: typeof topic.posts_count === "number" ? Math.max(0, topic.posts_count - 1) : void 0,
+          updated: typeof topic.last_posted_at === "string" ? topic.last_posted_at : void 0
+        };
+      }
       async function fetchDiscourseRawContent(topicId, fetcher, config2, context = {}) {
         const api = record(config2.api, "api");
         const site = record(config2.site, "site");
@@ -7222,15 +7329,21 @@ credentials: typeof request2.credentials === "boolean" ? request2.credentials : 
         const separator = typeof config2.page_separator === "string" ? config2.page_separator : "\n\n---\n\n";
         const pages = [];
         const seen2 = new Set();
+        const baseUrl = String(site.base_url);
+        if (context.onMetadata) {
+          context.onProgress?.("Fetching topic details");
+          const metadata = await topicMetadata(topicId, fetcher ?? fetchHttpFetcher, config2, options);
+          if (Object.keys(metadata).length) context.onMetadata(metadata);
+        }
         for (let page = 1; page <= maxPages; page++) {
           assertNotAborted(context.signal);
           context.onProgress?.(`Fetching topic page ${page}`);
-          const url2 = interpolate(rawEndpoint, { base_url: String(site.base_url), topic_id: topicId, page });
+          const url2 = interpolate(rawEndpoint, { base_url: baseUrl, topic_id: topicId, page });
           const response = await request(fetcher ?? fetchHttpFetcher, url2, options, { stage: "topic", page });
           requireOk(response, "topic");
           if (!response.text.trim()) {
             if (!pages.length) throw new ConversionError("INCOMPLETE_CONTENT", "Topic response contains no content", { stage: "topic", page });
-            return pages.join(separator);
+            return pages.map((text2) => discourseToMarkdown(text2, baseUrl)).join(separator);
           }
           if (seen2.has(response.text)) throw new ConversionError("REPEATED_PAGE", "Topic pagination returned a repeated page", { stage: "topic", page });
           seen2.add(response.text);
@@ -8455,6 +8568,19 @@ substrUntilChar(char) {
         }
         return files;
       }
+      async function fetchForumThreadState(threadId, fetcher, config2, context = {}) {
+        const api = record(config2.api, "api");
+        const fields = record(api.fields, "api.fields");
+        const responseConfig = record(api.response, "api.response");
+        const response = await request(fetcher, interpolate(textField(api.thread_endpoint, "api.thread_endpoint"), { thread_id: threadId }), requestOptions(config2, context), { stage: "thread" });
+        requireOk(response, "thread");
+        const dataPath = textField(responseConfig.data_field, "api.response.data_field");
+        const thread = record(readPath(parseJson(response.text, responseConfig, "thread"), dataPath), dataPath);
+        return {
+          replies: numberField(field(thread, "replies", fields), "thread.replies"),
+          updated: dateField(field(thread, "updated_at", fields), "thread.updated_at")
+        };
+      }
       async function fetchForumApiContent(threadId, fetcher, config2, onProgress, context = {}) {
         const api = record(config2.api, "api");
         const fields = record(api.fields, "api.fields");
@@ -8593,12 +8719,14 @@ substrUntilChar(char) {
           date: postedAt
         });
         context.onMetadata?.({
-          title,
+title,
           author,
           id: threadId,
           source,
           date: postedAt,
           downloaded: downloadedAt,
+          replies,
+          updated: updatedAt,
           commentsExported: exported,
           commentsMissing: missingTotal,
           commentsPages: pageCount
@@ -8695,6 +8823,15 @@ substrUntilChar(char) {
         "forum-json": (id, fetcher, profile, context) => fetchForumApiContent(id, fetcher, profile, context?.onProgress, context),
         "discourse-raw": fetchDiscourseRawContent
       });
+      const stateEngines = {
+        "forum-json": fetchForumThreadState,
+        "discourse-raw": fetchDiscourseThreadState
+      };
+      function fetchThreadState(id, fetcher, profile, context) {
+        const engine = stateEngines[profile.engine];
+        if (!engine) throw new ConversionError("CONFIG_INVALID", `Unknown engine: ${profile.engine}`);
+        return engine(id, fetcher, profile, context);
+      }
       function createProfileAdapter(profile) {
         return {
           id: profile.site.id,
@@ -8751,26 +8888,28 @@ substrUntilChar(char) {
       function formatDate(date2 = new Date()) {
         return date2.toISOString().split("T")[0];
       }
+      const yamlItem = (value) => typeof value === "string" && !/^[\p{L}\p{N}_][\p{L}\p{N}_ ./+-]*$/u.test(value) ? JSON.stringify(value) : String(value);
       function generateFrontmatter(metadata) {
         const lines = ["---"];
-        if (metadata.title) lines.push(`title: "${metadata.title}"`);
+        if (metadata.title) lines.push(`title: ${JSON.stringify(String(metadata.title))}`);
         if (metadata.url) lines.push(`source: ${metadata.url}`);
         if (metadata.date) lines.push(`date: ${metadata.date}`);
         if (metadata.downloaded) lines.push(`downloaded: ${metadata.downloaded}`);
-        if (metadata.author) lines.push(`author: "${metadata.author}"`);
-        if (metadata.description) lines.push(`description: "${metadata.description}"`);
+        if (metadata.author) lines.push(`author: ${JSON.stringify(String(metadata.author))}`);
+        if (metadata.description) lines.push(`description: ${JSON.stringify(String(metadata.description))}`);
         if (metadata.tags && metadata.tags.length > 0) {
           lines.push("tags:");
-          metadata.tags.forEach((tag) => lines.push(`  - ${tag}`));
+          metadata.tags.forEach((tag) => lines.push(`  - ${yamlItem(tag)}`));
         }
         Object.keys(metadata).forEach((key) => {
           if (!["title", "url", "date", "downloaded", "author", "description", "tags", "source"].includes(key)) {
             const value = metadata[key];
+            if (value === void 0 || value === null) return;
             if (typeof value === "string") {
-              lines.push(`${key}: "${value}"`);
+              lines.push(`${key}: ${JSON.stringify(value)}`);
             } else if (Array.isArray(value)) {
               lines.push(`${key}:`);
-              value.forEach((item) => lines.push(`  - ${item}`));
+              value.forEach((item) => lines.push(`  - ${yamlItem(item)}`));
             } else {
               lines.push(`${key}: ${value}`);
             }
@@ -8917,7 +9056,7 @@ substrUntilChar(char) {
           }
         }
       } exports("b", Logger);
-      const logger = exports("F", new Logger("Markify"));
+      const logger = exports("G", new Logger("Markify"));
       const batchLogger = exports("f", new Logger("Markify:Batch"));
       const adapterLogger = exports("c", new Logger("Markify:Adapter"));
       var define_process_env_default = {};
@@ -9263,12 +9402,603 @@ ${rawMarkdown}`;
         }
         return metadata;
       }
-      var define_MARKIFY_CONFIG_default = { adapters: { "1point3acres": { schema_version: 1, engine: "forum-json", transport: "gm", enabled: true, site: { id: "1point3acres", name: "1Point3Acres", base_url: "https://www.1point3acres.com", origins: ["https://www.1point3acres.com", "https://instant.1point3acres.com"], aliases: ["1point3acres"] }, activation: { matches: ["https://www.1point3acres.com/home/*", "https://www.1point3acres.com/bbs/thread-*", "https://instant.1point3acres.com/thread/*"], connect: ["api.1point3acres.com"] }, routes: [{ name: "discover", kind: "listing", pattern: "^/home/discover/([^/]+)/?$", id_group: 1, origins: ["https://www.1point3acres.com"], query_keys: ["page", "sort", "order", "tab", "type"] }, { name: "forum", kind: "listing", pattern: "^/home/forum/([^/]+)/?$", id_group: 1, origins: ["https://www.1point3acres.com"], query_keys: ["page", "sort", "order", "tab", "type"] }, { name: "tag", kind: "listing", pattern: "^/home/tag/([^/]+)/?$", id_group: 1, origins: ["https://www.1point3acres.com"], query_keys: ["page", "sort", "order", "tab", "type"] }, { name: "thread", kind: "thread", pattern: "^/home/thread/(\\d+)/?$", id_group: 1, origins: ["https://www.1point3acres.com"] }, { name: "pins", kind: "thread", pattern: "^/home/pins/(\\d+)/?$", id_group: 1, origins: ["https://www.1point3acres.com"] }, { name: "bbs-thread", kind: "thread", pattern: "^/bbs/thread-(\\d+)-\\d+-\\d+\\.html$", id_group: 1, origins: ["https://www.1point3acres.com"] }, { name: "instant-thread", kind: "thread", pattern: "^/thread/(\\d+)/?$", id_group: 1, origins: ["https://instant.1point3acres.com"] }, { name: "home", kind: "entry", pattern: "^/home/?$", origins: ["https://www.1point3acres.com"] }], batch: { layouts: [{ name: "forum-thread-items", route_names: ["discover", "forum", "tag"], root_selector: "main", row_selector: '[data-sentry-component="ForumThreadItem"]', link_selector: 'a[href*="/home/thread/"]:has(h3), a[href*="/home/pins/"]:has(h3)', title_selector: "h3", title_attribute: "title", exclude_selectors: ["aside", "[data-ad]"] }, { name: "legacy-home-thread-items", route_names: ["forum", "tag"], root_selector: "main", row_selector: '[data-sentry-component="HomeThreadItem"]', link_selector: 'a[href*="/home/pins/"]', title_selector: "h3", exclude_selectors: ["aside", "[data-ad]"] }], label_selector: "main h1" }, runtime: { poll_ms: 500, debounce_ms: 100, timeout_ms: 3e4 }, api: { thread_endpoint: "https://api.1point3acres.com/api/v3/home-threads/{thread_id}", posts_endpoint: "https://api.1point3acres.com/api/threads/{thread_id}/nested-posts?ps={page_size}&order={order}&pg={page}", nested_endpoint: "https://api.1point3acres.com/api/posts/{post_id}/nested-posts?ps={page_size}&pg={page}", max_pages: 100, page_size: 20, order: "time_asc", content_format: "bbcode", id_extraction: { patterns: ["thread-(\\d+)", "/pins/(\\d+)", "/thread/(\\d+)"] }, response: { success_field: "errno", success_value: 0, data_field: "thread", posts_field: "posts" }, fields: { title: "subject", author: "author", content: "message_bbcode", posted_at: "dateline", updated_at: "lastpost", views: "views", replies: "replies", favorites: "favtimes", attachments: "attachment_list", post: { id: "pid", author: "author", content: "message_bbcode", posted_at: "dateline", children: "replies.data", children_count: "replies.count", attachments: "attachment_list" }, attachment: { id: "aid", url: "url", name: "filename", image: "isimage" } } }, metadata: { tags: ["1point3acres", "forum"], source_url: "https://www.1point3acres.com/bbs/thread-{thread_id}-1-1.html" }, delimiter: "---", frontmatter: { template: '---\ntitle: "{title}"\nauthor: {author}\nposted_at: {posted_at}\nupdated_at: {updated_at}\ndownloaded_at: {downloaded_at}\nsource: {url}\nviews: {views}\nreplies: {replies}\nfavorites: {favorites}\ntags:\n  - 1point3acres\n  - forum\n---\n' }, document: { template: "{frontmatter}\n# {title}\n\n**Author:** {author} | **Date:** {date}\n\n---\n\n{content}\n\n---\n\n**Views:** {views} | **Replies:** {replies} | **Favorites:** {favorites}\n\n{comments}" }, comment: { template: "**{author}** - *{date}*\n\n{content}\n\n{nested}{delimiter}\n" }, comments_header: { template: "\n{delimiter}\n\n## Comments ({count})\n" }, reply: { template: "> **{author}** - *{date}*\n>\n{content}\n" }, replies_gap: { template: "> *{missing} more replies are not included ({reason}).*\n" }, filename: { single: "{title}", batch_item: "{id} - {title}", batch: "{site}-{type}-{tagname}-{date}" } }, linuxdo: { schema_version: 1, engine: "discourse-raw", transport: "fetch", enabled: true, site: { id: "linuxdo", name: "LINUX DO", base_url: "https://linux.do", origins: ["https://linux.do"], aliases: ["linux.do", "LinuxDo"] }, activation: { matches: ["https://linux.do/*"], connect: ["self"] }, routes: [{ name: "thread", kind: "thread", pattern: "^/t/(?:[^/]+/)?(\\d+)(?:/\\d+)?/?$", id_group: 1 }, { name: "category", kind: "listing", pattern: "^/c/([^/]+)(?:/[^/]+)*/?$", id_group: 1, query_keys: ["page", "order", "ascending", "status", "q"] }, { name: "tag", kind: "listing", pattern: "^/tags?/([^/]+)/?$", id_group: 1, query_keys: ["page", "order", "ascending"] }, { name: "search", kind: "listing", pattern: "^/search/?$", query_keys: ["q", "page", "expanded"] }, { name: "latest", kind: "listing", pattern: "^/(latest|new|top|hot)/?$", id_group: 1, query_keys: ["order", "ascending", "period", "page"] }, { name: "home", kind: "entry", pattern: "^/(?:categories)?/?$" }], batch: { layouts: [{ name: "topic-list", route_names: ["category", "tag", "latest"], root_selector: "#main-outlet", row_selector: "tr.topic-list-item", link_selector: 'a.title[href*="/t/"], a.raw-topic-link[href*="/t/"]', exclude_selectors: ["aside"] }, { name: "search-results", route_names: ["search"], root_selector: "#main-outlet", row_selector: ".fps-result", link_selector: 'a.search-link[href*="/t/"]', title_selector: ".topic-title", exclude_selectors: ["aside"] }], label_selector: "h1" }, runtime: { poll_ms: 500, debounce_ms: 100, timeout_ms: 3e4 }, api: { raw_endpoint: "{base_url}/raw/{topic_id}?page={page}", json_endpoint: "{base_url}/t/{topic_id}.json?print=true&include_raw=true", max_pages: 100, page_size: 20, page_delay: { min_ms: 200, max_ms: 200, jitter: 0 }, request: { credentials: true, accept: "text/plain" } }, metadata: { title_cleanup: "[\\s\\-]+LINUX DO$", title_selectors: ["#topic-title .fancy-title", "#topic-title h1"], tags: ["linuxdo", "forum"], source_url: "{base_url}/t/{topic_id}" }, page_separator: "\n\n---\n\n", delimiter: "---", filename: { single: "{title}", batch_item: "{id} - {title}", batch: "{site}-{type}-{tagname}-{date}" } }, uscardforum: { schema_version: 1, engine: "discourse-raw", transport: "fetch", enabled: true, site: { id: "uscardforum", name: "US Card Forum", base_url: "https://www.uscardforum.com", origins: ["https://www.uscardforum.com"], aliases: ["USCardForum"] }, activation: { matches: ["https://www.uscardforum.com/*"], connect: ["self"] }, routes: [{ name: "thread", kind: "thread", pattern: "^/t/(?:[^/]+/)?(\\d+)(?:/\\d+)?/?$", id_group: 1 }, { name: "category", kind: "listing", pattern: "^/c/([^/]+)(?:/[^/]+)*/?$", id_group: 1, query_keys: ["page", "order", "ascending", "status", "q"] }, { name: "tag", kind: "listing", pattern: "^/tags?/([^/]+)/?$", id_group: 1, query_keys: ["page", "order", "ascending"] }, { name: "search", kind: "listing", pattern: "^/search/?$", query_keys: ["q", "page", "expanded"] }, { name: "latest", kind: "listing", pattern: "^/(latest|new|top|hot)/?$", id_group: 1, query_keys: ["order", "ascending", "period", "page"] }, { name: "home", kind: "entry", pattern: "^/(?:categories)?/?$" }], batch: { layouts: [{ name: "topic-list", route_names: ["category", "tag", "latest"], root_selector: "#main-outlet", row_selector: "tr.topic-list-item", link_selector: 'a.title[href*="/t/"], a.raw-topic-link[href*="/t/"]', exclude_selectors: ["aside"] }, { name: "search-results", route_names: ["search"], root_selector: "#main-outlet", row_selector: ".fps-result", link_selector: 'a.search-link[href*="/t/"]', title_selector: ".topic-title", exclude_selectors: ["aside"] }], label_selector: "h1" }, runtime: { poll_ms: 500, debounce_ms: 100, timeout_ms: 3e4 }, api: { raw_endpoint: "{base_url}/raw/{topic_id}?page={page}", json_endpoint: "{base_url}/t/{topic_id}.json?print=true&include_raw=true", max_pages: 100, page_size: 20, page_delay: { min_ms: 100, max_ms: 100, jitter: 0 }, request: { credentials: true, accept: "text/plain" }, id_extraction: { patterns: ["/t/[^/]+/(\\d+)", "/t/(\\d+)"] } }, metadata: { title_cleanup: "[\\s\\-]+(美国信用卡指南|US Card Forum)$", title_selectors: ["#topic-title .fancy-title", "#topic-title h1"], tags: ["uscardforum", "forum", "credit-cards"], source_url: "{base_url}/t/{topic_id}" }, page_separator: "\n\n---\n\n", delimiter: "---", filename: { single: "{title}", batch_item: "{id} - {title}", batch: "{site}-{type}-{tagname}-{date}" } } }, templates: { document: { enabled: true, template: "{frontmatter}\n\n{content}\n" }, frontmatter: { enabled: true, fields: ["author", "date", "description", "downloaded", "source", "tags", "title"] }, content: { separator: "\n\n---\n\n" }, comment: { enabled: true, template: "## Comment {index} - {author}\n**Posted:** {date}\n\n{content}\n" }, filename: { single: "[{id}] {title}", batch_item: "{index} - [{id}] {title}", batch: "[{date}] [{site}] [{type}] [{id}] {tagname}" } } };
+      const zh = typeof navigator !== "undefined" && /^zh\b/i.test(navigator.language);
+      const t$1 = (english, chinese) => zh ? chinese : english;
+      const escape = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+      function mountDialog(id) {
+        document.getElementById(id)?.remove();
+        const element = document.createElement("div");
+        element.id = id;
+        element.setAttribute("data-markify-owned", id);
+        const root2 = element.attachShadow({ mode: "open" });
+        document.body.appendChild(element);
+        return { element, root: root2, close: () => element.remove() };
+      }
+      const DIALOG_STYLE = `
+:host { all: initial; }
+.overlay { position: fixed; inset: 0; background: rgba(0,0,0,.55); display: flex; align-items: center; justify-content: center; z-index: 2147483646;
+  font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif; color: #e5e7eb; }
+.panel { background: #18181b; border: 1px solid #3f3f46; border-radius: 14px; width: min(680px, calc(100vw - 32px)); max-height: calc(100vh - 48px);
+  display: flex; flex-direction: column; box-shadow: 0 24px 64px rgba(0,0,0,.5); }
+header, footer { padding: 16px 20px; display: flex; gap: 12px; align-items: center; }
+header { border-bottom: 1px solid #3f3f46; }
+footer { border-top: 1px solid #3f3f46; justify-content: flex-end; }
+h2 { margin: 0; font-size: 18px; color: #c4b5fd; flex: 1; }
+main { padding: 4px 20px 16px; overflow-y: auto; }
+section { padding: 14px 0; border-bottom: 1px solid #27272a; }
+section:last-child { border-bottom: 0; }
+h3 { margin: 0 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: #a1a1aa; }
+label.row { display: grid; grid-template-columns: 170px 1fr; gap: 10px; align-items: center; margin: 8px 0; }
+label.check { display: flex; gap: 8px; align-items: center; white-space: nowrap; }
+input[type=text], input[type=number], select, textarea { box-sizing: border-box; width: 100%; padding: 7px 10px; border-radius: 8px; border: 1px solid #52525b;
+  background: #27272a; color: #f4f4f5; font: inherit; }
+textarea { min-height: 84px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+input::placeholder, textarea::placeholder { color: #71717a; }
+.hint { color: #a1a1aa; font-size: 12px; margin: 4px 0 0; }
+.preview { color: #a7f3d0; font-family: ui-monospace, monospace; font-size: 12px; }
+.buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+button { padding: 8px 14px; border-radius: 8px; border: 1px solid #52525b; background: #3f3f46; color: #fafafa; font: inherit; cursor: pointer; }
+button:hover { background: #52525b; }
+button.primary { background: #7c3aed; border-color: #7c3aed; }
+button.primary:hover { background: #6d28d9; }
+button.danger { border-color: #7f1d1d; background: #450a0a; }
+.error { color: #fca5a5; white-space: pre-wrap; flex: 1; font-size: 12px; }
+details summary { cursor: pointer; color: #d4d4d8; }
+@media (max-width: 560px) { label.row { grid-template-columns: 1fr; } }
+`;
+      const TEMPLATE_BLOCKS = ["document", "frontmatter", "comments_header", "comment", "reply", "replies_gap"];
+      const FILENAMES = ["single", "batch_item", "batch"];
+      const SAMPLE = { title: "示例标题 Example", id: "12345", author: "author", date: "2026-01-01", index: "001", type: "category", tagname: "tag" };
+      const L$1 = {
+        title: t$1("Markify Settings", "Markify 设置"),
+        scope: t$1("Applies to", "应用于"),
+        allSites: t$1("All sites (defaults)", "所有站点（默认）"),
+        thisSite: t$1("this page", "当前页面"),
+        enabled: t$1("Enable Markify on this site", "在此站点启用 Markify"),
+        enabledHint: t$1("Off: no buttons or checkboxes here until you turn it back on (the menu stays).", "关闭后此站点不显示按钮和复选框（菜单仍可用）。"),
+        filenames: t$1("File names", "文件名"),
+        single: t$1("Single thread", "单个帖子"),
+        batchItem: t$1("File inside a ZIP", "ZIP 内的文件"),
+        batch: t$1("ZIP archive", "ZIP 压缩包"),
+        inherit: t$1("Empty = use", "留空 = 使用"),
+        preview: t$1("Preview", "预览"),
+        placeholders: t$1("Placeholders", "可用占位符"),
+        network: t$1("Network", "网络"),
+        timeout: t$1("Request timeout (seconds)", "请求超时（秒）"),
+        templates: t$1("Templates (advanced)", "模板（高级）"),
+        templatesHint: t$1("Empty = the built-in template shown in grey.", "留空 = 使用灰色显示的内置模板。"),
+        agent: t$1("AI Console API", "AI 控制台 API"),
+        agentOn: t$1("On: agents with this site's token can export through window.markify.", "已开启：持有本站令牌的 AI 可通过 window.markify 导出。"),
+        agentOff: t$1("Off.", "已关闭。"),
+        agentCopy: t$1("Copy token (turns it on)", "复制令牌（同时开启）"),
+        agentRevoke: t$1("Turn off and revoke", "关闭并吊销令牌"),
+        history: t$1("Download history", "下载记录"),
+        historyCount: (all, site) => site === void 0 ? t$1(`${all} downloads`, `共 ${all} 条`) : t$1(`${site} on this site, ${all} in total`, `本站 ${site} 条，共 ${all} 条`),
+        clearSite: t$1("Clear this site", "清除本站记录"),
+        clearAll: t$1("Clear all", "清除全部记录"),
+        manageHistory: t$1("Manage and check for updates…", "管理与检查更新…"),
+        resetButton: t$1("Reset button position", "重置按钮位置"),
+        config: t$1("Configuration", "配置"),
+        export: t$1("Copy configuration (JSON)", "复制配置（JSON）"),
+        import: t$1("Import", "导入"),
+        importHint: t$1("Paste exported JSON here, then Import", "在此粘贴导出的 JSON，然后点导入"),
+        resetSite: t$1("Reset this site", "重置本站设置"),
+        resetAll: t$1("Reset everything", "重置全部设置"),
+        cancel: t$1("Cancel", "取消"),
+        save: t$1("Save and reload", "保存并刷新"),
+        saved: t$1("Settings saved", "设置已保存"),
+        confirmClearAll: t$1("Clear the whole download history?", "确定清除全部下载记录？"),
+        confirmResetAll: t$1("Reset every setting to the defaults?", "确定将所有设置恢复默认？"),
+        copied: t$1("Configuration copied to the clipboard", "配置已复制到剪贴板"),
+        done: t$1("Done", "完成")
+      };
+      const clone = (value) => JSON.parse(JSON.stringify(value ?? null));
+      function prune(layer) {
+        const out = {};
+        for (const [key, value] of Object.entries(layer)) {
+          if (value === void 0 || value === "" || value === null) continue;
+          if (typeof value === "object" && !Array.isArray(value)) {
+            const inner = prune(value);
+            if (Object.keys(inner).length) out[key] = inner;
+          } else out[key] = value;
+        }
+        return out;
+      }
+      async function showSettings(host) {
+        const saved = await host.loadOverrides();
+        const draft = { global: clone(saved.global), sites: clone(saved.sites) };
+        const profiles = host.profiles;
+        let scope = profiles.some((profile) => profile.site.id === host.currentSiteId) ? host.currentSiteId : "";
+        const { root: root2, close } = mountDialog("markify-settings");
+        const layerOf = (id) => id ? draft.sites[id] ??= {} : draft.global;
+        const profileOf = (id) => profiles.find((profile) => profile.site.id === id);
+        const inherited = (id, read, fromProfile) => {
+          if (id) {
+            const global = read(draft.global);
+            if (global !== void 0 && global !== "") return String(global);
+            return String(fromProfile(profileOf(id)) ?? "");
+          }
+          const values = [...new Set(profiles.map((profile) => String(fromProfile(profile) ?? "")))];
+          return values.length === 1 ? values[0] : t$1("each site's default", "各站点默认值");
+        };
+        async function render2() {
+          const layer = layerOf(scope);
+          const profile = scope ? profileOf(scope) : void 0;
+          const history = await host.history();
+          const agentOn = scope ? await host.agentEnabled(scope) : false;
+          const filenameRows = FILENAMES.map((key) => {
+            const label = { single: L$1.single, batch_item: L$1.batchItem, batch: L$1.batch }[key];
+            const fallback = inherited(scope, (l2) => l2.filename?.[key], (p2) => p2.filename[key]);
+            const keys = key === "batch" ? "site, type, id, date, tagname" : `title, author, id, date, site${key === "batch_item" ? ", index" : ""}`;
+            return `<label class="row"><span>${label}</span><span>
+                <input type="text" data-field="filename.${key}" value="${escape(layer.filename?.[key])}" placeholder="${escape(`${L$1.inherit} ${fallback}`)}">
+                <div class="hint">${L$1.placeholders}: ${keys.split(", ").map((k) => `{${k}}`).join(" ")}</div>
+                <div class="hint">${L$1.preview}: <span class="preview" data-preview="${key}"></span></div></span></label>`;
+          }).join("");
+          const blocks = profile ? TEMPLATE_BLOCKS.filter((block) => profile[block]?.template) : [];
+          const templates2 = blocks.length ? `<section><details><summary>${L$1.templates}</summary><p class="hint">${L$1.templatesHint}</p>
+            ${blocks.map((block) => `<label class="row"><span>${block}</span><textarea data-field="${block}.template" placeholder="${escape(profile[block].template)}">${escape(layer[block]?.template)}</textarea></label>`).join("")}
+            </details></section>` : "";
+          const fallbackMs = inherited(scope, (l2) => l2.runtime?.timeout_ms, (p2) => p2.runtime.timeout_ms);
+          const timeoutFallback = /^\d+$/.test(fallbackMs) ? String(Number(fallbackMs) / 1e3) : fallbackMs;
+          const siteCount = scope ? history.filter((entry) => entry.site === scope).length : void 0;
+          root2.innerHTML = `<style>${DIALOG_STYLE}</style>
+            <div class="overlay" part="overlay"><div class="panel" role="dialog" aria-modal="true" aria-label="${escape(L$1.title)}">
+            <header><h2>⚙️ ${L$1.title}</h2>
+                <label class="check">${L$1.scope}
+                <select data-action="scope">
+                    <option value="">${L$1.allSites}</option>
+                    ${profiles.map((p2) => `<option value="${escape(p2.site.id)}" ${p2.site.id === scope ? "selected" : ""}>${escape(p2.site.name)}${p2.site.id === host.currentSiteId ? ` (${L$1.thisSite})` : ""}</option>`).join("")}
+                </select></label>
+            </header>
+            <main>
+                ${scope ? `<section><label class="check"><input type="checkbox" data-field="enabled" ${layer.enabled === false ? "" : "checked"}> ${L$1.enabled}</label>
+                    <p class="hint">${L$1.enabledHint}</p></section>` : ""}
+                <section><h3>${L$1.filenames}</h3>${filenameRows}</section>
+                <section><h3>${L$1.network}</h3>
+                    <label class="row"><span>${L$1.timeout}</span><input type="number" min="1" max="120" step="1" data-field="runtime.timeout_ms"
+                        value="${layer.runtime?.timeout_ms ? layer.runtime.timeout_ms / 1e3 : ""}" placeholder="${escape(`${L$1.inherit} ${timeoutFallback}`)}"></label>
+                </section>
+                ${scope ? `<section><h3>${L$1.agent}</h3><p class="hint" data-status="agent">${agentOn ? L$1.agentOn : L$1.agentOff}</p>
+                    <div class="buttons"><button data-action="agent-copy">${L$1.agentCopy}</button>${agentOn ? `<button class="danger" data-action="agent-revoke">${L$1.agentRevoke}</button>` : ""}</div></section>` : ""}
+                <section><h3>${L$1.history}</h3><p class="hint" data-status="history">${L$1.historyCount(history.length, siteCount)}</p>
+                    <div class="buttons">${scope ? `<button data-action="clear-site">${L$1.clearSite}</button>` : ""}
+                    <button class="danger" data-action="clear-all">${L$1.clearAll}</button><button data-action="reset-button">${L$1.resetButton}</button><button class="primary" data-action="open-history">${L$1.manageHistory}</button></div></section>
+                ${templates2}
+                <section><h3>${L$1.config}</h3>
+                    <div class="buttons"><button data-action="export">${L$1.export}</button>
+                    ${scope ? `<button data-action="reset-site">${L$1.resetSite}</button>` : ""}<button class="danger" data-action="reset-all">${L$1.resetAll}</button></div>
+                    <textarea data-input="import" placeholder="${escape(L$1.importHint)}"></textarea>
+                    <div class="buttons"><button data-action="import">${L$1.import}</button></div>
+                </section>
+            </main>
+            <footer><span class="error" role="alert"></span><button data-action="cancel">${L$1.cancel}</button><button class="primary" data-action="save">${L$1.save}</button></footer>
+            </div></div>`;
+          updatePreviews();
+        }
+        function collect() {
+          const layer = layerOf(scope);
+          for (const input of Array.from(root2.querySelectorAll("[data-field]"))) {
+            const [group, key] = input.dataset.field.split(".");
+            let value = input instanceof HTMLInputElement && input.type === "checkbox" ? input.checked ? void 0 : false : input.value.trim();
+            if (group === "runtime" && value !== "") value = Math.round(Number(value) * 1e3);
+            if (key) layer[group] = { ...layer[group] ?? {}, [key]: value };
+            else layer[group] = value;
+          }
+          const pruned = prune(layer);
+          if (scope) {
+            if (Object.keys(pruned).length) draft.sites[scope] = pruned;
+            else delete draft.sites[scope];
+          } else draft.global = pruned;
+        }
+        function updatePreviews() {
+          const site = scope || profiles[0]?.site.id || "site";
+          for (const key of FILENAMES) {
+            const input = root2.querySelector(`[data-field="filename.${key}"]`);
+            const target = root2.querySelector(`[data-preview="${key}"]`);
+            if (!input || !target) continue;
+            const template2 = input.value.trim() || (scope ? draft.global.filename?.[key] || profileOf(scope).filename[key] : profileOf(site)?.filename[key] ?? "{title}");
+            try {
+              target.textContent = applyFilenameTemplate(template2, { ...SAMPLE, site }) + (key === "batch" ? ".zip" : ".md");
+            } catch (error2) {
+              target.textContent = error2 instanceof Error ? error2.message : String(error2);
+            }
+          }
+        }
+        const fail = (error2) => {
+          const box = root2.querySelector(".error");
+          if (box) box.textContent = error2 instanceof Error ? error2.message : String(error2);
+        };
+        const overrides = () => ({ schema_version: 1, global: prune(draft.global), sites: Object.fromEntries(Object.entries(draft.sites).map(([id, layer]) => [id, prune(layer)]).filter(([, layer]) => Object.keys(layer).length)) });
+        async function act(action) {
+          switch (action) {
+            case "cancel":
+              close();
+              return;
+            case "save":
+              collect();
+              await host.saveOverrides(overrides());
+              host.notify(L$1.saved);
+              close();
+              host.reload();
+              return;
+            case "agent-copy":
+              await host.agentCopyToken(scope);
+              break;
+            case "agent-revoke":
+              await host.agentRevoke(scope);
+              break;
+            case "clear-site":
+              await host.clearHistory(scope);
+              break;
+            case "clear-all":
+              if (!confirm(L$1.confirmClearAll)) return;
+              await host.clearHistory();
+              break;
+            case "reset-button":
+              await host.resetButtonPosition();
+              host.notify(L$1.done);
+              return;
+            case "open-history":
+              close();
+              host.openHistory();
+              return;
+            case "export":
+              collect();
+              await host.copy(JSON.stringify(overrides(), null, 2));
+              host.notify(L$1.copied);
+              return;
+            case "import": {
+              const text2 = root2.querySelector('[data-input="import"]').value;
+              const parsed = JSON.parse(text2);
+              await host.saveOverrides(parsed);
+              host.notify(L$1.saved);
+              close();
+              host.reload();
+              return;
+            }
+            case "reset-site":
+              await host.saveOverrides({ ...saved, sites: Object.fromEntries(Object.entries(saved.sites).filter(([id]) => id !== scope)) });
+              host.notify(L$1.saved);
+              close();
+              host.reload();
+              return;
+            case "reset-all":
+              if (!confirm(L$1.confirmResetAll)) return;
+              await host.saveOverrides({ schema_version: 1, global: {}, sites: {} });
+              host.notify(L$1.saved);
+              close();
+              host.reload();
+              return;
+            default:
+              return;
+          }
+          await render2();
+        }
+        root2.addEventListener("click", (event) => {
+          if (!event.isTrusted) return;
+          const target = event.target;
+          if (target.classList.contains("overlay")) {
+            close();
+            return;
+          }
+          const action = target.closest("[data-action]")?.dataset.action;
+          if (!action || action === "scope") return;
+          fail("");
+          void act(action).catch(fail);
+        });
+        root2.addEventListener("change", (event) => {
+          const target = event.target;
+          if (target.dataset.action !== "scope") return;
+          collect();
+          scope = target.value;
+          void render2().catch(fail);
+        });
+        root2.addEventListener("input", () => updatePreviews());
+        root2.addEventListener("keydown", (event) => {
+          if (event.key === "Escape") close();
+        });
+        await render2();
+      }
+      function updateStatus(record2, latest = record2.check) {
+        if (!latest) return { changed: false, checked: false };
+        const newReplies = typeof latest.replies === "number" && typeof record2.replies === "number" && latest.replies > record2.replies ? latest.replies - record2.replies : void 0;
+        const active = latest.updated ? Date.parse(latest.updated) > Date.parse(record2.downloadedAt) : false;
+        return { changed: active || newReplies !== void 0, newReplies, checked: true };
+      }
+      const STORAGE_KEY = "markify_download_history";
+      let aliases = new Map();
+      let writes = Promise.resolve();
+      const storage = {
+        getValue: async (key, fallback) => GM.getValue(key, fallback),
+        setValue: (key, value) => GM.setValue(key, value)
+      };
+      function configureHistoryProfiles(profiles) {
+        const next2 = new Map();
+        for (const profile of profiles) {
+          for (const alias of [profile.site.id, ...profile.site.name ? [profile.site.name] : [], ...profile.site.aliases]) {
+            const key = alias.toLowerCase();
+            if (next2.has(key) && next2.get(key) !== profile.site.id) throw new Error(`Conflicting history alias: ${alias}`);
+            next2.set(key, profile.site.id);
+          }
+        }
+        aliases = next2;
+      }
+      const canonical = (site) => aliases.get(site.toLowerCase()) ?? site;
+      const keyFor = (id, site) => `${canonical(site)}:${id}`;
+      function normalizeHistory(history) {
+        const merged = {};
+        for (const record2 of Object.values(history)) {
+          if (!record2 || typeof record2.id !== "string" || typeof record2.site !== "string") continue;
+          const key = keyFor(record2.id, record2.site);
+          if (!merged[key] || record2.downloadedAt >= merged[key].downloadedAt) merged[key] = { ...record2, site: canonical(record2.site) };
+        }
+        return merged;
+      }
+      async function getDownloadHistory(store = storage) {
+        return Object.values(normalizeHistory(await store.getValue(STORAGE_KEY, {})));
+      }
+      async function isDownloaded(id, site) {
+        return (await getDownloadHistory()).some((record2) => record2.id === id && record2.site === canonical(site));
+      }
+      function mutate(change, store, active = () => true) {
+        const task = writes.catch(() => void 0).then(async () => {
+          if (!active()) return;
+          const history = await store.getValue(STORAGE_KEY, {});
+          if (!active()) return;
+          change(history);
+          await store.setValue(STORAGE_KEY, history);
+        });
+        writes = task;
+        return task;
+      }
+      const snapshotOf$1 = (value) => ({
+        ...typeof value?.replies === "number" ? { replies: value.replies } : {},
+        ...typeof value?.updated === "string" && value.updated ? { updated: value.updated } : {}
+      });
+      async function markManyAsDownloaded(items, site, type, active = () => true, store = storage) {
+        const downloadedAt = ( new Date()).toISOString();
+        await mutate((history) => {
+          for (const item of items) history[keyFor(item.id, site)] = { id: item.id, title: item.title, ...snapshotOf$1(item), site: canonical(site), type, downloadedAt };
+        }, store, active);
+      }
+      async function markAsDownloaded(id, site, title, type, snapshot) {
+        await markManyAsDownloaded([{ id, title, ...snapshot }], site, type);
+      }
+      async function recordCheck(id, site, latest) {
+        let status;
+        await mutate((history) => {
+          for (const record2 of Object.values(history)) {
+            if (!record2 || keyFor(record2.id, record2.site) !== keyFor(id, site)) continue;
+            record2.check = { at: ( new Date()).toISOString(), ...snapshotOf$1(latest) };
+            status = updateStatus(record2);
+          }
+        }, storage);
+        return status;
+      }
+      async function removeDownload(id, site) {
+        await mutate((history) => {
+          for (const [key, record2] of Object.entries(history)) if (keyFor(record2.id, record2.site) === keyFor(id, site)) delete history[key];
+        }, storage);
+      }
+      async function clearSiteHistory(site) {
+        await mutate((history) => {
+          for (const [key, record2] of Object.entries(history)) if (record2 && canonical(record2.site) === canonical(site)) delete history[key];
+        }, storage);
+      }
+      async function clearHistory() {
+        await mutate((history) => {
+          for (const key of Object.keys(history)) delete history[key];
+        }, storage);
+      }
+      async function getDownloadStats() {
+        const records = await getDownloadHistory();
+        return { total: records.length, single: records.filter((r2) => r2.type === "single").length, batch: records.filter((r2) => r2.type === "batch").length };
+      }
+      const downloadHistory = Object.freeze( Object.defineProperty({
+        __proto__: null,
+        clearHistory,
+        clearSiteHistory,
+        configureHistoryProfiles,
+        getDownloadHistory,
+        getDownloadStats,
+        isDownloaded,
+        markAsDownloaded,
+        markManyAsDownloaded,
+        normalizeHistory,
+        recordCheck,
+        removeDownload,
+        updateStatus
+      }, Symbol.toStringTag, { value: "Module" }));
+      const L = {
+        title: t$1("Download history", "下载记录"),
+        site: t$1("Site", "站点"),
+        all: t$1("All sites", "所有站点"),
+        show: t$1("Show", "显示"),
+        every: t$1("All", "全部"),
+        changed: t$1("Updated since download", "下载后有更新"),
+        unchecked: t$1("Not checked", "未检查"),
+        summary: (total, changed, unchecked) => t$1(`${total} threads · ${changed} updated · ${unchecked} not checked`, `共 ${total} 条 · ${changed} 条有更新 · ${unchecked} 条未检查`),
+        check: t$1("Check for updates", "检查更新"),
+        stop: t$1("Stop", "停止"),
+        checking: (done, total) => t$1(`Checking ${done}/${total}…`, `检查中 ${done}/${total}…`),
+        checkHere: (name) => t$1(`Open ${name} to check or re-download its threads.`, `打开 ${name} 的页面才能检查或重新下载它的帖子。`),
+        upToDate: t$1("Up to date", "最新"),
+        updated: (replies) => replies ? t$1(`Updated · +${replies} replies`, `有更新 · +${replies} 条回复`) : t$1("Updated", "有更新"),
+        failed: t$1("Check failed", "检查失败"),
+        redownload: t$1("Download again", "重新下载"),
+        remove: t$1("Remove", "删除"),
+        empty: t$1("Nothing here yet.", "还没有记录。"),
+        close: t$1("Close", "关闭"),
+        downloaded: t$1("Downloaded", "下载于"),
+        checkedAt: t$1("checked", "检查于")
+      };
+      const when = (iso) => iso ? new Date(iso).toLocaleString(void 0, { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }) : "";
+      const EXTRA_STYLE = `
+.panel { width: min(860px, calc(100vw - 32px)); }
+.toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 12px 0; }
+.toolbar select { width: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+td { padding: 8px 6px; border-top: 1px solid #27272a; vertical-align: top; }
+td.title a { color: #e4e4e7; text-decoration: none; }
+td.title a:hover { text-decoration: underline; }
+td.title .meta { color: #a1a1aa; font-size: 12px; margin-top: 2px; }
+td.actions { white-space: nowrap; text-align: right; }
+td.actions button { padding: 4px 10px; font-size: 12px; }
+.chip { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; white-space: nowrap; }
+.chip.changed { background: #451a03; color: #fdba74; }
+.chip.fresh { background: #052e16; color: #86efac; }
+.chip.unknown { background: #27272a; color: #a1a1aa; }
+.chip.failed { background: #450a0a; color: #fca5a5; }
+`;
+      async function showHistory(host) {
+        const { root: root2, close: unmount } = mountDialog("markify-history");
+        let site = host.profiles.some((profile) => profile.site.id === host.currentSiteId) ? host.currentSiteId : "";
+        let filter = "all";
+        let records = [];
+        const failures = new Map();
+        let checking;
+        const close = () => {
+          checking?.abort();
+          unmount();
+        };
+        const nameOf = (id) => host.profiles.find((profile) => profile.site.id === id)?.site.name ?? id;
+        const key = (record2) => `${record2.site}:${record2.id}`;
+        const visible = () => records.filter((record2) => !site || record2.site === site).filter((record2) => filter === "all" || (filter === "changed" ? updateStatus(record2).changed : !updateStatus(record2).checked)).sort((a2, b2) => b2.downloadedAt.localeCompare(a2.downloadedAt));
+        function chip(record2) {
+          if (failures.has(key(record2))) return `<span class="chip failed" title="${escape(failures.get(key(record2)))}">${L.failed}</span>`;
+          const status = updateStatus(record2);
+          if (!status.checked) return `<span class="chip unknown">${L.unchecked}</span>`;
+          return status.changed ? `<span class="chip changed">${L.updated(status.newReplies)}</span>` : `<span class="chip fresh">${L.upToDate}</span>`;
+        }
+        function row(record2) {
+          const url2 = host.sourceUrl(record2.site, record2.id);
+          const here = record2.site === host.currentSiteId;
+          return `<tr data-key="${escape(key(record2))}">
+            <td class="title">${url2 ? `<a href="${escape(url2)}" target="_blank" rel="noopener noreferrer">${escape(record2.title)}</a>` : escape(record2.title)}
+                <div class="meta">${site ? "" : `${escape(nameOf(record2.site))} · `}${L.downloaded} ${escape(when(record2.downloadedAt))}${record2.check ? ` · ${L.checkedAt} ${escape(when(record2.check.at))}` : ""}</div></td>
+            <td>${chip(record2)}</td>
+            <td class="actions">${here ? `<button data-action="redownload">${L.redownload}</button> ` : ""}<button data-action="remove">${L.remove}</button></td>
+        </tr>`;
+        }
+        async function render2() {
+          records = await host.history();
+          const ofSite = records.filter((record2) => !site || record2.site === site);
+          const changed = ofSite.filter((record2) => updateStatus(record2).changed).length;
+          const unchecked = ofSite.filter((record2) => !updateStatus(record2).checked).length;
+          const list = visible();
+          const canCheck = !!site && site === host.currentSiteId;
+          root2.innerHTML = `<style>${DIALOG_STYLE}${EXTRA_STYLE}</style>
+            <div class="overlay"><div class="panel" role="dialog" aria-modal="true" aria-label="${escape(L.title)}">
+            <header><h2>📜 ${L.title}</h2></header>
+            <main>
+                <div class="toolbar">
+                    <label class="check">${L.site}<select data-action="site"><option value="">${L.all}</option>
+                        ${host.profiles.map((p2) => `<option value="${escape(p2.site.id)}" ${p2.site.id === site ? "selected" : ""}>${escape(p2.site.name)}</option>`).join("")}</select></label>
+                    <label class="check">${L.show}<select data-action="filter">
+                        <option value="all" ${filter === "all" ? "selected" : ""}>${L.every}</option>
+                        <option value="changed" ${filter === "changed" ? "selected" : ""}>${L.changed}</option>
+                        <option value="unchecked" ${filter === "unchecked" ? "selected" : ""}>${L.unchecked}</option></select></label>
+                    ${canCheck ? `<button class="primary" data-action="check">${L.check}</button>` : ""}
+                </div>
+                <p class="hint" data-status="summary">${L.summary(ofSite.length, changed, unchecked)}</p>
+                ${site && !canCheck ? `<p class="hint">${escape(L.checkHere(nameOf(site)))}</p>` : ""}
+                ${list.length ? `<table><tbody>${list.map(row).join("")}</tbody></table>` : `<p class="hint">${L.empty}</p>`}
+            </main>
+            <footer><span class="error" role="alert"></span><button data-action="close">${L.close}</button></footer>
+            </div></div>`;
+        }
+        const setStatus = (text2) => {
+          const status = root2.querySelector('[data-status="summary"]');
+          if (status) status.textContent = text2;
+        };
+        async function checkAll() {
+          const controller = new AbortController();
+          checking = controller;
+          const button = root2.querySelector('[data-action="check"]');
+          if (button) {
+            button.textContent = L.stop;
+            button.dataset.action = "stop";
+          }
+          const queue = visible().sort((a2, b2) => (a2.check?.at ?? "").localeCompare(b2.check?.at ?? ""));
+          try {
+            for (const [index, record2] of queue.entries()) {
+              if (controller.signal.aborted) break;
+              setStatus(L.checking(index + 1, queue.length));
+              try {
+                await host.recordCheck(record2.site, record2.id, await host.check(record2.site, record2.id));
+                failures.delete(key(record2));
+              } catch (error2) {
+                failures.set(key(record2), error2 instanceof Error ? error2.message : String(error2));
+              }
+              if (index < queue.length - 1) await host.delay(controller.signal).catch(() => void 0);
+            }
+          } finally {
+            if (checking === controller) checking = void 0;
+          }
+          if (!controller.signal.aborted) await render2();
+        }
+        async function act(action, target) {
+          const record2 = records.find((entry) => key(entry) === target.closest("tr")?.dataset.key);
+          switch (action) {
+            case "close":
+              close();
+              return;
+            case "check":
+              await checkAll();
+              return;
+            case "stop":
+              checking?.abort();
+              checking = void 0;
+              await render2();
+              return;
+            case "redownload":
+              if (record2) {
+                await host.redownload(record2);
+                failures.delete(key(record2));
+              }
+              break;
+            case "remove":
+              if (record2) await host.remove(record2.site, record2.id);
+              break;
+            default:
+              return;
+          }
+          await render2();
+        }
+        const fail = (error2) => {
+          const box = root2.querySelector(".error");
+          if (box) box.textContent = error2 instanceof Error ? error2.message : String(error2);
+        };
+        root2.addEventListener("click", (event) => {
+          if (!event.isTrusted) return;
+          const target = event.target;
+          if (target.classList.contains("overlay")) {
+            close();
+            return;
+          }
+          const action = target.closest("button[data-action]")?.dataset.action;
+          if (action) void act(action, target).catch(fail);
+        });
+        root2.addEventListener("change", (event) => {
+          const target = event.target;
+          if (target.dataset.action === "site") site = target.value;
+          else if (target.dataset.action === "filter") filter = target.value;
+          else return;
+          checking?.abort();
+          void render2().catch(fail);
+        });
+        root2.addEventListener("keydown", (event) => {
+          if (event.key === "Escape") close();
+        });
+        await render2();
+      }
+      var define_MARKIFY_CONFIG_default = { adapters: { "1point3acres": { schema_version: 1, engine: "forum-json", transport: "gm", enabled: true, site: { id: "1point3acres", name: "1Point3Acres", base_url: "https://www.1point3acres.com", origins: ["https://www.1point3acres.com", "https://instant.1point3acres.com"], aliases: ["1point3acres"] }, activation: { matches: ["https://www.1point3acres.com/home/*", "https://www.1point3acres.com/bbs/thread-*", "https://instant.1point3acres.com/thread/*"], connect: ["api.1point3acres.com"] }, routes: [{ name: "discover", kind: "listing", pattern: "^/home/discover/([^/]+)/?$", id_group: 1, origins: ["https://www.1point3acres.com"], query_keys: ["page", "sort", "order", "tab", "type"] }, { name: "forum", kind: "listing", pattern: "^/home/forum/([^/]+)/?$", id_group: 1, origins: ["https://www.1point3acres.com"], query_keys: ["page", "sort", "order", "tab", "type"] }, { name: "tag", kind: "listing", pattern: "^/home/tag/([^/]+)/?$", id_group: 1, origins: ["https://www.1point3acres.com"], query_keys: ["page", "sort", "order", "tab", "type"] }, { name: "thread", kind: "thread", pattern: "^/home/thread/(\\d+)/?$", id_group: 1, origins: ["https://www.1point3acres.com"] }, { name: "pins", kind: "thread", pattern: "^/home/pins/(\\d+)/?$", id_group: 1, origins: ["https://www.1point3acres.com"] }, { name: "bbs-thread", kind: "thread", pattern: "^/bbs/thread-(\\d+)-\\d+-\\d+\\.html$", id_group: 1, origins: ["https://www.1point3acres.com"] }, { name: "instant-thread", kind: "thread", pattern: "^/thread/(\\d+)/?$", id_group: 1, origins: ["https://instant.1point3acres.com"] }, { name: "home", kind: "entry", pattern: "^/home/?$", origins: ["https://www.1point3acres.com"] }], batch: { layouts: [{ name: "forum-thread-items", route_names: ["discover", "forum", "tag"], root_selector: "main", row_selector: '[data-sentry-component="ForumThreadItem"]', link_selector: 'a[href*="/home/thread/"]:has(h3), a[href*="/home/pins/"]:has(h3)', title_selector: "h3", title_attribute: "title", exclude_selectors: ["aside", "[data-ad]"] }, { name: "legacy-home-thread-items", route_names: ["forum", "tag"], root_selector: "main", row_selector: '[data-sentry-component="HomeThreadItem"]', link_selector: 'a[href*="/home/pins/"]', title_selector: "h3", exclude_selectors: ["aside", "[data-ad]"] }], label_selector: "main h1" }, runtime: { poll_ms: 500, debounce_ms: 100, timeout_ms: 3e4 }, api: { thread_endpoint: "https://api.1point3acres.com/api/v3/home-threads/{thread_id}", posts_endpoint: "https://api.1point3acres.com/api/threads/{thread_id}/nested-posts?ps={page_size}&order={order}&pg={page}", nested_endpoint: "https://api.1point3acres.com/api/posts/{post_id}/nested-posts?ps={page_size}&pg={page}", max_pages: 100, page_size: 20, order: "time_asc", content_format: "bbcode", id_extraction: { patterns: ["thread-(\\d+)", "/pins/(\\d+)", "/thread/(\\d+)"] }, response: { success_field: "errno", success_value: 0, data_field: "thread", posts_field: "posts" }, fields: { title: "subject", author: "author", content: "message_bbcode", posted_at: "dateline", updated_at: "lastpost", views: "views", replies: "replies", favorites: "favtimes", attachments: "attachment_list", post: { id: "pid", author: "author", content: "message_bbcode", posted_at: "dateline", children: "replies.data", children_count: "replies.count", attachments: "attachment_list" }, attachment: { id: "aid", url: "url", name: "filename", image: "isimage" } } }, metadata: { tags: ["1point3acres", "forum"], source_url: "https://www.1point3acres.com/bbs/thread-{thread_id}-1-1.html" }, delimiter: "---", frontmatter: { template: '---\ntitle: "{title}"\nauthor: {author}\nposted_at: {posted_at}\nupdated_at: {updated_at}\ndownloaded_at: {downloaded_at}\nsource: {url}\nviews: {views}\nreplies: {replies}\nfavorites: {favorites}\ntags:\n  - 1point3acres\n  - forum\n---\n' }, document: { template: "{frontmatter}\n# {title}\n\n**Author:** {author} | **Date:** {date}\n\n---\n\n{content}\n\n---\n\n**Views:** {views} | **Replies:** {replies} | **Favorites:** {favorites}\n\n{comments}" }, comment: { template: "**{author}** - *{date}*\n\n{content}\n\n{nested}{delimiter}\n" }, comments_header: { template: "\n{delimiter}\n\n## Comments ({count})\n" }, reply: { template: "> **{author}** - *{date}*\n>\n{content}\n" }, replies_gap: { template: "> *{missing} more replies are not included ({reason}).*\n" }, filename: { single: "{title}", batch_item: "{id} - {title}", batch: "{site}-{type}-{tagname}-{date}" } }, linuxdo: { schema_version: 1, engine: "discourse-raw", transport: "fetch", enabled: true, site: { id: "linuxdo", name: "LINUX DO", base_url: "https://linux.do", origins: ["https://linux.do"], aliases: ["linux.do", "LinuxDo"] }, activation: { matches: ["https://linux.do/*"], connect: ["self"] }, routes: [{ name: "thread", kind: "thread", pattern: "^/t/(?:[^/]+/)?(\\d+)(?:/\\d+)?/?$", id_group: 1 }, { name: "category", kind: "listing", pattern: "^/c/([^/]+)(?:/[^/]+)*/?$", id_group: 1, query_keys: ["page", "order", "ascending", "status", "q"] }, { name: "tag", kind: "listing", pattern: "^/tags?/([^/]+)/?$", id_group: 1, query_keys: ["page", "order", "ascending"] }, { name: "search", kind: "listing", pattern: "^/search/?$", query_keys: ["q", "page", "expanded"] }, { name: "latest", kind: "listing", pattern: "^/(latest|new|top|hot)/?$", id_group: 1, query_keys: ["order", "ascending", "period", "page"] }, { name: "home", kind: "entry", pattern: "^/(?:categories)?/?$" }], batch: { layouts: [{ name: "topic-list", route_names: ["category", "tag", "latest"], root_selector: "#main-outlet", row_selector: "tr.topic-list-item", link_selector: 'a.title[href*="/t/"], a.raw-topic-link[href*="/t/"]', exclude_selectors: ["aside"], activity_selector: ".activity .relative-date, .age .relative-date", activity_attribute: "data-time" }, { name: "search-results", route_names: ["search"], root_selector: "#main-outlet", row_selector: ".fps-result", link_selector: 'a.search-link[href*="/t/"]', title_selector: ".topic-title", exclude_selectors: ["aside"] }], label_selector: "h1" }, runtime: { poll_ms: 500, debounce_ms: 100, timeout_ms: 3e4 }, api: { raw_endpoint: "{base_url}/raw/{topic_id}?page={page}", json_endpoint: "{base_url}/t/{topic_id}.json", max_pages: 100, page_size: 20, page_delay: { min_ms: 200, max_ms: 200, jitter: 0 }, request: { credentials: true, accept: "text/plain" } }, metadata: { title_cleanup: "[\\s\\-]+LINUX DO$", title_selectors: ["#topic-title .fancy-title", "#topic-title h1"], tags: ["linuxdo", "forum"], source_url: "{base_url}/t/{topic_id}" }, page_separator: "\n\n---\n\n", delimiter: "---", filename: { single: "{title}", batch_item: "{id} - {title}", batch: "{site}-{type}-{tagname}-{date}" } }, uscardforum: { schema_version: 1, engine: "discourse-raw", transport: "fetch", enabled: true, site: { id: "uscardforum", name: "US Card Forum", base_url: "https://www.uscardforum.com", origins: ["https://www.uscardforum.com"], aliases: ["USCardForum"] }, activation: { matches: ["https://www.uscardforum.com/*"], connect: ["self"] }, routes: [{ name: "thread", kind: "thread", pattern: "^/t/(?:[^/]+/)?(\\d+)(?:/\\d+)?/?$", id_group: 1 }, { name: "category", kind: "listing", pattern: "^/c/([^/]+)(?:/[^/]+)*/?$", id_group: 1, query_keys: ["page", "order", "ascending", "status", "q"] }, { name: "tag", kind: "listing", pattern: "^/tags?/([^/]+)/?$", id_group: 1, query_keys: ["page", "order", "ascending"] }, { name: "search", kind: "listing", pattern: "^/search/?$", query_keys: ["q", "page", "expanded"] }, { name: "latest", kind: "listing", pattern: "^/(latest|new|top|hot)/?$", id_group: 1, query_keys: ["order", "ascending", "period", "page"] }, { name: "home", kind: "entry", pattern: "^/(?:categories)?/?$" }], batch: { layouts: [{ name: "topic-list", route_names: ["category", "tag", "latest"], root_selector: "#main-outlet", row_selector: "tr.topic-list-item", link_selector: 'a.title[href*="/t/"], a.raw-topic-link[href*="/t/"]', exclude_selectors: ["aside"], activity_selector: ".activity .relative-date, .age .relative-date", activity_attribute: "data-time" }, { name: "search-results", route_names: ["search"], root_selector: "#main-outlet", row_selector: ".fps-result", link_selector: 'a.search-link[href*="/t/"]', title_selector: ".topic-title", exclude_selectors: ["aside"] }], label_selector: "h1" }, runtime: { poll_ms: 500, debounce_ms: 100, timeout_ms: 3e4 }, api: { raw_endpoint: "{base_url}/raw/{topic_id}?page={page}", json_endpoint: "{base_url}/t/{topic_id}.json", max_pages: 100, page_size: 20, page_delay: { min_ms: 100, max_ms: 100, jitter: 0 }, request: { credentials: true, accept: "text/plain" }, id_extraction: { patterns: ["/t/[^/]+/(\\d+)", "/t/(\\d+)"] } }, metadata: { title_cleanup: "[\\s\\-]+(美国信用卡指南|US Card Forum)$", title_selectors: ["#topic-title .fancy-title", "#topic-title h1"], tags: ["uscardforum", "forum", "credit-cards"], source_url: "{base_url}/t/{topic_id}" }, page_separator: "\n\n---\n\n", delimiter: "---", filename: { single: "{title}", batch_item: "{id} - {title}", batch: "{site}-{type}-{tagname}-{date}" } } }, templates: { document: { enabled: true, template: "{frontmatter}\n\n{content}\n" }, frontmatter: { enabled: true, fields: ["author", "date", "description", "downloaded", "source", "tags", "title"] }, content: { separator: "\n\n---\n\n" }, comment: { enabled: true, template: "## Comment {index} - {author}\n**Posted:** {date}\n\n{content}\n" }, filename: { single: "[{id}] {title}", batch_item: "{index} - [{id}] {title}", batch: "[{date}] [{site}] [{type}] [{id}] {tagname}" } } };
       var define_MARKIFY_NOTIFICATIONS_default = { messages: { clipboard_success: "Copied to clipboard!", download_success: "Downloaded as {filename}", history_cleared: "Download history cleared", settings_reset: "Settings reset to defaults", settings_saved: "Settings saved successfully!", stats_reset: "Stats reset successfully", api_fetching: "Fetching forum content via API...", downloading: "Downloading {current}/{total}...", processing: "Processing {item}...", conversion_failed: "Failed to convert page. Check console for details.", download_failed: "Failed to create ZIP: {error}", no_files: "No files were successfully downloaded", batch_complete: "Successfully downloaded all {total} items!", batch_partial: "Downloaded {success}/{total} items. {failed} failed.", stats_summary: "Downloaded: {total} total\n{single} single | {batch} batch\nHistory: {tracked} tracked", clear_history_confirm: "Clear all download history? This cannot be undone." }, timeouts: { long: 5e3, medium: 3e3, short: 2e3 }, delays: { cleanup: 100, dom_stabilize: 1e3, batch_item: { min_ms: 1e3, max_ms: 3e3, jitter: 0.25 }, api_page: { min_ms: 500, max_ms: 1500, jitter: 0.2 } }, http: { user_agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36" } };
-      var define_MARKIFY_PACKAGE_default = { author: "isandrel", description: "Convert web pages to Obsidian-formatted Markdown with YAML frontmatter", name: "Markify", repository: "https://github.com/isandrel/Markify", version: "0.0.4", strings: { app_title: "Markify", app_title_batch: "Markify Batch Download", app_title_error: "Markify Batch Download Error", app_title_stats: "Markify Stats" }, menu: { clear_history: "🗑️ Clear History", history: "📜 Download History", reset_stats: "🔄 Reset Stats", settings: "⚙️ Settings", stats: "📊 View Stats" } };
+      var define_MARKIFY_PACKAGE_default = { author: "isandrel", description: "Convert web pages to Obsidian-formatted Markdown with YAML frontmatter", name: "Markify", repository: "https://github.com/isandrel/Markify", version: "0.0.5", strings: { app_title: "Markify", app_title_batch: "Markify Batch Download", app_title_error: "Markify Batch Download Error", app_title_stats: "Markify Stats" }, menu: { clear_history: "🗑️ Clear History", history: "📜 Download History", reset_stats: "🔄 Reset Stats", settings: "⚙️ Settings", stats: "📊 View Stats" } };
       var define_MARKIFY_TEMPLATES_default = { document: { enabled: true, template: "{frontmatter}\n\n{content}\n" }, frontmatter: { enabled: true, fields: ["author", "date", "description", "downloaded", "source", "tags", "title"] }, content: { separator: "\n\n---\n\n" }, comment: { enabled: true, template: "## Comment {index} - {author}\n**Posted:** {date}\n\n{content}\n" }, filename: { single: "[{id}] {title}", batch_item: "{index} - [{id}] {title}", batch: "[{date}] [{site}] [{type}] [{id}] {tagname}" } };
-      var define_MARKIFY_THEME_default = { colors: { primary: "#7c3aed", primary_hover: "#6d28d9", secondary: "#059669", secondary_hover: "#047857", success: "#22c55e", text_primary: "#e5e7eb", text_secondary: "#a78bfa" } };
-      var define_MARKIFY_UI_default = { ui: { button_text: "📥 Markify", buttons: { copy_text: "📋 Copy", download_text: "📥 Download", gap: "10px" }, indicators: { downloaded_icon: "✓ ", downloaded_tooltip: "Already downloaded", font_size_title: "1.2em" }, position: { default_right: "20px", default_top: "25%", z_index: 1e4 }, style: { border_radius: "8px", font_family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', font_size: "14px", font_weight: "600", padding: "12px 20px" }, shadows: { button_default: "0 4px 12px rgba(124, 58, 237, 0.4)", button_hover: "0 6px 16px rgba(124, 58, 237, 0.5)", copy_default: "0 4px 12px rgba(5, 150, 105, 0.4)", copy_hover: "0 6px 16px rgba(5, 150, 105, 0.5)" }, animations: { hover_transform: "translateY(-2px)", transition: "all 0.2s ease" } }, conversion: { code_block_style: "fenced", em_delimiter: "*", heading_style: "atx", link_style: "inlined", strong_delimiter: "**", remove_elements: { tags: ["aside", "footer", "header", "iframe", "nav", "script", "style"] } } };
+      var define_MARKIFY_THEME_default = { colors: { primary: "#7c3aed", primary_hover: "#6d28d9", primary_active: "#5b21b6", secondary: "#059669", secondary_hover: "#047857", secondary_active: "#065f46", success: "#22c55e", error: "#ef4444", warning: "#f59e0b", info: "#3b82f6", background: "#1a1a1a", surface: "#2a2a2a", text_primary: "#e5e7eb", text_secondary: "#a78bfa", text_muted: "#cdd6f4", overlay_alpha: 0.7, shadow_alpha: 0.4, shadow_alpha_hover: 0.5 } };
+      var define_MARKIFY_UI_default = { ui: { buttons: { copy_text: "📋 Copy", download_text: "📥 Download", gap: "10px" }, indicators: { downloaded_icon: "✓ ", downloaded_tooltip: "Already downloaded", font_size_title: "1.2em" }, position: { default_right: "20px", default_top: "25%", z_index: 1e4 }, style: { border_radius: "8px", font_family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', font_size: "14px", font_weight: "600", padding: "12px 20px" }, shadows: { button_default: "0 4px 12px rgba(124, 58, 237, 0.4)", button_hover: "0 6px 16px rgba(124, 58, 237, 0.5)", copy_default: "0 4px 12px rgba(5, 150, 105, 0.4)", copy_hover: "0 6px 16px rgba(5, 150, 105, 0.5)" }, animations: { hover_transform: "translateY(-2px)", transition: "all 0.2s ease" } }, conversion: { code_block_style: "fenced", em_delimiter: "*", heading_style: "atx", link_style: "inlined", strong_delimiter: "**", remove_elements: { tags: ["aside", "footer", "header", "iframe", "nav", "script", "style"] } } };
       const theme = define_MARKIFY_THEME_default;
       const notifications = define_MARKIFY_NOTIFICATIONS_default;
       const ui = define_MARKIFY_UI_default;
@@ -9302,296 +10032,6 @@ ${rawMarkdown}`;
       }
       function getProfiles() {
         return getConfig().adapters;
-      }
-      const defaultSettings = {
-buttonPosition: "bottom-right",
-        buttonText: ui?.ui?.button_text,
-        buttonColor: theme?.colors?.primary,
-includeImages: true,
-        includeTables: true,
-        includeCodeBlocks: true,
-includeTitle: true,
-        includeUrl: true,
-        includeDate: true,
-        includeAuthor: true,
-        includeTags: true,
-        customTags: [],
-enabledAdapters: ["all"],
-        customCSS: ""
-      };
-      async function loadSettings() {
-        const stored = await GM.getValue("markify_settings", null);
-        if (!stored) {
-          return defaultSettings;
-        }
-        try {
-          const parsed = JSON.parse(stored);
-          return { ...defaultSettings, ...parsed };
-        } catch {
-          return defaultSettings;
-        }
-      }
-      async function saveSettings(settings) {
-        await GM.setValue("markify_settings", JSON.stringify(settings));
-        GM.notification({
-          text: notifications.messages.settings_saved,
-          title: pkg.package.strings.app_title,
-          timeout: notifications.timeouts.short
-        });
-      }
-      async function resetSettings() {
-        await GM.deleteValue("markify_settings");
-        GM.notification({
-          text: notifications.messages.settings_reset,
-          title: pkg.package.strings.app_title,
-          timeout: notifications.timeouts.short
-        });
-      }
-      function createSettingsUI() {
-        const container = document.createElement("div");
-        container.id = "markify-settings";
-        container.innerHTML = `
-    <style>
-      #markify-settings-overlay {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100vw;
-        height: 100vh;
-        background: rgba(0, 0, 0, 0.7);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 999999;
-        backdrop-filter: blur(4px);
-      }
-      
-      #markify-settings-panel {
-        background: #1a1a1a;
-        border-radius: 16px;
-        padding: 32px;
-        max-width: 600px;
-        width: 90%;
-        max-height: 80vh;
-        overflow-y: auto;
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-        color: #fff;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      }
-      
-      #markify-settings-panel h2 {
-        margin: 0 0 24px 0;
-        font-size: 24px;
-        font-weight: 700;
-        color: ${theme?.colors?.primary};
-      }
-      
-      .markify-setting-group {
-        margin-bottom: 24px;
-      }
-      
-      .markify-setting-group h3 {
-        font-size: 16px;
-        font-weight: 600;
-        margin: 0 0 12px 0;
-        color: ${theme?.colors?.text_secondary};
-      }
-      
-      .markify-setting-item {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 12px 0;
-        border-bottom: 1px solid #333;
-      }
-      
-      .markify-setting-item:last-child {
-        border-bottom: none;
-      }
-      
-      .markify-setting-item label {
-        font-size: 14px;
-        color: ${theme?.colors?.text_primary};
-      }
-      
-      .markify-setting-item input[type="checkbox"] {
-        width: 20px;
-        height: 20px;
-        cursor: pointer;
-      }
-      
-      .markify-setting-item select,
-      .markify-setting-item input[type="text"] {
-        padding: 8px 12px;
-        border-radius: 6px;
-        border: 1px solid #444;
-        background: #2a2a2a;
-        color: #fff;
-        font-size: 14px;
-      }
-      
-      .markify-buttons {
-        display: flex;
-        gap: 12px;
-        margin-top: 24px;
-      }
-      
-      .markify-btn {
-        flex: 1;
-        padding: 12px 24px;
-        border-radius: 8px;
-        border: none;
-        font-size: 14px;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.2s;
-      }
-      
-      .markify-btn-primary {
-        background: ${theme?.colors?.primary};
-        color: white;
-      }
-      
-      .markify-btn-primary:hover {
-        background: ${theme?.colors?.primary_hover};
-      }
-      
-      .markify-btn-secondary {
-        background: #374151;
-        color: white;
-      }
-      
-      .markify-btn-secondary:hover {
-        background: #4b5563;
-      }
-    </style>
-    
-    <div id="markify-settings-overlay">
-      <div id="markify-settings-panel">
-        <h2>⚙️ Markify Settings</h2>
-        
-        <div class="markify-setting-group">
-          <h3>UI Settings</h3>
-          <div class="markify-setting-item">
-            <label>Button Position</label>
-            <select id="button-position">
-              <option value="top-left">Top Left</option>
-              <option value="top-right">Top Right</option>
-              <option value="bottom-left">Bottom Left</option>
-              <option value="bottom-right" selected>Bottom Right</option>
-            </select>
-          </div>
-          <div class="markify-setting-item">
-            <label>Button Text</label>
-            <input type="text" id="button-text" value="📥 Markify" />
-          </div>
-        </div>
-        
-        <div class="markify-setting-group">
-          <h3>Frontmatter</h3>
-          <div class="markify-setting-item">
-            <label>Include Title</label>
-            <input type="checkbox" id="include-title" checked />
-          </div>
-          <div class="markify-setting-item">
-            <label>Include URL</label>
-            <input type="checkbox" id="include-url" checked />
-          </div>
-          <div class="markify-setting-item">
-            <label>Include Date</label>
-            <input type="checkbox" id="include-date" checked />
-          </div>
-          <div class="markify-setting-item">
-            <label>Include Author</label>
-            <input type="checkbox" id="include-author" checked />
-          </div>
-          <div class="markify-setting-item">
-            <label>Include Tags</label>
-            <input type="checkbox" id="include-tags" checked />
-          </div>
-        </div>
-        
-        <div class="markify-setting-group">
-          <h3>Content Options</h3>
-          <div class="markify-setting-item">
-            <label>Include Images</label>
-            <input type="checkbox" id="include-images" checked />
-          </div>
-          <div class="markify-setting-item">
-            <label>Include Tables</label>
-            <input type="checkbox" id="include-tables" checked />
-          </div>
-          <div class="markify-setting-item">
-            <label>Include Code Blocks</label>
-            <input type="checkbox" id="include-code" checked />
-          </div>
-        </div>
-        
-        <div class="markify-buttons">
-          <button class="markify-btn markify-btn-secondary" id="markify-close">Cancel</button>
-          <button class="markify-btn markify-btn-secondary" id="markify-reset">Reset to Defaults</button>
-          <button class="markify-btn markify-btn-primary" id="markify-save">Save Settings</button>
-        </div>
-      </div>
-    </div>
-  `;
-        return container;
-      }
-      async function showSettings() {
-        const settings = await loadSettings();
-        const ui2 = createSettingsUI();
-        document.body.appendChild(ui2);
-        const btnPos = ui2.querySelector("#button-position");
-        const btnText = ui2.querySelector("#button-text");
-        const includeTitle = ui2.querySelector("#include-title");
-        const includeUrl = ui2.querySelector("#include-url");
-        const includeDate = ui2.querySelector("#include-date");
-        const includeAuthor = ui2.querySelector("#include-author");
-        const includeTags = ui2.querySelector("#include-tags");
-        const includeImages = ui2.querySelector("#include-images");
-        const includeTables = ui2.querySelector("#include-tables");
-        const includeCode = ui2.querySelector("#include-code");
-        btnPos.value = settings.buttonPosition;
-        btnText.value = settings.buttonText;
-        includeTitle.checked = settings.includeTitle;
-        includeUrl.checked = settings.includeUrl;
-        includeDate.checked = settings.includeDate;
-        includeAuthor.checked = settings.includeAuthor;
-        includeTags.checked = settings.includeTags;
-        includeImages.checked = settings.includeImages;
-        includeTables.checked = settings.includeTables;
-        includeCode.checked = settings.includeCodeBlocks;
-        ui2.querySelector("#markify-close")?.addEventListener("click", () => {
-          ui2.remove();
-        });
-        ui2.querySelector("#markify-reset")?.addEventListener("click", async () => {
-          await resetSettings();
-          ui2.remove();
-          window.location.reload();
-        });
-        ui2.querySelector("#markify-save")?.addEventListener("click", async () => {
-          const newSettings = {
-            ...settings,
-            buttonPosition: btnPos.value,
-            buttonText: btnText.value,
-            includeTitle: includeTitle.checked,
-            includeUrl: includeUrl.checked,
-            includeDate: includeDate.checked,
-            includeAuthor: includeAuthor.checked,
-            includeTags: includeTags.checked,
-            includeImages: includeImages.checked,
-            includeTables: includeTables.checked,
-            includeCodeBlocks: includeCode.checked
-          };
-          await saveSettings(newSettings);
-          ui2.remove();
-          window.location.reload();
-        });
-        ui2.querySelector("#markify-settings-overlay")?.addEventListener("click", (e2) => {
-          if (e2.target === ui2.querySelector("#markify-settings-overlay")) {
-            ui2.remove();
-          }
-        });
       }
       function abortError() {
         return new DOMException("Download cancelled", "AbortError");
@@ -9719,6 +10159,15 @@ enabledAdapters: ["all"],
           this.options.window.removeEventListener("hashchange", this.check);
         }
       }
+      function activityOf(element, layout) {
+        if (!layout.activity_selector) return void 0;
+        const node2 = element.querySelector(layout.activity_selector);
+        const raw = (layout.activity_attribute ? node2?.getAttribute(layout.activity_attribute) : node2?.textContent)?.trim();
+        if (!raw) return void 0;
+        const number2 = /^\d+$/.test(raw) ? Number(raw) : NaN;
+        const time2 = Number.isFinite(number2) ? number2 < 1e12 ? number2 * 1e3 : number2 : Date.parse(raw);
+        return Number.isFinite(time2) ? new Date(time2).toISOString() : void 0;
+      }
       class ProfileBatchCapability {
         constructor(profile, fetchContent, environment = {}) {
           this.profile = profile;
@@ -9778,7 +10227,7 @@ enabledAdapters: ["all"],
                     const title = layout.title_attribute ? titleNode?.getAttribute(layout.title_attribute)?.trim() || titleNode?.textContent?.trim() : titleNode?.textContent?.trim();
                     if (!title) continue;
                     seen2.add(thread.id);
-                    rows.push({ id: thread.id, title, url: url2.href, element, link });
+                    rows.push({ id: thread.id, title, url: url2.href, element, link, activity: activityOf(element, layout) });
                     break;
                   }
                 }
@@ -9977,87 +10426,6 @@ enabledAdapters: ["all"],
           l2.setUint32(0, 1347093766), l2.setUint16(8, r(s2), 1), l2.setUint16(10, r(s2), 1), l2.setUint32(12, i(d2), 1), l2.setUint32(16, i(a3), 1), yield n(l2);
         })(u2, a2), u2);
       }
-      const STORAGE_KEY = "markify_download_history";
-      let aliases = new Map();
-      let writes = Promise.resolve();
-      const storage = {
-        getValue: async (key, fallback) => GM.getValue(key, fallback),
-        setValue: (key, value) => GM.setValue(key, value)
-      };
-      function configureHistoryProfiles(profiles) {
-        const next2 = new Map();
-        for (const profile of profiles) {
-          for (const alias of [profile.site.id, ...profile.site.name ? [profile.site.name] : [], ...profile.site.aliases]) {
-            const key = alias.toLowerCase();
-            if (next2.has(key) && next2.get(key) !== profile.site.id) throw new Error(`Conflicting history alias: ${alias}`);
-            next2.set(key, profile.site.id);
-          }
-        }
-        aliases = next2;
-      }
-      const canonical = (site) => aliases.get(site.toLowerCase()) ?? site;
-      const keyFor = (id, site) => `${canonical(site)}:${id}`;
-      function normalizeHistory(history) {
-        const merged = {};
-        for (const record2 of Object.values(history)) {
-          if (!record2 || typeof record2.id !== "string" || typeof record2.site !== "string") continue;
-          const key = keyFor(record2.id, record2.site);
-          if (!merged[key] || record2.downloadedAt >= merged[key].downloadedAt) merged[key] = { ...record2, site: canonical(record2.site) };
-        }
-        return merged;
-      }
-      async function getDownloadHistory(store = storage) {
-        return Object.values(normalizeHistory(await store.getValue(STORAGE_KEY, {})));
-      }
-      async function isDownloaded(id, site) {
-        return (await getDownloadHistory()).some((record2) => record2.id === id && record2.site === canonical(site));
-      }
-      function mutate(change, store, active = () => true) {
-        const task = writes.catch(() => void 0).then(async () => {
-          if (!active()) return;
-          const history = await store.getValue(STORAGE_KEY, {});
-          if (!active()) return;
-          change(history);
-          await store.setValue(STORAGE_KEY, history);
-        });
-        writes = task;
-        return task;
-      }
-      async function markManyAsDownloaded(items, site, type, active = () => true, store = storage) {
-        const downloadedAt = ( new Date()).toISOString();
-        await mutate((history) => {
-          for (const item of items) history[keyFor(item.id, site)] = { ...item, site: canonical(site), type, downloadedAt };
-        }, store, active);
-      }
-      async function markAsDownloaded(id, site, title, type) {
-        await markManyAsDownloaded([{ id, title }], site, type);
-      }
-      async function removeDownload(id, site) {
-        await mutate((history) => {
-          for (const [key, record2] of Object.entries(history)) if (keyFor(record2.id, record2.site) === keyFor(id, site)) delete history[key];
-        }, storage);
-      }
-      async function clearHistory() {
-        await mutate((history) => {
-          for (const key of Object.keys(history)) delete history[key];
-        }, storage);
-      }
-      async function getDownloadStats() {
-        const records = await getDownloadHistory();
-        return { total: records.length, single: records.filter((r2) => r2.type === "single").length, batch: records.filter((r2) => r2.type === "batch").length };
-      }
-      const downloadHistory = Object.freeze( Object.defineProperty({
-        __proto__: null,
-        clearHistory,
-        configureHistoryProfiles,
-        getDownloadHistory,
-        getDownloadStats,
-        isDownloaded,
-        markAsDownloaded,
-        markManyAsDownloaded,
-        normalizeHistory,
-        removeDownload
-      }, Symbol.toStringTag, { value: "Module" }));
       function initiateDownload(blob, filename, doc = document) {
         const url2 = URL.createObjectURL(blob);
         const anchor2 = doc.createElement("a");
@@ -10158,13 +10526,13 @@ enabledAdapters: ["all"],
                 existing.row = row;
                 continue;
               }
-              const downloaded = records.some((record2) => record2.site === this.adapter.siteId && record2.id === row.id);
-              this.rows.set(row.id, this.attach(row, downloaded));
+              const record2 = records.find((entry) => entry.site === this.adapter.siteId && entry.id === row.id);
+              this.rows.set(row.id, this.attach(row, record2));
             }
             this.updateControls();
           }
         }
-        attach(row, downloaded) {
+        attach(row, record2) {
           const doc = this.services.document;
           const wrapper = doc.createElement("div");
           wrapper.className = "markify-checkbox-wrapper";
@@ -10189,11 +10557,15 @@ enabledAdapters: ["all"],
             this.updateControls();
           });
           wrapper.appendChild(checkbox);
-          if (downloaded) {
+          if (record2) {
+            const listed = !!(row.activity && record2.downloadedAt && Date.parse(row.activity) > Date.parse(record2.downloadedAt));
+            const changed = listed || !!record2.downloadedAt && updateStatus(record2).changed;
             const indicator = doc.createElement("span");
-            indicator.textContent = "✓";
-            indicator.title = "Already downloaded";
-            indicator.style.cssText = "color:#22c55e;margin-left:4px;";
+            indicator.className = "markify-history-indicator";
+            indicator.dataset.markifyStatus = changed ? "updated" : "downloaded";
+            indicator.textContent = changed ? "✓↻" : "✓";
+            indicator.title = changed ? "Downloaded; updated since" : "Already downloaded";
+            indicator.style.cssText = `color:${changed ? "#f59e0b" : "#22c55e"};margin-left:4px;`;
             wrapper.appendChild(indicator);
           }
           const host = row.element.tagName === "TR" ? row.link.closest("td, th") ?? row.element : row.element;
@@ -10487,7 +10859,7 @@ enabledAdapters: ["all"],
               if (args.zip) {
                 const ok = results.filter((result) => result.ok);
                 if (ok.length) {
-                  const zip = await host.downloadZip(ok.map((result) => ({ id: result.id, title: result.title, markdown: result.markdown })));
+                  const zip = await host.downloadZip(ok.map((result) => ({ id: result.id, title: result.title, markdown: result.markdown, metadata: result.metadata })));
                   return { results, zip };
                 }
               }
@@ -10635,6 +11007,12 @@ root: {
       let activeSingleAbort = null;
       let activeBatchManager = null;
       let routeGeneration = 0;
+      function snapshotOf(metadata) {
+        return {
+          replies: typeof metadata?.replies === "number" ? metadata.replies : void 0,
+          updated: typeof metadata?.updated === "string" ? metadata.updated : void 0
+        };
+      }
       async function configuredBatchDelay(signal) {
         const delay = notifications?.delays?.batch_item;
         const min = typeof delay === "object" ? delay.min_ms : 1e3;
@@ -10674,12 +11052,25 @@ root: {
           return;
         }
         if (route.kind !== "listing" || generation !== routeGeneration) return;
-        const contentAdapter = createProfileAdapter(profile);
-        const capability = new ProfileBatchCapability(profile, async (_id, onProgress, signal, item) => {
+        const snapshots = new Map();
+        const capability = new ProfileBatchCapability(profile, async (id, onProgress, signal, item) => {
           if (!item) throw new Error("Batch item URL is missing");
-          return contentAdapter.fetchViaApi(item.url, createProfileFetcher(profile), profile, { onProgress, signal });
+          const result = await convert({
+            url: item.url,
+            templates,
+            fetcher: createProfileFetcher(profile),
+            adapterConfig: profile,
+            signal,
+            onProgress,
+            metadataSnapshot: { title: item.title, url: item.url, id, tags: profile.metadata?.tags, date: formatDate(), downloaded: formatDate() },
+            includeFrontmatter: true,
+            strategy: "api-only"
+          });
+          snapshots.set(id, snapshotOf(result.metadata));
+          return result.markdown;
         }, { document, url: () => window.location.href });
         const manager = new BatchDownloadManager(capability, {
+          saveHistory: (items, site, active) => markManyAsDownloaded(items.map((item) => ({ ...item, ...snapshots.get(item.id) })), site, "batch", active),
           delay: configuredBatchDelay,
           notify: (text2) => GM.notification({
             text: text2,
@@ -10776,7 +11167,7 @@ root: {
           const adapter = captured.adapter;
           const filenameTemplate = profile?.filename.single ?? templates?.filename?.single ?? "{title}";
           const { applyFilenameTemplate: applyFilenameTemplate2 } = await __vitePreload(async () => {
-            const { applyFilenameTemplate: applyFilenameTemplate22 } = await module.import('./index-CO2c6sSn-CCONghz6.js');
+            const { applyFilenameTemplate: applyFilenameTemplate22 } = await module.import('./index-CSOeiHu3-COwhfQWm.js');
             return { applyFilenameTemplate: applyFilenameTemplate22 };
           }, true ? void 0 : void 0);
           const filename = applyFilenameTemplate2(filenameTemplate, {
@@ -10805,7 +11196,7 @@ root: {
                 const { markAsDownloaded: markAsDownloaded22 } = await Promise.resolve().then(() => downloadHistory);
                 return { markAsDownloaded: markAsDownloaded22 };
               }, true ? void 0 : void 0);
-              await markAsDownloaded2(route.id, profile.site.id, metadata.title || captured.metadata.title, "single");
+              await markAsDownloaded2(route.id, profile.site.id, metadata.title || captured.metadata.title, "single", snapshotOf(metadata));
               logger.info(`Marked ${route.id} as downloaded`);
             }
           }
@@ -10837,27 +11228,34 @@ root: {
           return { isDownloaded: isDownloaded3 };
         }, void 0 );
         const downloaded = await isDownloaded2(route.id, profile.site.id);
-        if (!active()) return;
-        if (downloaded) {
-          const titleElement = document.querySelector("h1.text-xl, h1.font-bold, h1");
-          if (titleElement) {
-            const indicator = document.createElement("span");
-            indicator.dataset.markifyOwned = "history";
-            indicator.textContent = ui?.ui?.indicators?.downloaded_icon;
-            indicator.title = ui?.ui?.indicators?.downloaded_tooltip;
-            indicator.style.cssText = `
-                color: ${theme?.colors?.success};
-                font-size: ${ui?.ui?.indicators?.font_size_title};
-                margin-right: 6px;
-                font-weight: bold;
-            `;
-            titleElement.insertBefore(indicator, titleElement.firstChild);
-            logger.info("Download status indicator added to post page");
-          }
+        if (!active() || !downloaded) return;
+        const titleElement = document.querySelector("h1.text-xl, h1.font-bold, h1");
+        if (!titleElement) return;
+        const indicator = document.createElement("span");
+        indicator.dataset.markifyOwned = "history";
+        indicator.dataset.markifyStatus = "downloaded";
+        indicator.textContent = ui?.ui?.indicators?.downloaded_icon;
+        indicator.title = ui?.ui?.indicators?.downloaded_tooltip;
+        indicator.style.cssText = `
+        color: ${theme?.colors?.success};
+        font-size: ${ui?.ui?.indicators?.font_size_title};
+        margin-right: 6px;
+        font-weight: bold;
+    `;
+        titleElement.insertBefore(indicator, titleElement.firstChild);
+        logger.info("Download status indicator added to post page");
+        try {
+          const status = await recordCheck(route.id, profile.site.id, await fetchThreadState(route.id, createProfileFetcher(profile), profile));
+          if (!active() || !status?.changed) return;
+          indicator.dataset.markifyStatus = "updated";
+          indicator.textContent = `${indicator.textContent} ↻${status.newReplies ? ` +${status.newReplies}` : ""}`;
+          indicator.title = status.newReplies ? t$1(`Downloaded; ${status.newReplies} new replies since`, `已下载；之后新增 ${status.newReplies} 条回复`) : t$1("Downloaded; updated since", "已下载；之后有更新");
+          indicator.style.color = theme?.colors?.warning || "#f59e0b";
+        } catch (error2) {
+          logger.info(`Update check skipped: ${error2 instanceof Error ? error2.message : String(error2)}`);
         }
       }
       async function createDownloadButton() {
-        await loadSettings();
         const container = document.createElement("div");
         container.id = "markify-container";
         Object.assign(container.style, {
@@ -10995,7 +11393,7 @@ root: {
           const filename = applyFilenameTemplate(profile.filename.single, { title, id: route?.id, author: result.metadata.author, site: profile.site.id, date: formatDate() }) + ".md";
           if (options.download) {
             downloadMarkdown(result.markdown, filename);
-            if (route?.id) await markAsDownloaded(route.id, profile.site.id, title, "single");
+            if (route?.id) await markAsDownloaded(route.id, profile.site.id, title, "single", snapshotOf(result.metadata));
           }
           return { markdown: result.markdown, filename, title, metadata: { ...result.metadata } };
         },
@@ -11022,7 +11420,7 @@ root: {
           });
           const archive = `${applyFilenameTemplate(profile.filename.batch, context)}.zip`;
           initiateDownload(await A(files).blob(), archive);
-          await markManyAsDownloaded(items.map(({ id, title }) => ({ id, title })), profile.site.id, "batch");
+          await markManyAsDownloaded(items.map(({ id, title, metadata }) => ({ id, title, ...snapshotOf(metadata) })), profile.site.id, "batch");
           return archive;
         },
         delay: (signal) => configuredBatchDelay(signal ?? new AbortController().signal),
@@ -11036,8 +11434,7 @@ root: {
         if (!agentApiInstalled) agentApiInstalled = installAgentApi(typeof unsafeWindow !== "undefined" ? unsafeWindow : window, agentApi);
         return agentApiInstalled;
       }
-      async function agentApiMenu(action) {
-        const profile = currentProfile();
+      async function agentApiMenu(action, profile = currentProfile()) {
         if (!profile) {
           GM.notification({ text: "Markify has no profile for this site.", title: "Markify", timeout: 3e3 });
           return;
@@ -11053,12 +11450,81 @@ root: {
         settings.sites[profile.site.id] = { token, createdAt: settings.sites[profile.site.id]?.createdAt || ( new Date()).toISOString() };
         await GM.setValue(AGENT_API_STORAGE_KEY, settings);
         agentApi.resetLock();
-        const installed = installAgentApiOnce();
+        const installed = profile.site.id !== currentProfile()?.site.id || installAgentApiOnce();
         await GM.setClipboard(token, "text");
         GM.notification({
           text: installed ? `AI console API on for ${profile.site.name}. Token copied; give it to your agent: await markify.connect(token)` : "Token copied, but this page blocks window.markify. Reload and try again.",
           title: "Markify",
           timeout: 6e3
+        });
+      }
+      function threadUrl(profile, id) {
+        const template2 = profile.metadata?.source_url;
+        return template2 ? interpolate(template2, { base_url: profile.site.base_url, thread_id: id, topic_id: id }) : void 0;
+      }
+      function checkDelay(signal) {
+        return new Promise((resolve, reject) => {
+          const timer = setTimeout(() => {
+            signal.removeEventListener("abort", stop);
+            resolve();
+          }, 800 + Math.random() * 700);
+          function stop() {
+            clearTimeout(timer);
+            reject(new DOMException("Stopped", "AbortError"));
+          }
+          if (signal.aborted) stop();
+          else signal.addEventListener("abort", stop, { once: true });
+        });
+      }
+      function openHistory() {
+        const builtIn = Object.values(compiledConfig.adapters);
+        const profileFor = (siteId) => getProfiles()[siteId] ?? compiledConfig.adapters[siteId];
+        return showHistory({
+          profiles: builtIn,
+          currentSiteId: currentProfile()?.site.id,
+          history: getDownloadHistory,
+          check: (siteId, id) => fetchThreadState(id, createProfileFetcher(profileFor(siteId)), profileFor(siteId)),
+          recordCheck: (siteId, id, state) => recordCheck(id, siteId, state),
+          async redownload(record2) {
+            const url2 = threadUrl(profileFor(record2.site), record2.id);
+            if (!url2) throw new Error(`${record2.site} has no thread URL template`);
+            const { filename } = await agentHost.exportThread(url2, { title: record2.title, download: true });
+            GM.notification({ text: formatMessage(notifications?.messages?.download_success, { filename }), title: "Markify", timeout: 3e3 });
+          },
+          remove: (siteId, id) => removeDownload(id, siteId),
+          sourceUrl: (siteId, id) => threadUrl(profileFor(siteId), id),
+          delay: checkDelay,
+          notify: (text2) => {
+            GM.notification({ text: text2, title: "Markify", timeout: 3e3 });
+          }
+        });
+      }
+      function openSettings() {
+        const builtIn = Object.values(compiledConfig.adapters);
+        return showSettings({
+          profiles: builtIn,
+currentSiteId: builtIn.find((profile) => profile.site.origins.includes(window.location.origin))?.site.id,
+          loadOverrides,
+          saveOverrides,
+          agentEnabled: async (siteId) => !!await agentHost.token(siteId),
+          agentCopyToken: (siteId) => agentApiMenu("token", getProfiles()[siteId] ?? compiledConfig.adapters[siteId]),
+          agentRevoke: (siteId) => agentApiMenu("disable", getProfiles()[siteId] ?? compiledConfig.adapters[siteId]),
+          history: getDownloadHistory,
+          clearHistory: (siteId) => siteId ? clearSiteHistory(siteId) : clearHistory(),
+          async resetButtonPosition() {
+            await GM.deleteValue("markify_button_x");
+            await GM.deleteValue("markify_button_y");
+            const toolbar = document.querySelector("#markify-container");
+            if (toolbar) Object.assign(toolbar.style, { left: "", top: ui?.ui?.position?.default_top, right: ui?.ui?.position?.default_right });
+          },
+          copy: (text2) => GM.setClipboard(text2, "text"),
+          notify: (text2) => {
+            GM.notification({ text: text2, title: pkg?.package?.strings?.app_title, timeout: notifications?.timeouts?.short });
+          },
+          reload: () => window.location.reload(),
+          openHistory: () => {
+            void openHistory();
+          }
         });
       }
       (async function main() {
@@ -11070,7 +11536,7 @@ root: {
         await initializeConfig();
         configureHistoryProfiles(Object.values(getProfiles()));
         GM.registerMenuCommand(pkg?.package?.menu?.settings, () => {
-          showSettings();
+          void openSettings().catch((error2) => console.error("[Markify] Settings failed to open", error2));
         });
         GM.registerMenuCommand(pkg?.package?.menu?.stats, async () => {
           const count = await GM.getValue("markify_stats", 0);
@@ -11090,24 +11556,12 @@ root: {
             timeout: notifications?.timeouts?.long
           });
         });
-        GM.registerMenuCommand(pkg?.package?.menu?.history, async () => {
-          const { getDownloadHistory: getDownloadHistory2 } = await __vitePreload(async () => {
-            const { getDownloadHistory: getDownloadHistory22 } = await Promise.resolve().then(() => downloadHistory);
-            return { getDownloadHistory: getDownloadHistory22 };
-          }, void 0 );
-          const history = await getDownloadHistory2();
-          const recent = history.slice(-10).reverse();
-          const summary = recent.map((r2) => `${r2.title} (${r2.site})`).join("\n");
-          alert(`Download History (${history.length} items)
-
-Recent:
-${summary || "No history yet"}`);
-        });
+        GM.registerMenuCommand(pkg?.package?.menu?.history, () => openHistory().catch((error2) => console.error("[Markify] History failed to open", error2)));
         GM.registerMenuCommand(pkg?.package?.menu?.clear_history, async () => {
           if (confirm(notifications?.messages?.clear_history_confirm)) {
             const { clearHistory: clearHistory2 } = await __vitePreload(async () => {
-              const { clearHistory: clearHistory3 } = await Promise.resolve().then(() => downloadHistory);
-              return { clearHistory: clearHistory3 };
+              const { clearHistory: clearHistory22 } = await Promise.resolve().then(() => downloadHistory);
+              return { clearHistory: clearHistory22 };
             }, void 0 );
             await clearHistory2();
             GM.notification({
@@ -11173,13 +11627,13 @@ ${summary || "No history yet"}`);
   };
 }));
 
-System.register("./index-CO2c6sSn-CCONghz6.js", ['./__monkey.entry-LtsE0_mx.js'], (function (exports, module) {
+System.register("./index-CSOeiHu3-COwhfQWm.js", ['./__monkey.entry-oE3Twt20.js'], (function (exports, module) {
   'use strict';
   var applyFilenameTemplate;
   return {
     setters: [module => {
       applyFilenameTemplate = module.a;
-      exports({ ConversionError: module.C, LogLevel: module.L, Logger: module.b, adapterLogger: module.c, applyCommentTemplate: module.d, applyDocumentTemplate: module.e, applyFilenameTemplate: module.a, batchLogger: module.f, builtInAdapters: module.g, classifyRegistryRoute: module.h, classifyRoute: module.i, contentEngines: module.j, convert: module.k, createProfileAdapter: module.l, defaultTemplates: module.m, extractIdFromUrl: module.n, extractMainContent: module.o, fetch1Point3AcresContent: module.p, fetchDiscourseRawContent: module.q, fetchForumApiContent: module.p, fetchUSCardForumContent: module.q, fetchViaJinaReader: module.r, findProfileAdapter: module.s, findSiteAdapter: module.t, formatDate: module.u, formatMessage: module.v, generateFrontmatter: module.w, getAdapterConfig: module.x, getBuiltInAdapters: module.y, getConfig: module.z, getProfileAdapters: module.A, hasSiteApi: module.B, interpolate: module.D, listAdapters: module.E, logger: module.F, matchesPattern: module.G, parseForumPosts: module.H, replacePlaceholders: module.I, routeLogsToStderr: module.J, sanitizeFilename: module.K, setConfig: module.M });
+      exports({ ConversionError: module.C, LogLevel: module.L, Logger: module.b, adapterLogger: module.c, applyCommentTemplate: module.d, applyDocumentTemplate: module.e, applyFilenameTemplate: module.a, batchLogger: module.f, builtInAdapters: module.g, classifyRegistryRoute: module.h, classifyRoute: module.i, contentEngines: module.j, convert: module.k, createProfileAdapter: module.l, defaultTemplates: module.m, extractIdFromUrl: module.n, extractMainContent: module.o, fetch1Point3AcresContent: module.p, fetchDiscourseRawContent: module.q, fetchForumApiContent: module.p, fetchThreadState: module.r, fetchUSCardForumContent: module.q, fetchViaJinaReader: module.s, findProfileAdapter: module.t, findSiteAdapter: module.u, formatDate: module.v, formatMessage: module.w, generateFrontmatter: module.x, getAdapterConfig: module.y, getBuiltInAdapters: module.z, getConfig: module.A, getProfileAdapters: module.B, hasSiteApi: module.D, interpolate: module.E, listAdapters: module.F, logger: module.G, matchesPattern: module.H, parseForumPosts: module.I, replacePlaceholders: module.J, routeLogsToStderr: module.K, sanitizeFilename: module.M, setConfig: module.N });
     }],
     execute: (function () {
 
