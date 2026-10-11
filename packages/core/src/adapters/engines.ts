@@ -7,6 +7,7 @@ import type { SiteAdapter } from './base';
 import { classifyRoute, classifyRegistryRoute } from './routes';
 import { fetchForumApiContent, fetchForumThreadState } from './1point3acres';
 import { fetchDiscourseRawContent, fetchDiscourseThreadState } from './uscardforum';
+import { fetchV2exContent, fetchV2exThreadState } from './v2ex';
 import { ConversionError } from '../errors';
 
 type Engine = (id: string, fetcher: HttpFetcher, profile: AdapterConfig, context?: ApiConversionContext) => Promise<string>;
@@ -15,12 +16,14 @@ type Engine = (id: string, fetcher: HttpFetcher, profile: AdapterConfig, context
 export const contentEngines: Record<AdapterConfig['engine'], Engine> = {
     'forum-json': (id, fetcher, profile, context) => fetchForumApiContent(id, fetcher, profile, context?.onProgress, context),
     'discourse-raw': fetchDiscourseRawContent,
+    'v2ex-api': fetchV2exContent,
 };
 
 /** One light request per thread: its reply count and last activity, without exporting it. */
 export const stateEngines: Record<AdapterConfig['engine'], (id: string, fetcher: HttpFetcher, profile: AdapterConfig, context?: ApiConversionContext) => Promise<ThreadState>> = {
     'forum-json': fetchForumThreadState,
     'discourse-raw': fetchDiscourseThreadState,
+    'v2ex-api': fetchV2exThreadState,
 };
 
 export function fetchThreadState(id: string, fetcher: HttpFetcher, profile: AdapterConfig, context?: ApiConversionContext): Promise<ThreadState> {

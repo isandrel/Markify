@@ -9,6 +9,7 @@ export { githubAdapter } from './github';
 export { redditAdapter } from './reddit';
 export { devtoAdapter } from './devto';
 export { usCardForumAdapter, fetchDiscourseRawContent, fetchDiscourseRawContent as fetchUSCardForumContent } from './uscardforum';
+export { fetchV2exContent, parseV2exPage } from './v2ex';
 export { onePoint3AcresAdapter, fetchForumApiContent, fetchForumApiContent as fetch1Point3AcresContent } from './1point3acres';
 export { defaultAdapter } from './default';
 

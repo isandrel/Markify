@@ -39,7 +39,7 @@ export interface SettingsHost {
 }
 
 type Layer = Record<string, any>;
-const TEMPLATE_BLOCKS = ['document', 'frontmatter', 'comments_header', 'comment', 'reply', 'replies_gap'] as const;
+const TEMPLATE_BLOCKS = ['document', 'frontmatter', 'comments_header', 'comment', 'reply', 'replies_gap', 'supplement'] as const;
 const FILENAMES = ['single', 'batch_item', 'batch'] as const;
 const SAMPLE = { title: '示例标题 Example', id: '12345', author: 'author', date: '2026-01-01', index: '001', type: 'category', tagname: 'tag' };
 

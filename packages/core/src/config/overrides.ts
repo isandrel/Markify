@@ -7,6 +7,7 @@ export const profileOverrideSchema = z.strictObject({
     document: templateBlockSchema.optional(), frontmatter: templateBlockSchema.optional(),
     comment: templateBlockSchema.optional(), comments_header: templateBlockSchema.optional(),
     reply: templateBlockSchema.optional(), replies_gap: templateBlockSchema.optional(),
+    supplement: templateBlockSchema.optional(),
     filename: filenameSchema.partial().optional(),
     runtime: runtimeOverrideSchema.optional(),
 });

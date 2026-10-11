@@ -1,0 +1,125 @@
+# Validated site profile for V2EX. The public API (v1) gives the topic; its web
+# pages give supplements (附言), tags and replies (100 a page), which are always
+# current where the replies API can lag. The API allows about 600 requests an
+# hour per IP; an export uses one, plus one page per 100 replies.
+schema_version = 1
+engine = "v2ex-api"
+transport = "gm"                  # Pages on v2ex.com reach the API on www.v2ex.com too
+delimiter = "---"
+
+[site]
+id = "v2ex"
+name = "V2EX"
+base_url = "https://www.v2ex.com"
+origins = ["https://www.v2ex.com", "https://v2ex.com"]
+aliases = ["v2ex.com"]
+
+[activation]
+matches = ["https://www.v2ex.com/*", "https://v2ex.com/*"]
+connect = ["www.v2ex.com"]
+
+[[routes]]
+name = "thread"
+kind = "thread"
+pattern = '^/t/(\d+)/?$'
+id_group = 1
+
+[[routes]]
+name = "node"
+kind = "listing"
+pattern = '^/go/([^/]+)/?$'
+id_group = 1
+query_keys = ["p"]
+
+[[routes]]
+name = "tag"
+kind = "listing"
+pattern = '^/tag/([^/]+)/?$'
+id_group = 1
+query_keys = ["p"]
+
+[[routes]]
+name = "recent"
+kind = "listing"
+pattern = '^/(recent)/?$'
+id_group = 1
+query_keys = ["p"]
+
+[[routes]]
+name = "member"
+kind = "listing"
+pattern = '^/member/([^/]+)/topics/?$'
+id_group = 1
+query_keys = ["p"]
+
+[[routes]]
+name = "home"
+kind = "listing"
+pattern = '^/$'
+query_keys = ["tab"]
+
+[runtime]
+poll_ms = 500
+debounce_ms = 100
+timeout_ms = 30000
+
+[[batch.layouts]]
+name = "topic-list"
+route_names = ["node", "tag", "recent", "member", "home"]
+root_selector = "#Main"
+# Home, recent, tag and member pages use .cell.item; node pages list topics in #TopicsNode.
+row_selector = ".cell.item, #TopicsNode > .cell"
+link_selector = 'a.topic-link[href^="/t/"]'
+exclude_selectors = ["#Rightbar"]
+# Last reply time, as "2026-10-11 08:16:51 +08:00".
+activity_selector  = ".topic_info span[title]"
+activity_attribute = "title"
+
+[api]
+thread_endpoint = "{base_url}/api/topics/show.json?id={thread_id}"
+html_endpoint   = "{base_url}/t/{thread_id}?p={page}"                       # Supplements, tags and replies
+posts_endpoint  = "{base_url}/api/replies/show.json?topic_id={thread_id}"   # Only when the pages can't be read
+max_pages       = 50                                                        # 5,000 replies
+page_delay      = { min_ms = 300, max_ms = 600, jitter = 0 }
+
+[api.request]
+credentials = true                # The logged-in session sees nodes that need a login
+accept      = "application/json"
+
+[metadata]
+# The page title is "Topic - V2EX".
+title_selectors = ["#Main .header h1"]
+title_cleanup   = '\s+-\s+V2EX$'
+tags            = ["v2ex", "forum"]
+source_url      = "{base_url}/t/{thread_id}"
+
+# One reply; {index} is its floor, which replies refer to as #N.
+[comment]
+template = """
+**#{index} {author}** · *{date}*
+
+{content}
+"""
+
+# Variables: {count}, {delimiter}
+[comments_header]
+template = """
+
+{delimiter}
+
+## Replies ({count})
+"""
+
+# One supplement (附言) under the topic body. Variables: {index}, {date}, {content}
+[supplement]
+template = """
+
+### Supplement {index} · *{date}*
+
+{content}
+"""
+
+[filename]
+single     = "{title}"
+batch_item = "{id} - {title}"
+batch      = "{site}-{type}-{tagname}-{date}"

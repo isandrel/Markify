@@ -7,9 +7,10 @@ import type { FakeResponse, FakeSite } from './types';
 import { onePoint3Acres } from './sites/1point3acres';
 import { usCardForum } from './sites/uscardforum';
 import { linuxDo } from './sites/linuxdo';
+import { v2ex } from './sites/v2ex';
 import { genericWeb } from './sites/generic';
 
-export const sites: FakeSite[] = [onePoint3Acres, usCardForum, linuxDo, genericWeb];
+export const sites: FakeSite[] = [onePoint3Acres, usCardForum, linuxDo, v2ex, genericWeb];
 
 /** Returns null for hosts outside the fake internet so callers can fail loudly. */
 export function respond(input: string): FakeResponse | null {
@@ -22,5 +23,6 @@ export * from './types';
 export * from './sites/1point3acres';
 export * from './sites/uscardforum';
 export * from './sites/linuxdo';
+export * from './sites/v2ex';
 export * from './sites/discourse';
 export * from './sites/generic';
