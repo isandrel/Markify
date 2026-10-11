@@ -13,6 +13,7 @@ import { applyFilenameTemplate } from '@markify/core';
 import type { AdapterConfig } from '@markify/core';
 import type { UserOverrides } from '@markify/core/config';
 import { DIALOG_STYLE as STYLE, escape, mountDialog, t } from './dialog';
+import { isHistoryBackup } from './utils/download-history';
 
 export interface HistoryEntry { id: string; site: string; title: string; downloadedAt: string; type: string }
 
@@ -72,10 +73,13 @@ const L = {
     clearAll: t('Clear all', '清除全部记录'),
     manageHistory: t('Manage and check for updates…', '管理与检查更新…'),
     resetButton: t('Reset button position', '重置按钮位置'),
-    config: t('Configuration', '配置'),
-    export: t('Copy configuration (JSON)', '复制配置（JSON）'),
-    import: t('Import', '导入'),
-    importHint: t('Paste exported JSON here, then Import', '在此粘贴导出的 JSON，然后点导入'),
+    config: t('Settings backup', '设置备份'),
+    configHint: t('Only the settings on this page. The download history is backed up separately, on the Download History page.', '只包含本页的设置。下载记录单独备份，在“下载记录”页面导出/导入。'),
+    historyBackup: t('Back up download history…', '备份下载记录…'),
+    export: t('Copy settings (JSON)', '复制设置（JSON）'),
+    import: t('Import settings', '导入设置'),
+    importHint: t('Paste copied settings JSON here, then Import settings', '在此粘贴复制的设置 JSON，然后点“导入设置”'),
+    notSettings: t('This is a download history backup, not settings. Import it on the Download History page.', '这是下载记录备份，不是设置。请在“下载记录”页面导入。'),
     resetSite: t('Reset this site', '重置本站设置'),
     resetAll: t('Reset everything', '重置全部设置'),
     cancel: t('Cancel', '取消'),
@@ -83,7 +87,7 @@ const L = {
     saved: t('Settings saved', '设置已保存'),
     confirmClearAll: t('Clear the whole download history?', '确定清除全部下载记录？'),
     confirmResetAll: t('Reset every setting to the defaults?', '确定将所有设置恢复默认？'),
-    copied: t('Configuration copied to the clipboard', '配置已复制到剪贴板'),
+    copied: t('Settings copied to the clipboard (without the download history)', '设置已复制到剪贴板（不含下载记录）'),
     done: t('Done', '完成'),
 };
 
@@ -173,11 +177,11 @@ export async function showSettings(host: SettingsHost): Promise<void> {
                     <div class="buttons">${scope ? `<button data-action="clear-site">${L.clearSite}</button>` : ''}
                     <button class="danger" data-action="clear-all">${L.clearAll}</button><button data-action="reset-button">${L.resetButton}</button><button class="primary" data-action="open-history">${L.manageHistory}</button></div></section>
                 ${templates}
-                <section><h3>${L.config}</h3>
+                <section><h3>${L.config}</h3><p class="hint">${L.configHint}</p>
                     <div class="buttons"><button data-action="export">${L.export}</button>
                     ${scope ? `<button data-action="reset-site">${L.resetSite}</button>` : ''}<button class="danger" data-action="reset-all">${L.resetAll}</button></div>
                     <textarea data-input="import" placeholder="${escape(L.importHint)}"></textarea>
-                    <div class="buttons"><button data-action="import">${L.import}</button></div>
+                    <div class="buttons"><button data-action="import">${L.import}</button><button data-action="open-history">${L.historyBackup}</button></div>
                 </section>
             </main>
             <footer><span class="error" role="alert"></span><button data-action="cancel">${L.cancel}</button><button class="primary" data-action="save">${L.save}</button></footer>
@@ -242,6 +246,7 @@ export async function showSettings(host: SettingsHost): Promise<void> {
             case 'import': {
                 const text = root.querySelector<HTMLTextAreaElement>('[data-input="import"]')!.value;
                 const parsed = JSON.parse(text);
+                if (isHistoryBackup(parsed)) throw new Error(L.notSettings);
                 await host.saveOverrides(parsed);
                 host.notify(L.saved);
                 close();

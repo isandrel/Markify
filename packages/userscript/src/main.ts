@@ -30,7 +30,7 @@ import { createFetchFetcher, createProfileFetcher } from './http';
 import { NavigationController } from './navigation';
 import { ProfileBatchCapability } from './adapters/profile-batch';
 import { BatchDownloadManager, initiateDownload } from './batch/BatchDownloadManager';
-import { clearHistory, clearSiteHistory, configureHistoryProfiles, getDownloadHistory, markAsDownloaded, markManyAsDownloaded, recordCheck, removeDownload, type ThreadSnapshot } from './utils/download-history';
+import { clearHistory, clearSiteHistory, configureHistoryProfiles, exportHistory, getDownloadHistory, importHistory, isHistoryBackup, markAsDownloaded, markManyAsDownloaded, recordCheck, removeDownload, type ThreadSnapshot } from './utils/download-history';
 import { AGENT_API_STORAGE_KEY, createAgentApi, installAgentApi, newAgentToken, normalizeAgentSettings, type AgentHost } from './agent-api';
 import { downloadZip } from 'client-zip';
 
@@ -598,7 +598,20 @@ function openHistory(): Promise<void> {
         sourceUrl: (siteId, id) => threadUrl(profileFor(siteId), id),
         delay: checkDelay,
         notify: text => { GM.notification({ text, title: 'Markify', timeout: 3000 }); },
+        async exportHistory() {
+            const backup = await exportHistory();
+            initiateDownload(new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' }), `markify-download-history-${backup.exportedAt.slice(0, 10)}.json`);
+            return backup.records.length;
+        },
+        importHistory: text => importHistory(text),
     });
+}
+
+/** Settings imports refuse a download history backup and say where it goes. */
+function parseSettingsBackup(text: string): unknown {
+    const value = JSON.parse(text);
+    if (isHistoryBackup(value)) throw new Error(t('This is a download history backup, not settings. Import it on the 📜 Download History page.', '这是下载记录备份，不是设置。请在“📜 下载记录”页面导入。'));
+    return value;
 }
 
 /** The settings page, wired to the real storage and actions. */
@@ -688,14 +701,14 @@ function openSettings(): Promise<void> {
 
     GM.registerMenuCommand('📤 Export Configuration', async () => {
         await GM.setClipboard(JSON.stringify(await loadOverrides(), null, 2), 'text');
-        GM.notification({ text: 'Configuration copied to clipboard.', title: 'Markify', timeout: 2000 });
+        GM.notification({ text: 'Settings copied to the clipboard. The download history is not included: export it on the Download History page.', title: 'Markify', timeout: 4000 });
     });
 
     GM.registerMenuCommand('📥 Import Configuration', async () => {
         const value = prompt('Paste exported Markify configuration JSON:');
         if (!value) return;
         try {
-            await saveOverrides(JSON.parse(value));
+            await saveOverrides(parseSettingsBackup(value));
             GM.notification({ text: 'Configuration saved. Reloading the page.', title: 'Markify', timeout: 2000 });
             window.location.reload();
         } catch (error) {

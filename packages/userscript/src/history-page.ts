@@ -9,7 +9,7 @@
  */
 import type { AdapterConfig } from '@markify/core';
 import { DIALOG_STYLE, escape, mountDialog, t } from './dialog';
-import { updateStatus, type DownloadRecord, type ThreadSnapshot } from './utils/download-history';
+import { updateStatus, type DownloadRecord, type HistoryImportResult, type ThreadSnapshot } from './utils/download-history';
 
 export interface HistoryHost {
     profiles: AdapterConfig[];
@@ -23,6 +23,10 @@ export interface HistoryHost {
     sourceUrl(siteId: string, id: string): string | undefined;
     /** Pause between checks. */
     delay(signal: AbortSignal): Promise<void>;
+    /** Saves every site's history as a backup file; returns how many threads it holds. */
+    exportHistory(): Promise<number>;
+    /** Merges a backup file into the history (nothing is removed). */
+    importHistory(text: string): Promise<HistoryImportResult>;
     notify(text: string): void;
 }
 
@@ -48,6 +52,14 @@ const L = {
     close: t('Close', '关闭'),
     downloaded: t('Downloaded', '下载于'),
     checkedAt: t('checked', '检查于'),
+    backup: t('Backup', '备份'),
+    backupHint: t('The download history is not part of the settings backup. Export it to a file to move it to another browser or computer; importing adds to the history here and never deletes.',
+        '下载记录不在“设置”的配置备份里。导出成文件，就能搬到别的浏览器或电脑；导入只会合并进现有记录，不会删除。'),
+    exportFile: t('Export history (file)', '导出下载记录（文件）'),
+    importFile: t('Import history…', '导入下载记录…'),
+    exported: (count: number) => t(`Exported ${count} threads`, `已导出 ${count} 条`),
+    imported: (r: HistoryImportResult) => t(`Imported: ${r.added} new, ${r.updated} updated, ${r.unchanged} already here${r.skipped ? `, ${r.skipped} invalid skipped` : ''}`,
+        `已导入：新增 ${r.added} 条，更新 ${r.updated} 条，${r.unchanged} 条已存在${r.skipped ? `，跳过 ${r.skipped} 条无效记录` : ''}`),
 };
 
 const when = (iso?: string) => (iso ? new Date(iso).toLocaleString(undefined, { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '');
@@ -68,6 +80,7 @@ td.actions button { padding: 4px 10px; font-size: 12px; }
 .chip.fresh { background: #052e16; color: #86efac; }
 .chip.unknown { background: #27272a; color: #a1a1aa; }
 .chip.failed { background: #450a0a; color: #fca5a5; }
+.backup { margin-top: 16px; border-top: 1px solid #27272a; padding-top: 4px; }
 `;
 
 export async function showHistory(host: HistoryHost): Promise<void> {
@@ -77,6 +90,8 @@ export async function showHistory(host: HistoryHost): Promise<void> {
     let records: DownloadRecord[] = [];
     const failures = new Map<string, string>();
     let checking: AbortController | undefined;
+    /** The last export/import result; kept across re-renders. */
+    let lastBackup = '';
     const close = () => { checking?.abort(); unmount(); };
     const nameOf = (id: string) => host.profiles.find(profile => profile.site.id === id)?.site.name ?? id;
     const key = (record: DownloadRecord) => `${record.site}:${record.id}`;
@@ -127,6 +142,10 @@ export async function showHistory(host: HistoryHost): Promise<void> {
                 <p class="hint" data-status="summary">${L.summary(ofSite.length, changed, unchecked)}</p>
                 ${site && !canCheck ? `<p class="hint">${escape(L.checkHere(nameOf(site)))}</p>` : ''}
                 ${list.length ? `<table><tbody>${list.map(row).join('')}</tbody></table>` : `<p class="hint">${L.empty}</p>`}
+                <section class="backup"><h3>${L.backup}</h3><p class="hint">${L.backupHint}</p>
+                    <div class="buttons"><button data-action="export-file">${L.exportFile}</button><button data-action="import-file">${L.importFile}</button>
+                    <input type="file" accept=".json,application/json" data-input="import-file" hidden></div>
+                    <p class="hint" role="status" data-status="backup">${escape(lastBackup)}</p></section>
             </main>
             <footer><span class="error" role="alert"></span><button data-action="close">${L.close}</button></footer>
             </div></div>`;
@@ -170,9 +189,27 @@ export async function showHistory(host: HistoryHost): Promise<void> {
             case 'stop': checking?.abort(); checking = undefined; await render(); return;
             case 'redownload': if (record) { await host.redownload(record); failures.delete(key(record)); } break;
             case 'remove': if (record) await host.remove(record.site, record.id); break;
+            case 'export-file': backupStatus(L.exported(await host.exportHistory())); return;
+            // The file input does the rest (see the change handler).
+            case 'import-file': root.querySelector<HTMLInputElement>('[data-input="import-file"]')!.click(); return;
             default: return;
         }
         await render();
+    }
+
+    const backupStatus = (text: string) => {
+        lastBackup = text;
+        const status = root.querySelector('[data-status="backup"]');
+        if (status) status.textContent = text;
+    };
+    async function importFile(input: HTMLInputElement): Promise<void> {
+        const file = input.files?.[0];
+        input.value = '';
+        if (!file) return;
+        const result = await host.importHistory(await file.text());
+        await render();
+        backupStatus(L.imported(result));
+        host.notify(L.imported(result));
     }
 
     const fail = (error: unknown) => {
@@ -189,6 +226,7 @@ export async function showHistory(host: HistoryHost): Promise<void> {
     });
     root.addEventListener('change', event => {
         const target = event.target as HTMLSelectElement;
+        if ((target as HTMLElement).dataset.input === 'import-file') { void importFile(target as unknown as HTMLInputElement).catch(fail); return; }
         if (target.dataset.action === 'site') site = target.value;
         else if (target.dataset.action === 'filter') filter = target.value as typeof filter;
         else return;
