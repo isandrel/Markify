@@ -8,8 +8,8 @@ Convert web pages to Obsidian-formatted Markdown with YAML frontmatter using a T
 - 🎯 **Draggable UI** - Move buttons anywhere on screen (position auto-saved)
 - 📝 **Configurable Templates** - Customize markdown output with placeholders
 - 🎨 **Site Adapters** - Smart content extraction for different websites
-- ⚙️ **Settings page** - Per-site or all-site file names, timeout, templates, on/off, AI console token, config import/export (Tampermonkey menu → Settings)
-- 📜 **Download history with update checks** - Each download keeps the thread's reply count and last activity. Thread pages, Discourse listings and the history page mark threads that changed since; check, re-download or remove them
+- ⚙️ **Settings page** - Per-site or all-site file names, timeout, templates, on/off, AI console token, settings backup (Tampermonkey menu → Settings)
+- 📜 **Download history with update checks** - Each download keeps the thread's reply count and last activity. Thread pages, listings and the history page mark threads that changed since; check, re-download or remove them. Back the history up to a file and import it in another browser or on another computer (Tampermonkey menu → Download History). This backup is separate from the settings backup
 - 🔧 **Modular Config** - Organized TOML files in `config/` directory
 - 🤖 **AI Console API** - Opt-in, token-gated `window.markify` so an AI agent driving your logged-in browser can export threads
 
@@ -134,7 +134,7 @@ config/
 
 Site profiles are the extension point. A profile declares a stable site ID, activation origins, routes, ordered DOM layout variants, API engine, field mappings, timing limits, and filename templates. The shared lifecycle, batch manager, transport, and history services do not contain site selectors or hostnames. Run `bun run validate` after changing a profile; invalid routes, selectors, endpoints, aliases, and placeholders fail before a userscript is built.
 
-The userscript menu includes configuration export/import and reset for the current site. Imported overrides are schema-validated and applied on the next page load; in-flight jobs keep their immutable configuration snapshot.
+The userscript menu includes configuration export/import and reset for the current site. Imported overrides are schema-validated and applied on the next page load; in-flight jobs keep their immutable configuration snapshot. The settings backup holds settings only; the download history has its own backup file, on the Download History page. Each import refuses the other's file.
 
 ### Templates
 

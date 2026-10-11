@@ -128,6 +128,12 @@ test.describe('toolbar and configuration', () => {
         await markify.runMenu('Import Configuration');
         await markify.lastNotification('Invalid configuration');
         expect(markify.store.get('markify_overrides_v1')).toEqual({ schema_version: 1, global: {}, sites: {} });
+
+        // A download history backup is pointed to its own page.
+        page.once('dialog', dialog => void dialog.accept(JSON.stringify({ kind: 'markify-download-history', version: 1, records: [] })));
+        await markify.runMenu('Import Configuration');
+        await markify.lastNotification('This is a download history backup, not settings. Import it on the 📜 Download History page.');
+        expect(markify.store.get('markify_overrides_v1')).toEqual({ schema_version: 1, global: {}, sites: {} });
     });
 
 
