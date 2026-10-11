@@ -47,10 +47,11 @@ test$.describe('markify MCP server (stdio)', () => {
         expect(adapters).toContain('### 1Point3Acres (🔌 **API**)');
         expect(adapters).toContain('### US Card Forum (🔌 **API**)');
         expect(adapters).toContain('### LINUX DO (🔌 **API**)');
+        expect(adapters).toContain('### V2EX (🔌 **API**)');
         expect(adapters).toContain('### Medium (📄 DOM)');
 
         const config = (await mcp.call('get_config', { section: 'adapters' })).content[0].text;
-        expect(Object.keys(JSON.parse(config.replace(/^```json\n|\n```$/g, ''))).sort()).toEqual(['1point3acres', 'linuxdo', 'uscardforum']);
+        expect(Object.keys(JSON.parse(config.replace(/^```json\n|\n```$/g, ''))).sort()).toEqual(['1point3acres', 'linuxdo', 'uscardforum', 'v2ex']);
         expect((await mcp.call('get_config', { section: 'nope' })).content[0].text).toMatch(/Section \\"nope\\" not found\. Available: .*adapters/);
     });
 

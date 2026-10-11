@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test, expect } from '@playwright/test';
-import { blogArticle, BLOG, JINA, LINUXDO, P3A, P3A_API, P3A_INSTANT, USCF } from '../../fixtures';
+import { blogArticle, BLOG, JINA, LINUXDO, P3A, P3A_API, P3A_INSTANT, USCF, V2EX } from '../../fixtures';
 import { runCli, serve, tempDir } from '../../support/processes';
 import { repoRoot, version } from '../../support/harness';
 
@@ -25,21 +25,21 @@ test.describe('markify CLI', () => {
 
     test('adapters and config are listed from the profile registry', async () => {
         const adapters = JSON.parse((await runCli(['adapters', '--json'])).stdout) as { name: string; hasApi: boolean; patterns: string[] }[];
-        expect(adapters.filter(a => a.hasApi).map(a => a.name)).toEqual(['1Point3Acres', 'LINUX DO', 'US Card Forum']);
+        expect(adapters.filter(a => a.hasApi).map(a => a.name)).toEqual(['1Point3Acres', 'LINUX DO', 'US Card Forum', 'V2EX']);
         expect(adapters.map(a => a.name)).toEqual(expect.arrayContaining(['Medium', 'Substack', 'Wikipedia', 'GitHub', 'Reddit', 'Dev.to']));
         expect(adapters.map(a => a.name)).not.toContain('Default');
 
         const profiles = JSON.parse((await runCli(['config', '--adapters', '--json'])).stdout);
-        expect(Object.keys(profiles).sort()).toEqual(['1point3acres', 'linuxdo', 'uscardforum']);
+        expect(Object.keys(profiles).sort()).toEqual(['1point3acres', 'linuxdo', 'uscardforum', 'v2ex']);
         const config = JSON.parse((await runCli(['config', '--json'])).stdout);
         expect(Object.keys(config)).toEqual(expect.arrayContaining(['adapters', 'package', 'templates', 'ui', 'notifications']));
-        expect((await runCli(['config'])).stdout).toContain('Adapters loaded: 3');
+        expect((await runCli(['config'])).stdout).toContain('Adapters loaded: 4');
     });
 
     test('config is found when run from outside the repository', async () => {
         const result = await runCli(['config', '--adapters', '--json'], { cwd: tempDir() });
         expect(result.status).toBe(0);
-        expect(Object.keys(JSON.parse(result.stdout))).toHaveLength(3);
+        expect(Object.keys(JSON.parse(result.stdout))).toHaveLength(4);
     });
 
     test('convert: 1Point3Acres thread through the forum JSON API', async () => {
@@ -96,6 +96,20 @@ test.describe('markify CLI', () => {
         expect(result.stdout).toContain('  - linuxdo');
         expect(result.stdout).toContain('第二页：感谢分享');
         expect(result.requests.filter(r => r.url.startsWith(`${LINUXDO}/raw/`)).map(r => r.url)).toEqual([1, 2, 3].map(n => `${LINUXDO}/raw/400001?page=${n}`));
+    });
+
+    test('convert: V2EX topic through the public API, with supplements and replies', async () => {
+        const result = await runCli(['convert', `${V2EX}/t/900001`]);
+        expect(result.status).toBe(0);
+        expect(result.stderr).toContain('Adapter:    V2EX');
+        expect(result.stdout).toMatch(/^---\ntitle: "分享一个把网页转成 Markdown 的油猴脚本 \[开源\]"\n/);
+        expect(result.stdout).toContain('  - 分享创造\n  - 油猴\n');
+        expect(result.stdout).toContain('### Supplement 1');
+        expect(result.stdout).toContain('**#3 livid**');
+        // The CLI loads the page itself first, as for every site.
+        expect(result.requests.filter(r => r.url.startsWith(V2EX)).map(r => r.url)).toEqual([
+            `${V2EX}/t/900001`, `${V2EX}/api/topics/show.json?id=900001`, `${V2EX}/t/900001?p=1`,
+        ]);
     });
 
     test('convert: generic page via Jina Reader, honouring --jina-token', async () => {

@@ -241,3 +241,87 @@ describe('thread state checks', () => {
         await expect(fetchThreadState('8', { get: async () => ({ status: 404, ok: false, text: '' }) }, profiles.linuxdo)).rejects.toMatchObject({ code: 'HTTP_ERROR' });
     });
 });
+
+describe('V2EX', () => {
+    const v2ex = () => profiles.v2ex;
+    const topic = { id: 42, title: 'Title "quoted"', replies: 3, created: 1767225600, last_touched: 1767229200, member: { username: 'livid' }, node: { title: '问与答' },
+        content_rendered: '<p>Hello <a href="/member/alice">alice</a></p>\n<pre><code>x = 1</code></pre>' };
+    // The replies API lags: it misses the newest reply.
+    const apiReplies = [
+        { id: 2, created: 1767225720, member: { username: 'bob' }, content_rendered: 'second' },
+        { id: 1, created: 1767225660, member: { username: 'alice' }, content_rendered: 'first' },
+    ];
+    const reply = (floor: number, author: string, body: string, stamp = '2026-01-01 08:0' + floor + ':00 +08:00') => `<div id="r_${floor}00" class="cell"><table><tr><td><img class="avatar" alt="${author}" /></td>`
+        + `<td><div class="fr"> &nbsp; <span class="no">${floor}</span></div><div class="sep3"></div><strong><a href="/member/${author}" class="dark">${author}</a></strong> &nbsp; <div class="badges"></div>`
+        + `<span class="ago" title="${stamp}">1 天前</span><div class="sep5"></div><div class="reply_content">${body}</div></td></tr></table></div>`;
+    const pages: Record<string, string> = {
+        1: `<div class="topic_content"><div class="markdown_body"><p>body</p></div></div>
+        <div class="subtle"><span class="fade">第 1 条附言 &nbsp;·&nbsp; <span title="2026-01-01 10:00:00 +08:00">1 天前</span></span>
+        <div class="sep5"></div><div class="topic_content"><div class="markdown_body"><p>Update: <b>fixed</b></p><div>nested</div></div></div></div>
+        <div class="box"><div class="cell"><a href="/tag/%E6%B5%8B%E8%AF%95" class="tag"><li class="fa fa-tag"></li> 测试</a><a href="/tag/node" class="tag">node</a></div>
+        <input type="number" class="page_input" autocomplete="off" value="1" min="1" max="2" />
+        ${reply(1, 'alice', '<a target="_blank" href="https://i.imgur.com/a.png" rel="nofollow noopener"><img src="https://i.imgur.com/a.png" class="embedded_image" /></a>')}
+        ${reply(2, 'bob', '@<a href="/member/alice">alice</a> second<br /><br />line')}</div>`,
+        2: `<input type="number" class="page_input" value="2" min="1" max="2" />${reply(3, 'carol', 'third')}`,
+    };
+    const site = (overrides: { topic?: unknown; status?: Record<string, number>; pages?: Record<string, string>; replies?: unknown } = {}): HttpFetcher & { calls: string[] } => {
+        const calls: string[] = [];
+        return { calls, get: async url => {
+            calls.push(url);
+            if (url.includes('/api/topics/show.json')) return { status: 200, ok: true, text: JSON.stringify(overrides.topic ?? [topic]) };
+            if (url.includes('/api/replies/show.json')) return { status: 200, ok: true, text: JSON.stringify(overrides.replies ?? apiReplies) };
+            const page = new URL(url).searchParams.get('p') ?? '1';
+            const status = overrides.status?.[page] ?? 200;
+            return { status, ok: status < 300, text: (overrides.pages ?? pages)[page] ?? '' };
+        } };
+    };
+
+    test('topic from the API; supplements, tags and every reply from the pages, with absolute links', async () => {
+        const { fetchV2exContent } = await import('../src/adapters/v2ex');
+        const fetcher = site();
+        let metadata: Record<string, unknown> = {};
+        const markdown = await fetchV2exContent('42', fetcher, v2ex(), { onMetadata: value => { metadata = value; } });
+        expect(fetcher.calls).toEqual(['https://www.v2ex.com/api/topics/show.json?id=42', 'https://www.v2ex.com/t/42?p=1', 'https://www.v2ex.com/t/42?p=2']);
+        expect(markdown).toBe([
+            'Hello [alice](https://www.v2ex.com/member/alice)', '```\nx = 1\n```',
+            '### Supplement 1 · *2026-01-01T02:00:00.000Z*', 'Update: **fixed**\n\nnested',
+            '---', '## Replies (3)',
+            '**#1 alice** · *2026-01-01T00:01:00.000Z*', '![](https://i.imgur.com/a.png)',
+            '**#2 bob** · *2026-01-01T00:02:00.000Z*', '@[alice](https://www.v2ex.com/member/alice) second  \n\nline',
+            '**#3 carol** · *2026-01-01T00:03:00.000Z*', 'third',
+        ].join('\n\n') + '\n');
+        expect(metadata).toEqual({ title: 'Title "quoted"', author: 'livid', date: '2026-01-01T00:00:00.000Z', updated: '2026-01-01T01:00:00.000Z', replies: 3, tags: ['v2ex', 'forum', '问与答', '测试', 'node'] });
+    });
+
+    test('without the pages, replies come from the API and the export says what is missing', async () => {
+        const { fetchV2exContent } = await import('../src/adapters/v2ex');
+        const unreachable = site({ status: { 1: 503 } });
+        const markdown = await fetchV2exContent('42', unreachable, v2ex());
+        expect(unreachable.calls.at(-1)).toBe('https://www.v2ex.com/api/replies/show.json?topic_id=42');
+        expect(markdown).toContain('> *The topic page could not be loaded (HTTP 503 during page): supplements are missing, and replies come from the API, which can lag behind the site.*');
+        expect(markdown).toContain('## Replies (2)\n\n**#1 alice** · *2026-01-01T00:01:00.000Z*\n\nfirst\n\n**#2 bob**');
+        // A page layout without recognisable replies: the same fallback, said differently.
+        const changed = await fetchV2exContent('42', site({ pages: { 1: '<div id="Main">new layout</div>' } }), v2ex());
+        expect(changed).toContain('> *No replies were found on the topic page; they come from the API, which can lag behind the site.*');
+        expect(changed).toContain('**#2 bob**');
+        // A later page failing fails the export: the list would look complete.
+        await expect(fetchV2exContent('42', site({ status: { 2: 500 } }), v2ex())).rejects.toMatchObject({ code: 'HTTP_ERROR' });
+    });
+
+    test('API errors; a topic without replies needs only its first page', async () => {
+        const { fetchV2exContent } = await import('../src/adapters/v2ex');
+        await expect(fetchV2exContent('43', site({ topic: [] }), v2ex())).rejects.toMatchObject({ code: 'API_REJECTED', message: 'Topic not found, or it needs a login to view' });
+        await expect(fetchV2exContent('42', site({ topic: { message: 'Rate Limit Exceeded' } }), v2ex())).rejects.toMatchObject({ code: 'API_REJECTED', message: 'Rate Limit Exceeded' });
+        const quiet = site({ topic: [{ ...topic, replies: 0 }], pages: { 1: '<div class="topic_content">body</div>' } });
+        expect(await fetchV2exContent('42', quiet, v2ex())).not.toContain('## Replies');
+        expect(quiet.calls).toEqual(['https://www.v2ex.com/api/topics/show.json?id=42', 'https://www.v2ex.com/t/42?p=1']);
+    });
+
+    test('routes on both hosts; state from the topic endpoint', async () => {
+        const { classifyRoute } = await import('../src/adapters/routes');
+        const { fetchThreadState } = await import('../src/adapters/engines');
+        for (const url of ['https://www.v2ex.com/t/42', 'https://v2ex.com/t/42#reply3', 'https://www.v2ex.com/t/42?p=2']) expect(classifyRoute(url, v2ex())).toMatchObject({ kind: 'thread', id: '42' });
+        for (const [path, name] of [['/go/qna', 'node'], ['/tag/claude', 'tag'], ['/recent?p=2', 'recent'], ['/member/livid/topics', 'member'], ['/?tab=tech', 'home']]) expect(classifyRoute(`https://www.v2ex.com${path}`, v2ex())?.name).toBe(name);
+        expect(await fetchThreadState('42', site(), v2ex())).toEqual({ replies: 3, updated: '2026-01-01T01:00:00.000Z' });
+    });
+});
