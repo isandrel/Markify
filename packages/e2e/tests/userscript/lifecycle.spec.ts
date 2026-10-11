@@ -11,13 +11,15 @@ test.describe('userscript metadata', () => {
         expect(metadata.matches).toEqual([
             'https://instant.1point3acres.com/thread/*',
             'https://linux.do/*',
+            'https://old.reddit.com/*',
             'https://v2ex.com/*',
             'https://www.1point3acres.com/bbs/thread-*',
             'https://www.1point3acres.com/home/*',
+            'https://www.reddit.com/*',
             'https://www.uscardforum.com/*',
             'https://www.v2ex.com/*',
         ]);
-        expect(metadata.connects).toEqual(['api.1point3acres.com', 'self', 'www.v2ex.com']);
+        expect(metadata.connects).toEqual(['api.1point3acres.com', 'self', 'www.reddit.com', 'www.v2ex.com']);
         const used = [...new Set([...source.matchAll(/\bGM\.(\w+)\(/g)].map(m => `GM.${m[1]}`))];
         expect(used.filter(api => !metadata.grants.includes(api)), 'GM APIs used without @grant').toEqual([]);
     });

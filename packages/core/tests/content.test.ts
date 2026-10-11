@@ -325,3 +325,65 @@ describe('V2EX', () => {
         expect(await fetchThreadState('42', site(), v2ex())).toEqual({ replies: 3, updated: '2026-01-01T01:00:00.000Z' });
     });
 });
+
+describe('Reddit', () => {
+    const reddit = (maxPages = 20) => {
+        const profile = structuredClone(profiles.reddit) as any;
+        profile.api.page_delay = { min_ms: 0, max_ms: 0, jitter: 0 };
+        profile.api.max_pages = maxPages;
+        return profile;
+    };
+    const listing = (children: unknown[]) => ({ kind: 'Listing', data: { children } });
+    const comment = (id: string, parent: string, extra: Record<string, unknown> = {}) => ({ kind: 't1', data: { id, author: `a${id}`, body: `body ${id}`, score: 1, created_utc: 1767225600, parent_id: parent, replies: '', ...extra } });
+    const ids = Array.from({ length: 150 }, (_, index) => `m${index}`);
+    const thread = [
+        listing([{ kind: 't3', data: { id: 'p1', title: 'Post', author: 'op', subreddit: 'test', created_utc: 1767225600, score: 5, num_comments: 153, is_self: true, selftext: 'Hi' } }]),
+        listing([
+            comment('c1', 't3_p1', { replies: listing([{ kind: 'more', data: { count: 0, id: '_', parent_id: 't1_c1', children: [] } }]) }),
+            { kind: 'more', data: { count: 150, parent_id: 't3_p1', children: ids } },
+        ]),
+    ];
+    const site = (status: Record<string, number> = {}): HttpFetcher & { calls: string[] } => {
+        const calls: string[] = [];
+        return { calls, get: async url => {
+            calls.push(url);
+            const path = new URL(url).pathname;
+            const code = status[path] ?? 200;
+            if (code !== 200) return { status: code, ok: false, text: JSON.stringify({ reason: 'quarantined', error: code }) };
+            if (path === '/comments/p1.json') return { status: 200, ok: true, text: JSON.stringify(thread) };
+            if (path === '/by_id/t3_p1.json') return { status: 200, ok: true, text: JSON.stringify(thread[0]) };
+            if (path === '/comments/p1/_/c1.json') return { status: 200, ok: true, text: JSON.stringify([thread[0], listing([comment('c1', 't3_p1', { replies: listing([comment('d1', 't1_c1')]) })])]) };
+            const asked = (new URL(url).searchParams.get('children') ?? '').split(',');
+            return { status: 200, ok: true, text: JSON.stringify({ json: { errors: [], data: { things: asked.map(id => comment(id, 't3_p1')) } } }) };
+        } };
+    };
+
+    test('held-back comments in batches of 100, then "continue this thread", within the request budget', async () => {
+        const { fetchRedditContent } = await import('../src/adapters/reddit');
+        const all = site();
+        const markdown = await fetchRedditContent('p1', all, reddit());
+        // Top-level gaps first: 100 ids, the other 50, then the deeper thread.
+        expect(all.calls.map(url => new URL(url).pathname)).toEqual(['/comments/p1.json', '/api/morechildren.json', '/api/morechildren.json', '/comments/p1/_/c1.json']);
+        expect(new URL(all.calls[1]).searchParams.get('children')!.split(',')).toHaveLength(100);
+        expect(markdown).toContain('## Comments (152)');
+        expect(markdown).toContain('**u/ac1** · 1 points · *2026-01-01T00:00:00.000Z*\n\nbody c1\n\n> **u/ad1** · 1 points');
+        expect(markdown).not.toContain('not included');
+
+        const capped = await fetchRedditContent('p1', site(), reddit(1));
+        expect(capped).toContain('## Comments (101)');
+        expect(capped).toContain('> *1 more reply not included (over this export\'s limit of 1 extra requests).*');
+        expect(capped).toContain('*50 more replies not included (over this export\'s limit of 1 extra requests).*');
+    });
+
+    test('a failed follow-up costs only its comments; a refused post says why; state is the comment count', async () => {
+        const { fetchRedditContent } = await import('../src/adapters/reddit');
+        const { fetchThreadState } = await import('../src/adapters/engines');
+        const partial = await fetchRedditContent('p1', site({ '/comments/p1/_/c1.json': 500 }), reddit());
+        expect(partial).toContain('> *1 more reply not included (HTTP 500 during thread).*');
+        expect(partial).toContain('## Comments (151)');
+        await expect(fetchRedditContent('p1', site({ '/comments/p1.json': 403 }), reddit())).rejects.toMatchObject({ code: 'ACCESS_DENIED', message: 'The community is quarantined: open it on Reddit and opt in first' });
+        const empty: HttpFetcher = { get: async () => ({ status: 200, ok: true, text: JSON.stringify([listing([]), listing([])]) }) };
+        await expect(fetchRedditContent('p1', empty, reddit())).rejects.toMatchObject({ code: 'API_REJECTED' });
+        expect(await fetchThreadState('p1', site(), reddit())).toEqual({ replies: 153 });
+    });
+});

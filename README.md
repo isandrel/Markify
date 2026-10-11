@@ -109,7 +109,7 @@ Setup:
        "markify": {
          "command": "bun",
          "args": ["run", "/path/to/Markify/packages/mcp/src/index.ts"],
-         "env": { "MARKIFY_TOKENS": "1point3acres=mfy_…,linuxdo=mfy_…,v2ex=mfy_…" }
+         "env": { "MARKIFY_TOKENS": "1point3acres=mfy_…,linuxdo=mfy_…,v2ex=mfy_…,reddit=mfy_…" }
        }
      }
    }
@@ -209,7 +209,6 @@ See [DEVELOPMENT.md](DEVELOPMENT.md) for:
 - Substack
 - Wikipedia
 - GitHub
-- Reddit
 - Dev.to
 - US Card Forum and LINUX DO (Discourse):
   - every page of a topic;
@@ -221,6 +220,11 @@ See [DEVELOPMENT.md](DEVELOPMENT.md) for:
   - the topic, its supplements (附言) and every reply, numbered by floor (#1, #2, …);
   - author, node and topic tags;
   - batch downloads from node, recent, tag, member and home lists
+- Reddit (www.reddit.com and old.reddit.com):
+  - the post (text, images, galleries, video and link posts, polls, crossposts) and its comments, with replies quoted one level deeper than their parent;
+  - comments Reddit holds back ("load more comments", "continue this thread") are fetched too, up to 20 extra requests per post; anything left is noted where it belongs;
+  - author, subreddit and flair as tags, score and comment count;
+  - batch downloads from subreddit, user and home feeds, in both layouts
 - Default fallback for other sites
 
 ## License

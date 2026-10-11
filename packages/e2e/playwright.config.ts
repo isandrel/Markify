@@ -34,6 +34,7 @@ export default defineConfig<{ network: NetworkMode }>({
         { name: 'uscardforum', testDir: './tests/uscardforum' },
         { name: 'linuxdo', testDir: './tests/linuxdo' },
         { name: 'v2ex', testDir: './tests/v2ex' },
+        { name: 'reddit', testDir: './tests/reddit' },
         { name: 'userscript', testDir: './tests/userscript' },
         { name: 'tools', testDir: './tests/tools' },
         { name: 'live-dryrun', testDir: './tests/live', fullyParallel: false, use: { network: 'fixtures' } },

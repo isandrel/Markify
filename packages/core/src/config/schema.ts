@@ -39,12 +39,12 @@ export const layoutSchema = z.strictObject({
     /** A row's last activity time (marks downloaded threads that changed since), read from this attribute or the text. */
     activity_selector: text.optional(), activity_attribute: text.optional(),
 });
-const bodyVars = ['title', 'author', 'posted_at', 'updated_at', 'downloaded_at', 'url', 'views', 'replies', 'favorites', 'frontmatter', 'date', 'content', 'comments', 'index', 'delimiter', 'count', 'nested', 'missing', 'reason'];
+const bodyVars = ['title', 'author', 'posted_at', 'updated_at', 'downloaded_at', 'url', 'views', 'replies', 'favorites', 'frontmatter', 'date', 'content', 'comments', 'index', 'delimiter', 'count', 'nested', 'missing', 'reason', 'score'];
 export const templateBlockSchema = z.strictObject({ template: template(bodyVars) });
-const endpoint = template(['base_url', 'topic_id', 'thread_id', 'post_id', 'page', 'page_size', 'order']);
+const endpoint = template(['base_url', 'topic_id', 'thread_id', 'post_id', 'page', 'page_size', 'order', 'children']);
 export const profileSchema = z.strictObject({
     schema_version: z.literal(1),
-    engine: z.enum(['forum-json', 'discourse-raw', 'v2ex-api']), transport: z.enum(['gm', 'fetch']), enabled: z.boolean().default(true),
+    engine: z.enum(['forum-json', 'discourse-raw', 'v2ex-api', 'reddit-json']), transport: z.enum(['gm', 'fetch']), enabled: z.boolean().default(true),
     site: z.strictObject({ id: text.regex(/^[a-z0-9][a-z0-9-]*$/), name: text, base_url: origin, origins: z.array(origin).min(1), aliases: z.array(text).default([]) }),
     activation: z.strictObject({ matches: z.array(text).min(1), connect: z.array(text).default([]) }),
     routes: z.array(routeSchema).min(1),
@@ -88,7 +88,7 @@ export const profileSchema = z.strictObject({
         if (route.origins?.some(o => !p.site.origins.includes(o))) fail(['routes', i, 'origins'], 'Route origins must belong to site.origins');
     }
     for (const [i, layout] of p.batch.layouts.entries()) if (layout.route_names.some(n => !names.has(n))) fail(['batch', 'layouts', i, 'route_names'], 'Unknown route name');
-    const required = p.engine === 'discourse-raw' ? ['raw_endpoint'] as const : ['thread_endpoint', 'posts_endpoint'] as const;
+    const required = p.engine === 'discourse-raw' ? ['raw_endpoint'] as const : p.engine === 'reddit-json' ? ['thread_endpoint', 'json_endpoint'] as const : ['thread_endpoint', 'posts_endpoint'] as const;
     for (const key of required) if (!p.api[key]) fail(['api', key], `Required for ${p.engine}`);
     if (p.engine === 'forum-json') {
         for (const key of ['success_field', 'success_value', 'data_field', 'posts_field'] as const) if (p.api.response?.[key] === undefined) fail(['api', 'response', key], 'Required for forum-json');
@@ -101,6 +101,7 @@ export const profileSchema = z.strictObject({
     }
     if (p.engine !== 'discourse-raw' && !p.api.thread_endpoint?.includes('{thread_id}')) fail(['api', 'thread_endpoint'], 'Must include {thread_id}');
     if (p.engine === 'v2ex-api' && !p.api.posts_endpoint?.includes('{thread_id}')) fail(['api', 'posts_endpoint'], 'Must include {thread_id}');
+    if (p.engine === 'reddit-json' && p.api.posts_endpoint && !p.api.posts_endpoint.includes('{children}')) fail(['api', 'posts_endpoint'], 'Must include {children}');
     if (p.engine === 'discourse-raw' && !p.api.raw_endpoint?.includes('{topic_id}')) fail(['api', 'raw_endpoint'], 'Must include {topic_id}');
     if (p.api.page_delay && p.api.page_delay.min_ms > p.api.page_delay.max_ms) fail(['api', 'page_delay'], 'min_ms must not exceed max_ms');
     if (p.api.nested_endpoint && !p.api.nested_endpoint.includes('{post_id}')) fail(['api', 'nested_endpoint'], 'Must include {post_id}');
