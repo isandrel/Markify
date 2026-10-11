@@ -6,7 +6,7 @@ export { mediumAdapter } from './medium';
 export { substackAdapter } from './substack';
 export { wikipediaAdapter } from './wikipedia';
 export { githubAdapter } from './github';
-export { redditAdapter } from './reddit';
+export { fetchRedditContent } from './reddit';
 export { devtoAdapter } from './devto';
 export { usCardForumAdapter, fetchDiscourseRawContent, fetchDiscourseRawContent as fetchUSCardForumContent } from './uscardforum';
 export { fetchV2exContent, parseV2exPage } from './v2ex';
@@ -18,7 +18,6 @@ import { mediumAdapter } from './medium';
 import { substackAdapter } from './substack';
 import { wikipediaAdapter } from './wikipedia';
 import { githubAdapter } from './github';
-import { redditAdapter } from './reddit';
 import { devtoAdapter } from './devto';
 import { defaultAdapter } from './default';
 import type { SiteAdapter } from './base';
@@ -33,7 +32,6 @@ export const builtInAdapters: SiteAdapter[] = [
     substackAdapter,
     wikipediaAdapter,
     githubAdapter,
-    redditAdapter,
     devtoAdapter,
     defaultAdapter, // Always last as fallback
 ];

@@ -23,6 +23,7 @@ Use the local `./node_modules/.bin/playwright`, not a global `npx playwright`. T
 | `uscardforum` | `tests/uscardforum/` | The shared Discourse suite (`support/discourse-suite.ts`) for US Card Forum |
 | `linuxdo` | `tests/linuxdo/` | The same Discourse suite for LINUX DO |
 | `v2ex` | `tests/v2ex/` | V2EX: topic from the API, supplements, tags and every reply from the topic pages (several pages, a lagging replies API), www and bare host, node/recent/tag/member/home batches, history markers |
+| `reddit` | `tests/reddit/` | Reddit: post and comment tree from the JSON API, "load more comments" and "continue this thread", galleries and link posts, private communities, www and old Reddit, feeds in both layouts, update checks from the comment count |
 | `userscript` | `tests/userscript/` | Site-independent behaviour: metadata, toolbar, drag, menus, settings, config import/export/migration, and the token-gated `window.markify` console API |
 | `tools` | `tests/tools/` | CLI subcommands and MCP tools |
 | `live-dryrun` | `tests/live/` | The real-site specs run against the fixtures, which keeps them correct in every run |
@@ -41,6 +42,7 @@ The Discourse suite covers raw-page joining, Discourse-only syntax (uploads, quo
 - **US Card Forum, LINUX DO:** every userscript feature in the browser, finding topics on the real `/latest` page and reading data from inside the page, the way the userscript does:
   - checks that need only the page: list checkboxes, "updated since download" markers from the list's activity times, list → topic navigation, the console API's `status`/`list`, settings;
   - checks that need data (`/raw/`, `*.json`): batch ZIP with frontmatter, topic export (title, author, tags, every raw page, portable Markdown, upload links), Copy, thread-page update check, history-page checks, console API export, the CLI.
+- **Reddit:** posts found through the subreddit's JSON; the CLI exports one, and in the browser a post page and a subreddit feed. Reddit blocks many data-centre IPs outright (HTTP 403, "blocked by network security"), so from GitHub-hosted runners these skip.
 - **V2EX:** topics found through the public API; the CLI exports one end to end. In the browser: `/recent` checkboxes and "updated" markers, topic export (every reply from its pages, supplements, tags) and Copy, a node-page ZIP, the thread-page update check. V2EX challenges the headless browser (its user agent says HeadlessChrome) from data-centre IPs, so those checks skip there.
 
 Data-centre IPs (GitHub-hosted runners, cloud sandboxes) get bot-protection pages ("请稍候…" / "Just a moment…", HTTP 403) from www.1point3acres.com and LINUX DO. US Card Forum often lets the browser load pages but challenges its data requests, and sometimes the pages too: page-only checks then still run, and data checks skip with that reason. 1Point3Acres' API still answers, so its API checks run. Everything that's challenged is **skipped** with that reason, never bypassed. To run it all, register a runner on a network the sites accept (for example your own machine as a [self-hosted runner](https://docs.github.com/actions/hosting-your-own-runners)) and set these repository variables:
@@ -63,7 +65,7 @@ Results:
 2. Add `fixtures/sites/<site>.ts` with one `discourseSite({...})` call describing a few topics, a category, a tag, the latest list and a search, and register it in `fixtures/index.ts`.
 3. Add `tests/<site>/<site>.spec.ts` with one line: `discourseSuite({ id, spec, tags })`. Then add a project in `playwright.config.ts` and an entry in `tests/live/discourse.spec.ts`.
 
-**A site on another protocol** (`forum-json`, `v2ex-api`, or a new engine) also needs no harness changes:
+**A site on another protocol** (`forum-json`, `v2ex-api`, `reddit-json`, or a new engine) also needs no harness changes:
 
 1. Add the profile in `config/adapters/<site>.toml`, as described in `DEVELOPMENT.md`.
 2. Add `fixtures/sites/<site>.ts`. It exports a `FakeSite` (`origins` plus `respond(url)`) serving the pages, listings and API responses the profile uses. `1point3acres.ts` is the example for SPA navigation and failure modes.

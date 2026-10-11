@@ -8,6 +8,7 @@ import { classifyRoute, classifyRegistryRoute } from './routes';
 import { fetchForumApiContent, fetchForumThreadState } from './1point3acres';
 import { fetchDiscourseRawContent, fetchDiscourseThreadState } from './uscardforum';
 import { fetchV2exContent, fetchV2exThreadState } from './v2ex';
+import { fetchRedditContent, fetchRedditThreadState } from './reddit';
 import { ConversionError } from '../errors';
 
 type Engine = (id: string, fetcher: HttpFetcher, profile: AdapterConfig, context?: ApiConversionContext) => Promise<string>;
@@ -17,6 +18,7 @@ export const contentEngines: Record<AdapterConfig['engine'], Engine> = {
     'forum-json': (id, fetcher, profile, context) => fetchForumApiContent(id, fetcher, profile, context?.onProgress, context),
     'discourse-raw': fetchDiscourseRawContent,
     'v2ex-api': fetchV2exContent,
+    'reddit-json': fetchRedditContent,
 };
 
 /** One light request per thread: its reply count and last activity, without exporting it. */
@@ -24,6 +26,7 @@ export const stateEngines: Record<AdapterConfig['engine'], (id: string, fetcher:
     'forum-json': fetchForumThreadState,
     'discourse-raw': fetchDiscourseThreadState,
     'v2ex-api': fetchV2exThreadState,
+    'reddit-json': fetchRedditThreadState,
 };
 
 export function fetchThreadState(id: string, fetcher: HttpFetcher, profile: AdapterConfig, context?: ApiConversionContext): Promise<ThreadState> {

@@ -112,7 +112,8 @@ export function skipBlocked(reason: string): never {
  * restricted topic), which is a real result.
  */
 export function isChallenge(status: number, body: string): boolean {
-    return (status === 403 || status === 503) && /^\s*<(!doctype|html)/i.test(body);
+    // Reddit's block page starts at <body>.
+    return (status === 403 || status === 503) && /^\s*<(!doctype|html|head|body)\b/i.test(body);
 }
 
 export interface RecordedRequest { via: 'page' | 'gm' | 'blocked'; url: string; method: string; headers: Record<string, string>; anonymous?: boolean }

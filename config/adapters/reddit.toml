@@ -1,0 +1,120 @@
+# Validated site profile for Reddit (www.reddit.com and old.reddit.com). A post
+# and its comment tree come from `{post}.json`; comments left out of that first
+# response ("load more comments", "continue this thread") cost one request each,
+# paced and capped by `max_pages` so an export stays polite. Whatever the cap or
+# the site leaves out is noted in the export where it belongs.
+schema_version = 1
+engine = "reddit-json"
+transport = "gm"                  # old.reddit.com pages read the JSON on www.reddit.com
+delimiter = "---"
+
+[site]
+id = "reddit"
+name = "Reddit"
+base_url = "https://www.reddit.com"
+origins = ["https://www.reddit.com", "https://old.reddit.com"]
+aliases = ["reddit.com"]
+
+[activation]
+matches = ["https://www.reddit.com/*", "https://old.reddit.com/*"]
+connect = ["www.reddit.com"]
+
+# A post, with or without its slug, or a link to one of its comments.
+[[routes]]
+name = "thread"
+kind = "thread"
+pattern = '^/(?:r|u|user)/[^/]+/comments/([a-z0-9]+)(?:/[^/]*(?:/[a-z0-9]+)?)?/?$'
+id_group = 1
+
+[[routes]]
+name = "short-thread"
+kind = "thread"
+pattern = '^/comments/([a-z0-9]+)(?:/[^/]*)?/?$'
+id_group = 1
+
+[[routes]]
+name = "subreddit"
+kind = "listing"
+pattern = '^/r/([^/]+)(?:/(?:hot|new|top|rising|controversial|best))?/?$'
+id_group = 1
+query_keys = ["t", "after", "count"]
+
+[[routes]]
+name = "user"
+kind = "listing"
+pattern = '^/(?:u|user)/([^/]+)(?:/submitted)?/?$'
+id_group = 1
+query_keys = ["sort", "t", "after", "count"]
+
+[[routes]]
+name = "home"
+kind = "listing"
+pattern = '^/(?:(?:hot|new|top|rising|best)/?)?$'
+query_keys = ["t", "after", "count"]
+
+[runtime]
+poll_ms = 500
+debounce_ms = 100
+timeout_ms = 30000
+
+# New Reddit: each post of a feed is an <article> around a <shreddit-post>.
+[[batch.layouts]]
+name = "shreddit-feed"
+route_names = ["subreddit", "user", "home"]
+root_selector = "main"
+row_selector = "article:has(shreddit-post)"
+link_selector = 'shreddit-post a[slot="full-post-link"], shreddit-post a[slot="title"]'
+title_selector = "shreddit-post"
+title_attribute = "post-title"
+exclude_selectors = ["#right-sidebar-container", "aside"]
+
+# Old Reddit: a.title can point off-site for link posts; a.comments is the post.
+[[batch.layouts]]
+name = "old-sitetable"
+route_names = ["subreddit", "user", "home"]
+root_selector = "#siteTable"
+row_selector = ".thing.link"
+link_selector = "a.comments"
+title_selector = "a.title"
+exclude_selectors = [".promoted", ".side"]
+
+[api]
+thread_endpoint = "{base_url}/comments/{thread_id}.json?raw_json=1&limit=500"                                            # The post and its comment tree
+json_endpoint   = "{base_url}/by_id/t3_{thread_id}.json?raw_json=1"                                                      # The post alone (update checks)
+posts_endpoint  = "{base_url}/api/morechildren.json?api_type=json&raw_json=1&link_id=t3_{thread_id}&children={children}" # "load more comments"
+nested_endpoint = "{base_url}/comments/{thread_id}/_/{post_id}.json?raw_json=1&limit=500"                               # "continue this thread"
+max_pages       = 20                                                                                                      # Extra requests per export
+page_delay      = { min_ms = 1000, max_ms = 2000, jitter = 0 }
+
+[api.request]
+credentials = true                # The logged-in session sees the communities it joined
+accept      = "application/json"
+
+[metadata]
+# "Title : r/subreddit" on www, "Title : subreddit" on old.
+title_selectors = ['h1[slot="title"]', ".top-matter a.title"]
+title_cleanup   = '\s:\s(?:r/)?[\w-]+$'
+tags            = ["reddit"]
+source_url      = "{base_url}/comments/{thread_id}"
+
+# One comment; replies are quoted one level deeper than their parent.
+# Variables: {author}, {score}, {date}, {content}
+[comment]
+template = """
+**u/{author}** · {score} points · *{date}*
+
+{content}
+"""
+
+[comments_header]
+template = """
+
+{delimiter}
+
+## Comments ({count})
+"""
+
+[filename]
+single     = "{title}"
+batch_item = "{id} - {title}"
+batch      = "{site}-{type}-{tagname}-{date}"
