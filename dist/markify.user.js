@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Markify
 // @namespace    https://github.com/isandrel/Markify
-// @version      0.0.5
+// @version      0.0.6
 // @author       isandrel
 // @description  Convert web pages to Obsidian-formatted Markdown with YAML frontmatter
 // @license      AGPL-3.0-or-later
@@ -12,14 +12,20 @@
 // @updateURL    https://github.com/isandrel/Markify/raw/main/dist/markify.user.js
 // @match        https://instant.1point3acres.com/thread/*
 // @match        https://linux.do/*
+// @match        https://old.reddit.com/*
+// @match        https://v2ex.com/*
 // @match        https://www.1point3acres.com/bbs/thread-*
 // @match        https://www.1point3acres.com/home/*
+// @match        https://www.reddit.com/*
 // @match        https://www.uscardforum.com/*
+// @match        https://www.v2ex.com/*
 // @require      https://cdn.jsdelivr.net/npm/systemjs@6.15.1/dist/system.min.js
 // @require      https://cdn.jsdelivr.net/npm/systemjs@6.15.1/dist/extras/named-register.min.js
 // @require      data:application/javascript,%3B(typeof%20System!%3D'undefined')%26%26(System%3Dnew%20System.constructor())%3B
 // @connect      api.1point3acres.com
 // @connect      self
+// @connect      www.reddit.com
+// @connect      www.v2ex.com
 // @grant        GM.deleteValue
 // @grant        GM.getValue
 // @grant        GM.listValues
@@ -33,7 +39,7 @@
 // ==/UserScript==
 
 
-System.register("./__entry.js", ['./__monkey.entry-oE3Twt20.js'], (function (exports, module) {
+System.register("./__entry.js", ['./__monkey.entry-y49y_XGs.js'], (function (exports, module) {
 	'use strict';
 	return {
 		setters: [null],
@@ -45,7 +51,7 @@ System.register("./__entry.js", ['./__monkey.entry-oE3Twt20.js'], (function (exp
 	};
 }));
 
-System.register("./__monkey.entry-oE3Twt20.js", [], (function (exports, module) {
+System.register("./__monkey.entry-y49y_XGs.js", [], (function (exports, module) {
   'use strict';
   return {
     execute: (function () {
@@ -150,8 +156,8 @@ System.register("./__monkey.entry-oE3Twt20.js", [], (function (exports, module) 
         }
         return destination;
       }
-      function repeat(character, count) {
-        return Array(count + 1).join(character);
+      function repeat(character, count2) {
+        return Array(count2 + 1).join(character);
       }
       function trimLeadingNewlines(string2) {
         return string2.replace(/^\n*/, "");
@@ -958,55 +964,6 @@ escape: function(string2) {
           };
         }
       };
-      const redditAdapter = {
-        name: "Reddit",
-        urlPatterns: [
-          "https://www.reddit.com/r/*/comments/*",
-          "https://old.reddit.com/r/*/comments/*"
-        ],
-        contentSelectors: [
-          '[data-test-id="post-content"]',
-          ".usertext-body",
-          'div[slot="text-body"]'
-        ],
-        removeSelectors: [
-          ".share-menu",
-          ".awardings-bar"
-        ],
-        extractMetadata: (doc, url2) => {
-          const parsedUrl = new URL(url2);
-          const subreddit = parsedUrl.pathname.split("/")[2];
-          const author = doc.querySelector('[data-testid="post_author_link"]')?.textContent?.trim();
-          return {
-            author: author ?? void 0,
-            tags: ["reddit", subreddit]
-          };
-        }
-      };
-      const devtoAdapter = {
-        name: "Dev.to",
-        urlPatterns: [
-          "https://dev.to/*/*"
-        ],
-        contentSelectors: [
-          "#article-body",
-          ".crayons-article__body"
-        ],
-        removeSelectors: [
-          ".crayons-article__actions",
-          ".crayons-sponsor"
-        ],
-        extractMetadata: (doc) => {
-          const author = doc.querySelector(".crayons-article__header__author a")?.textContent?.trim();
-          const tags = Array.from(doc.querySelectorAll(".crayons-tag")).map(
-            (el) => el.textContent?.trim().replace("#", "") || ""
-          );
-          return {
-            author: author ?? void 0,
-            tags: ["dev.to", ...tags]
-          };
-        }
-      };
       function getEnumValues(entries) {
         const numericValues = Object.values(entries).filter((v2) => typeof v2 === "number");
         const values = Object.entries(entries).filter(([k, _]) => numericValues.indexOf(+k) === -1).map(([_, v2]) => v2);
@@ -1389,14 +1346,14 @@ selected && !selected.has(key) ? value : new Class({ type: "nonoptional", innerT
         const units = str.length;
         if (!highSurrogate.test(str))
           return units;
-        let count = units;
+        let count2 = units;
         for (let i2 = 0; i2 < units - 1; i2++) {
           if ((str.charCodeAt(i2) & 64512) === 55296 && (str.charCodeAt(i2 + 1) & 64512) === 56320) {
-            count--;
+            count2--;
             i2++;
           }
         }
-        return count;
+        return count2;
       }
       function getLengthableOrigin(input) {
         if (Array.isArray(input))
@@ -5844,7 +5801,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
       const safeParse = _safeParse(ZodRealError);
       const safeParseAsync = _safeParseAsync(ZodRealError);
       const encode = _encode(ZodRealError);
-      const decode = _decode(ZodRealError);
+      const decode$1 = _decode(ZodRealError);
       const encodeAsync = _encodeAsync(ZodRealError);
       const decodeAsync = _decodeAsync(ZodRealError);
       const safeEncode = _safeEncode(ZodRealError);
@@ -6000,7 +5957,7 @@ get spa() {
           return encode(this, data, params, { callee: _encode2 });
         },
         decode: function _decode2(data, params) {
-          return decode(this, data, params, { callee: _decode2 });
+          return decode$1(this, data, params, { callee: _decode2 });
         },
         encodeAsync: async function _encodeAsync2(data, params) {
           return await encodeAsync(this, data, params, { callee: _encodeAsync2 });
@@ -6806,12 +6763,12 @@ derived({
 activity_selector: text.optional(),
         activity_attribute: text.optional()
       });
-      const bodyVars = ["title", "author", "posted_at", "updated_at", "downloaded_at", "url", "views", "replies", "favorites", "frontmatter", "date", "content", "comments", "index", "delimiter", "count", "nested", "missing", "reason"];
+      const bodyVars = ["title", "author", "posted_at", "updated_at", "downloaded_at", "url", "views", "replies", "favorites", "frontmatter", "date", "content", "comments", "index", "delimiter", "count", "nested", "missing", "reason", "score"];
       const templateBlockSchema = strictObject({ template: template(bodyVars) });
-      const endpoint = template(["base_url", "topic_id", "thread_id", "post_id", "page", "page_size", "order"]);
+      const endpoint$1 = template(["base_url", "topic_id", "thread_id", "post_id", "page", "page_size", "order", "children"]);
       const profileSchema = strictObject({
         schema_version: literal(1),
-        engine: _enum(["forum-json", "discourse-raw"]),
+        engine: _enum(["forum-json", "discourse-raw", "v2ex-api", "reddit-json"]),
         transport: _enum(["gm", "fetch"]),
         enabled: boolean().default(true),
         site: strictObject({ id: text.regex(/^[a-z0-9][a-z0-9-]*$/), name: text, base_url: origin, origins: array(origin).min(1), aliases: array(text).default([]) }),
@@ -6820,11 +6777,12 @@ activity_selector: text.optional(),
         batch: strictObject({ layouts: array(layoutSchema).default([]), label_selector: text.optional(), label_attribute: text.optional() }).default({ layouts: [] }),
         runtime: runtimeSchema.prefault({}),
         api: strictObject({
-          raw_endpoint: endpoint.optional(),
-          json_endpoint: endpoint.optional(),
-          thread_endpoint: endpoint.optional(),
-          posts_endpoint: endpoint.optional(),
-nested_endpoint: endpoint.optional(),
+          raw_endpoint: endpoint$1.optional(),
+          json_endpoint: endpoint$1.optional(),
+          thread_endpoint: endpoint$1.optional(),
+          posts_endpoint: endpoint$1.optional(),
+html_endpoint: endpoint$1.optional(),
+nested_endpoint: endpoint$1.optional(),
           max_pages: number().int().min(1).max(1e3).default(100),
           page_size: number().int().min(1).max(1e3).default(20),
           page_delay: strictObject({ min_ms: number().min(0).max(6e4).default(100), max_ms: number().min(0).max(6e4).default(100), jitter: number().min(0).max(1).default(0) }).optional(),
@@ -6839,7 +6797,7 @@ nested_endpoint: endpoint.optional(),
           title_cleanup: text.optional(),
 title_selectors: array(text).optional(),
           tags: array(text).optional(),
-          source_url: endpoint.optional()
+          source_url: endpoint$1.optional()
         }).optional(),
         http: strictObject({ user_agent: text.optional() }).optional(),
         page_separator: string().optional(),
@@ -6850,6 +6808,7 @@ title_selectors: array(text).optional(),
         comments_header: templateBlockSchema.optional(),
         reply: templateBlockSchema.optional(),
         replies_gap: templateBlockSchema.optional(),
+supplement: templateBlockSchema.optional(),
         filename: filenameSchema.prefault({ single: "[{id}] {title}", batch_item: "{index} - [{id}] {title}", batch: "[{date}] [{site}] [{type}] [{id}] {tagname}" })
       }).superRefine((p2, ctx) => {
         const fail = (key, message) => ctx.addIssue({ code: "custom", path: key, message });
@@ -6862,7 +6821,7 @@ title_selectors: array(text).optional(),
           if (route.origins?.some((o2) => !p2.site.origins.includes(o2))) fail(["routes", i2, "origins"], "Route origins must belong to site.origins");
         }
         for (const [i2, layout] of p2.batch.layouts.entries()) if (layout.route_names.some((n2) => !names.has(n2))) fail(["batch", "layouts", i2, "route_names"], "Unknown route name");
-        const required2 = p2.engine === "forum-json" ? ["thread_endpoint", "posts_endpoint"] : ["raw_endpoint"];
+        const required2 = p2.engine === "discourse-raw" ? ["raw_endpoint"] : p2.engine === "reddit-json" ? ["thread_endpoint", "json_endpoint"] : ["thread_endpoint", "posts_endpoint"];
         for (const key of required2) if (!p2.api[key]) fail(["api", key], `Required for ${p2.engine}`);
         if (p2.engine === "forum-json") {
           for (const key of ["success_field", "success_value", "data_field", "posts_field"]) if (p2.api.response?.[key] === void 0) fail(["api", "response", key], "Required for forum-json");
@@ -6873,11 +6832,13 @@ title_selectors: array(text).optional(),
           if (!p2.metadata?.source_url) fail(["metadata", "source_url"], "Required for forum-json");
           for (const key of ["frontmatter", "document", "comment", "comments_header"]) if (!p2[key]) fail([key], "Required for forum-json");
         }
-        if (p2.engine === "forum-json" && !p2.api.thread_endpoint?.includes("{thread_id}")) fail(["api", "thread_endpoint"], "Must include {thread_id}");
+        if (p2.engine !== "discourse-raw" && !p2.api.thread_endpoint?.includes("{thread_id}")) fail(["api", "thread_endpoint"], "Must include {thread_id}");
+        if (p2.engine === "v2ex-api" && !p2.api.posts_endpoint?.includes("{thread_id}")) fail(["api", "posts_endpoint"], "Must include {thread_id}");
+        if (p2.engine === "reddit-json" && p2.api.posts_endpoint && !p2.api.posts_endpoint.includes("{children}")) fail(["api", "posts_endpoint"], "Must include {children}");
         if (p2.engine === "discourse-raw" && !p2.api.raw_endpoint?.includes("{topic_id}")) fail(["api", "raw_endpoint"], "Must include {topic_id}");
         if (p2.api.page_delay && p2.api.page_delay.min_ms > p2.api.page_delay.max_ms) fail(["api", "page_delay"], "min_ms must not exceed max_ms");
         if (p2.api.nested_endpoint && !p2.api.nested_endpoint.includes("{post_id}")) fail(["api", "nested_endpoint"], "Must include {post_id}");
-        for (const key of ["raw_endpoint", "json_endpoint", "thread_endpoint", "posts_endpoint", "nested_endpoint"]) {
+        for (const key of ["raw_endpoint", "json_endpoint", "thread_endpoint", "posts_endpoint", "nested_endpoint", "html_endpoint"]) {
           if (!p2.api[key]) continue;
           try {
             const url2 = new URL(p2.api[key].replace("{base_url}", p2.site.base_url).replace(/\{\w+\}/g, "1"));
@@ -6931,6 +6892,7 @@ title_selectors: array(text).optional(),
         comments_header: templateBlockSchema.optional(),
         reply: templateBlockSchema.optional(),
         replies_gap: templateBlockSchema.optional(),
+        supplement: templateBlockSchema.optional(),
         filename: filenameSchema.partial().optional(),
         runtime: runtimeOverrideSchema.optional()
       });
@@ -7043,8 +7005,8 @@ title_selectors: array(text).optional(),
         }
         return null;
       }
-      function interpolate(template2, vars) {
-        return template2.replace(/\{(\w+)\}/g, (_, key) => vars[key]?.toString() ?? `{${key}}`);
+      function interpolate(template2, vars2) {
+        return template2.replace(/\{(\w+)\}/g, (_, key) => vars2[key]?.toString() ?? `{${key}}`);
       }
       const config = Object.freeze( Object.defineProperty({
         __proto__: null,
@@ -7076,17 +7038,6 @@ title_selectors: array(text).optional(),
         templateBlockSchema,
         userOverridesSchema
       }, Symbol.toStringTag, { value: "Module" }));
-      function pageTitle(doc, profile) {
-        for (const selector of profile.metadata?.title_selectors ?? []) {
-          let text2;
-          try {
-            text2 = doc.querySelector(selector)?.textContent?.replace(/\s+/g, " ").trim();
-          } catch {
-          }
-          if (text2) return text2;
-        }
-        return profile.metadata?.title_cleanup ? doc.title.replace(new RegExp(profile.metadata.title_cleanup), "").trim() : doc.title;
-      }
       class ConversionError extends Error {
         constructor(code, message, details = {}) {
           super(message);
@@ -7097,260 +7048,6 @@ title_selectors: array(text).optional(),
       } exports("C", ConversionError);
       function assertNotAborted(signal) {
         if (signal?.aborted) throw new ConversionError("ABORTED", "Export cancelled");
-      }
-      function readPath(value, path2) {
-        for (const key of path2.split(".")) {
-          if (!key || ["__proto__", "prototype", "constructor"].includes(key) || !isRecord(value) || !Object.prototype.hasOwnProperty.call(value, key)) return void 0;
-          value = value[key];
-        }
-        return value;
-      }
-      function isRecord(value) {
-        return typeof value === "object" && value !== null && !Array.isArray(value);
-      }
-      function record(value, path2) {
-        if (!isRecord(value)) throw new ConversionError("INVALID_RESPONSE", `Expected object at ${path2}`);
-        return value;
-      }
-      function field(data, key, mapping) {
-        const path2 = mapping[key];
-        if (typeof path2 !== "string") throw new ConversionError("CONFIG_INVALID", `Missing field mapping: ${key}`);
-        return readPath(data, path2);
-      }
-      function textField(value, path2, allowEmpty = false) {
-        if (typeof value !== "string" || !allowEmpty && !value.trim()) throw new ConversionError("INVALID_RESPONSE", `Expected ${allowEmpty ? "" : "nonempty "}string at ${path2}`);
-        return value;
-      }
-      function numberField(value, path2) {
-        if (typeof value !== "number" || !Number.isFinite(value) || value < 0) throw new ConversionError("INVALID_RESPONSE", `Expected nonnegative number at ${path2}`);
-        return value;
-      }
-      function dateField(value, path2) {
-        const date2 = new Date(numberField(value, path2) * 1e3);
-        if (!Number.isFinite(date2.getTime())) throw new ConversionError("INVALID_RESPONSE", `Invalid timestamp at ${path2}`);
-        return date2.toISOString();
-      }
-      function parseJson(text2, responseConfig, stage) {
-        let parsed;
-        try {
-          parsed = JSON.parse(text2);
-        } catch {
-          throw new ConversionError("INVALID_RESPONSE", `Malformed JSON during ${stage}`, { stage });
-        }
-        const result = record(parsed, stage);
-        if (typeof responseConfig.success_field === "string" && readPath(result, responseConfig.success_field) !== responseConfig.success_value) {
-          throw new ConversionError("API_REJECTED", `API success check failed during ${stage}`, { stage });
-        }
-        return result;
-      }
-      function requestOptions(config2, context) {
-        const api = record(config2.api, "api");
-        const request2 = isRecord(api.request) ? api.request : {};
-        const runtime = isRecord(config2.runtime) ? config2.runtime : {};
-        return {
-credentials: typeof request2.credentials === "boolean" ? request2.credentials : void 0,
-          headers: typeof request2.accept === "string" ? { Accept: request2.accept } : {},
-          timeoutMs: typeof runtime.timeout_ms === "number" ? runtime.timeout_ms : 3e4,
-          signal: context.signal
-        };
-      }
-      const fetchHttpFetcher = {
-        async get(url2, options) {
-          const response = await fetch(url2, {
-            credentials: options?.credentials ? "include" : "same-origin",
-            headers: options?.headers,
-            signal: options?.signal
-          });
-          return { ok: response.ok, status: response.status, text: await response.text() };
-        }
-      };
-      async function request(fetcher, url2, options, details) {
-        assertNotAborted(options.signal);
-        const controller = new AbortController();
-        let timeout;
-        let rejectAbort = () => {
-        };
-        const aborted2 = new Promise((_resolve, reject) => {
-          rejectAbort = reject;
-        });
-        const cancel = () => {
-          rejectAbort(new ConversionError("ABORTED", "Export cancelled", details));
-          controller.abort();
-        };
-        options.signal?.addEventListener("abort", cancel, { once: true });
-        timeout = setTimeout(() => {
-          rejectAbort(new ConversionError("TIMEOUT", `Request timed out during ${details.stage}`, details));
-          controller.abort();
-        }, options.timeoutMs ?? 3e4);
-        try {
-          const response = await Promise.race([
-            fetcher.get(url2, { ...options, signal: controller.signal }),
-            aborted2
-          ]);
-          assertNotAborted(options.signal);
-          return response;
-        } catch (error2) {
-          if (error2 instanceof ConversionError) throw error2;
-          assertNotAborted(options.signal);
-          throw new ConversionError("NETWORK_ERROR", `Request failed during ${details.stage}`, details);
-        } finally {
-          clearTimeout(timeout);
-          options.signal?.removeEventListener("abort", cancel);
-        }
-      }
-      function requireOk(response, stage) {
-        if (!response.ok) throw new ConversionError(
-          response.status === 401 || response.status === 403 ? "ACCESS_DENIED" : "HTTP_ERROR",
-          `HTTP ${response.status} during ${stage}`,
-          { stage, status: response.status }
-        );
-      }
-      async function pageDelay(api, signal) {
-        assertNotAborted(signal);
-        const config2 = isRecord(api.page_delay) ? api.page_delay : {};
-        const min = typeof config2.min_ms === "number" ? config2.min_ms : 0;
-        const max = typeof config2.max_ms === "number" ? config2.max_ms : min;
-        const jitter = typeof config2.jitter === "number" ? config2.jitter : 0;
-        const duration2 = Math.max(0, Math.round((min + Math.random() * (max - min)) * (1 + (Math.random() * 2 - 1) * jitter)));
-        if (!duration2) return;
-        await new Promise((resolve, reject) => {
-          const finish = () => {
-            signal?.removeEventListener("abort", cancel);
-            resolve();
-          };
-          const timer = setTimeout(finish, duration2);
-          const cancel = () => {
-            clearTimeout(timer);
-            signal?.removeEventListener("abort", cancel);
-            reject(new ConversionError("ABORTED", "Export cancelled"));
-          };
-          signal?.addEventListener("abort", cancel, { once: true });
-        });
-      }
-      const CODE = /(^|\n)(```|~~~)[^\n]*\n[\s\S]*?\n\2[ \t]*(?=\n|$)|`[^`\n]+`/g;
-      function outsideCode(text2, transform2) {
-        const codes = [];
-        const hidden = text2.replace(CODE, (match2, lead) => `${lead ?? ""}${codes.push(match2.slice((lead ?? "").length)) - 1}`);
-        return transform2(hidden).replace(/\uE000(\d+)\uE001/g, (_, index, offset, whole) => {
-          const code = codes[Number(index)];
-          const prefix = whole.slice(whole.lastIndexOf("\n", offset - 1) + 1, offset);
-          return /^(?:> ?)+$/.test(prefix) ? code.replace(/\n/g, `
-${prefix}`) : code;
-        });
-      }
-      const quoteLines = (body) => body.trim().split("\n").map((line) => line ? `> ${line}` : ">").join("\n");
-      function quoteHeader(attributes, baseUrl) {
-        if (!attributes) return "";
-        const [name, ...rest] = attributes.split(",").map((part) => part.trim());
-        const fields = Object.fromEntries(rest.map((part) => part.split(":").map((value) => value.trim())).filter((pair) => pair.length === 2));
-        const link = fields.topic && /^\d+$/.test(fields.topic) ? ` [#${fields.post ?? 1}](${baseUrl}/t/${fields.topic}${fields.post && /^\d+$/.test(fields.post) ? `/${fields.post}` : ""})` : "";
-        return name ? `**${name}**${link}:
-
-` : "";
-      }
-      function discourseToMarkdown(raw, baseUrl) {
-        return outsideCode(raw, (text2) => {
-          let out = text2.replace(/\]\(upload:\/\/([A-Za-z0-9]+(?:\.[A-Za-z0-9]+)?)\)/g, `](${baseUrl}/uploads/short-url/$1)`).replace(/\[([^\]\n|]+)\|attachment\]\(/g, "[$1](");
-          const quote2 = /\[quote(?:="([^"\]]*)")?\]\s*\n?((?:(?!\[quote[=\]])[\s\S])*?)\n?\s*\[\/quote\]/i;
-          for (let match2 = out.match(quote2); match2; match2 = out.match(quote2)) {
-            const block = `
-${quoteLines(quoteHeader(match2[1], baseUrl) + match2[2])}
-`;
-            out = out.replace(match2[0], () => block);
-          }
-          return out.replace(
-            /\[details(?:=(?:"([^"\]]*)"|([^\]]*)))?\]\s*\n?([\s\S]*?)\n?\s*\[\/details\]/gi,
-            (_, quoted, bare, body) => `<details>
-<summary>${(quoted ?? bare ?? "Details").trim() || "Details"}</summary>
-
-${body.trim()}
-
-</details>`
-          ).replace(/\[spoiler\]\s*\n([\s\S]*?)\n\s*\[\/spoiler\]/gi, (_, body) => `<details>
-<summary>Spoiler</summary>
-
-${body.trim()}
-
-</details>`).replace(/\[spoiler\]([\s\S]*?)\[\/spoiler\]/gi, "$1").replace(/\[poll\b[^\]]*\]\s*\n?/gi, "**Poll:**\n\n").replace(/\n?\s*\[\/poll\]/gi, "").replace(/\n{3,}/g, "\n\n");
-        });
-      }
-      async function topicMetadata(topicId, fetcher, config2, options) {
-        const api = record(config2.api, "api");
-        const site = record(config2.site, "site");
-        if (typeof api.json_endpoint !== "string") return {};
-        try {
-          const url2 = interpolate(api.json_endpoint, { base_url: String(site.base_url), topic_id: topicId });
-          const response = await request(fetcher, url2, { ...options, headers: { ...options.headers, Accept: "application/json" } }, { stage: "topic-json" });
-          if (!response.ok) return {};
-          const topic = JSON.parse(response.text);
-          const metadata = {};
-          if (typeof topic.title === "string" && topic.title.trim()) metadata.title = topic.title;
-          const creator = isRecord(topic.details) && isRecord(topic.details.created_by) ? topic.details.created_by.username : void 0;
-          if (typeof creator === "string") metadata.author = creator;
-          if (typeof topic.created_at === "string") metadata.date = topic.created_at;
-          const tags = Array.isArray(topic.tags) ? topic.tags.map((tag) => isRecord(tag) ? tag.name : tag).filter((tag) => typeof tag === "string" && !!tag) : [];
-          const profileTags = isRecord(config2.metadata) && Array.isArray(config2.metadata.tags) ? config2.metadata.tags.filter((tag) => typeof tag === "string") : [];
-          if (tags.length || profileTags.length) metadata.tags = [... new Set([...profileTags, ...tags])];
-          if (typeof topic.views === "number") metadata.views = topic.views;
-          if (typeof topic.posts_count === "number") metadata.replies = Math.max(0, topic.posts_count - 1);
-          if (typeof topic.like_count === "number") metadata.likes = topic.like_count;
-          if (typeof topic.last_posted_at === "string") metadata.updated = topic.last_posted_at;
-          return metadata;
-        } catch (error2) {
-          if (error2?.name === "AbortError" || error2?.code === "ABORTED") throw error2;
-          return {};
-        }
-      }
-      async function fetchDiscourseThreadState(topicId, fetcher, config2, context = {}) {
-        const api = record(config2.api, "api");
-        const site = record(config2.site, "site");
-        const options = requestOptions(config2, context);
-        const url2 = interpolate(textField(api.json_endpoint, "api.json_endpoint"), { base_url: String(site.base_url), topic_id: topicId });
-        const response = await request(fetcher, url2, { ...options, headers: { ...options.headers, Accept: "application/json" } }, { stage: "topic-json" });
-        requireOk(response, "topic");
-        let topic;
-        try {
-          topic = JSON.parse(response.text);
-        } catch {
-          throw new ConversionError("INVALID_RESPONSE", "Topic JSON is not valid JSON", { stage: "topic-json" });
-        }
-        if (!isRecord(topic)) throw new ConversionError("INVALID_RESPONSE", "Topic JSON is not an object", { stage: "topic-json" });
-        return {
-          replies: typeof topic.posts_count === "number" ? Math.max(0, topic.posts_count - 1) : void 0,
-          updated: typeof topic.last_posted_at === "string" ? topic.last_posted_at : void 0
-        };
-      }
-      async function fetchDiscourseRawContent(topicId, fetcher, config2, context = {}) {
-        const api = record(config2.api, "api");
-        const site = record(config2.site, "site");
-        const rawEndpoint = textField(api.raw_endpoint, "api.raw_endpoint");
-        const maxPages = numberField(api.max_pages, "api.max_pages");
-        const options = requestOptions(config2, context);
-        const separator = typeof config2.page_separator === "string" ? config2.page_separator : "\n\n---\n\n";
-        const pages = [];
-        const seen2 = new Set();
-        const baseUrl = String(site.base_url);
-        if (context.onMetadata) {
-          context.onProgress?.("Fetching topic details");
-          const metadata = await topicMetadata(topicId, fetcher ?? fetchHttpFetcher, config2, options);
-          if (Object.keys(metadata).length) context.onMetadata(metadata);
-        }
-        for (let page = 1; page <= maxPages; page++) {
-          assertNotAborted(context.signal);
-          context.onProgress?.(`Fetching topic page ${page}`);
-          const url2 = interpolate(rawEndpoint, { base_url: baseUrl, topic_id: topicId, page });
-          const response = await request(fetcher ?? fetchHttpFetcher, url2, options, { stage: "topic", page });
-          requireOk(response, "topic");
-          if (!response.text.trim()) {
-            if (!pages.length) throw new ConversionError("INCOMPLETE_CONTENT", "Topic response contains no content", { stage: "topic", page });
-            return pages.map((text2) => discourseToMarkdown(text2, baseUrl)).join(separator);
-          }
-          if (seen2.has(response.text)) throw new ConversionError("REPEATED_PAGE", "Topic pagination returned a repeated page", { stage: "topic", page });
-          seen2.add(response.text);
-          pages.push(response.text);
-          if (page < maxPages) await pageDelay(api, context.signal);
-        }
-        throw new ConversionError("PAGE_LIMIT", "Topic page limit reached before an empty terminal page", { stage: "topic", page: maxPages });
       }
       const N$1 = "\n";
       const TAB = "	";
@@ -7373,8 +7070,8 @@ ${body.trim()}
       }
       function getNodeLength(node2) {
         if (isTagNode(node2) && Array.isArray(node2.content)) {
-          return node2.content.reduce((count, contentNode) => {
-            return count + getNodeLength(contentNode);
+          return node2.content.reduce((count2, contentNode) => {
+            return count2 + getNodeLength(contentNode);
           }, 0);
         }
         if (isStringNode(node2)) {
@@ -8380,7 +8077,7 @@ substrUntilChar(char) {
         }
         return "";
       }
-      function html(source, plugins, options) {
+      function html$1(source, plugins, options) {
         return bbob(plugins).process(source, {
           ...options,
           render
@@ -8529,8 +8226,8 @@ substrUntilChar(char) {
         }).replace(/\[email\]([^\[\]\s]+)\[\/email\]/gi, "[url=mailto:$1]$1[/url]").replace(/\[email=([^\]\s]+)\]([\s\S]*?)\[\/email\]/gi, "[url=mailto:$1]$2[/url]");
       }
       function bbcodeToHtml(body, attachments) {
-        const html$1 = html(expandForumTags(body.replace(/\r\n?/g, "\n"), attachments), presetHTML5());
-        return html$1.split(/(<pre>[\s\S]*?<\/pre>)/).map((part) => part.startsWith("<pre>") ? part.replace(/^<pre>([\s\S]*)<\/pre>$/, "<pre><code>$1</code></pre>") : part.replace(BLOCK_TAG, "$1").replace(/\n/g, "<br>")).join("");
+        const html2 = html$1(expandForumTags(body.replace(/\r\n?/g, "\n"), attachments), presetHTML5());
+        return html2.split(/(<pre>[\s\S]*?<\/pre>)/).map((part) => part.startsWith("<pre>") ? part.replace(/^<pre>([\s\S]*)<\/pre>$/, "<pre><code>$1</code></pre>") : part.replace(BLOCK_TAG, "$1").replace(/\n/g, "<br>")).join("");
       }
       function bodyToMarkdown(body, format, attachments) {
         if (format === "markdown") return body;
@@ -8551,6 +8248,704 @@ substrUntilChar(char) {
           const value = exact && Object.prototype.hasOwnProperty.call(values, exact[1]) ? values[exact[1]] : renderTemplate(scalar, values);
           return match2[1] + JSON.stringify(value ?? "");
         }).join("\n");
+      }
+      function readPath(value, path2) {
+        for (const key of path2.split(".")) {
+          if (!key || ["__proto__", "prototype", "constructor"].includes(key) || !isRecord(value) || !Object.prototype.hasOwnProperty.call(value, key)) return void 0;
+          value = value[key];
+        }
+        return value;
+      }
+      function isRecord(value) {
+        return typeof value === "object" && value !== null && !Array.isArray(value);
+      }
+      function record(value, path2) {
+        if (!isRecord(value)) throw new ConversionError("INVALID_RESPONSE", `Expected object at ${path2}`);
+        return value;
+      }
+      function field(data, key, mapping) {
+        const path2 = mapping[key];
+        if (typeof path2 !== "string") throw new ConversionError("CONFIG_INVALID", `Missing field mapping: ${key}`);
+        return readPath(data, path2);
+      }
+      function textField(value, path2, allowEmpty = false) {
+        if (typeof value !== "string" || !allowEmpty && !value.trim()) throw new ConversionError("INVALID_RESPONSE", `Expected ${allowEmpty ? "" : "nonempty "}string at ${path2}`);
+        return value;
+      }
+      function numberField(value, path2) {
+        if (typeof value !== "number" || !Number.isFinite(value) || value < 0) throw new ConversionError("INVALID_RESPONSE", `Expected nonnegative number at ${path2}`);
+        return value;
+      }
+      function dateField(value, path2) {
+        const date2 = new Date(numberField(value, path2) * 1e3);
+        if (!Number.isFinite(date2.getTime())) throw new ConversionError("INVALID_RESPONSE", `Invalid timestamp at ${path2}`);
+        return date2.toISOString();
+      }
+      function parseJson$1(text2, responseConfig, stage) {
+        let parsed;
+        try {
+          parsed = JSON.parse(text2);
+        } catch {
+          throw new ConversionError("INVALID_RESPONSE", `Malformed JSON during ${stage}`, { stage });
+        }
+        const result = record(parsed, stage);
+        if (typeof responseConfig.success_field === "string" && readPath(result, responseConfig.success_field) !== responseConfig.success_value) {
+          throw new ConversionError("API_REJECTED", `API success check failed during ${stage}`, { stage });
+        }
+        return result;
+      }
+      function requestOptions(config2, context) {
+        const api = record(config2.api, "api");
+        const request2 = isRecord(api.request) ? api.request : {};
+        const runtime = isRecord(config2.runtime) ? config2.runtime : {};
+        return {
+credentials: typeof request2.credentials === "boolean" ? request2.credentials : void 0,
+          headers: typeof request2.accept === "string" ? { Accept: request2.accept } : {},
+          timeoutMs: typeof runtime.timeout_ms === "number" ? runtime.timeout_ms : 3e4,
+          signal: context.signal
+        };
+      }
+      const fetchHttpFetcher = {
+        async get(url2, options) {
+          const response = await fetch(url2, {
+            credentials: options?.credentials ? "include" : "same-origin",
+            headers: options?.headers,
+            signal: options?.signal
+          });
+          return { ok: response.ok, status: response.status, text: await response.text() };
+        }
+      };
+      async function request(fetcher, url2, options, details) {
+        assertNotAborted(options.signal);
+        const controller = new AbortController();
+        let timeout;
+        let rejectAbort = () => {
+        };
+        const aborted2 = new Promise((_resolve, reject) => {
+          rejectAbort = reject;
+        });
+        const cancel = () => {
+          rejectAbort(new ConversionError("ABORTED", "Export cancelled", details));
+          controller.abort();
+        };
+        options.signal?.addEventListener("abort", cancel, { once: true });
+        timeout = setTimeout(() => {
+          rejectAbort(new ConversionError("TIMEOUT", `Request timed out during ${details.stage}`, details));
+          controller.abort();
+        }, options.timeoutMs ?? 3e4);
+        try {
+          const response = await Promise.race([
+            fetcher.get(url2, { ...options, signal: controller.signal }),
+            aborted2
+          ]);
+          assertNotAborted(options.signal);
+          return response;
+        } catch (error2) {
+          if (error2 instanceof ConversionError) throw error2;
+          assertNotAborted(options.signal);
+          throw new ConversionError("NETWORK_ERROR", `Request failed during ${details.stage}`, details);
+        } finally {
+          clearTimeout(timeout);
+          options.signal?.removeEventListener("abort", cancel);
+        }
+      }
+      function requireOk(response, stage) {
+        if (!response.ok) throw new ConversionError(
+          response.status === 401 || response.status === 403 ? "ACCESS_DENIED" : "HTTP_ERROR",
+          `HTTP ${response.status} during ${stage}`,
+          { stage, status: response.status }
+        );
+      }
+      async function pageDelay(api, signal) {
+        assertNotAborted(signal);
+        const config2 = isRecord(api.page_delay) ? api.page_delay : {};
+        const min = typeof config2.min_ms === "number" ? config2.min_ms : 0;
+        const max = typeof config2.max_ms === "number" ? config2.max_ms : min;
+        const jitter = typeof config2.jitter === "number" ? config2.jitter : 0;
+        const duration2 = Math.max(0, Math.round((min + Math.random() * (max - min)) * (1 + (Math.random() * 2 - 1) * jitter)));
+        if (!duration2) return;
+        await new Promise((resolve, reject) => {
+          const finish = () => {
+            signal?.removeEventListener("abort", cancel);
+            resolve();
+          };
+          const timer = setTimeout(finish, duration2);
+          const cancel = () => {
+            clearTimeout(timer);
+            signal?.removeEventListener("abort", cancel);
+            reject(new ConversionError("ABORTED", "Export cancelled"));
+          };
+          signal?.addEventListener("abort", cancel, { once: true });
+        });
+      }
+      const DEFAULT_COMMENT$1 = "**u/{author}** · {score} points · *{date}*\n\n{content}\n";
+      const DEFAULT_HEADER$1 = "\n\n{delimiter}\n\n## Comments ({count})\n";
+      const MORE_BATCH = 100;
+      const isMore = (node2) => "more" in node2;
+      function vars(config2, threadId, extra = {}) {
+        return { base_url: String(record(config2.site, "site").base_url), thread_id: threadId, topic_id: threadId, ...extra };
+      }
+      function parseJson(text2, stage) {
+        try {
+          return JSON.parse(text2);
+        } catch {
+          throw new ConversionError("INVALID_RESPONSE", `Malformed JSON during ${stage}`, { stage });
+        }
+      }
+      function listing(value) {
+        if (!isRecord(value) || !isRecord(value.data) || !Array.isArray(value.data.children)) return [];
+        return value.data.children.filter(isRecord);
+      }
+      function buildTree(things, index, parent) {
+        const nodes = [];
+        for (const thing of things) {
+          const data = isRecord(thing.data) ? thing.data : void 0;
+          if (!data) continue;
+          if (thing.kind === "t1" && typeof data.id === "string") {
+            const comment = { id: data.id, data, replies: [] };
+            index.set(`t1_${data.id}`, comment);
+            comment.replies = buildTree(listing(data.replies), index, `t1_${data.id}`);
+            nodes.push(comment);
+          } else if (thing.kind === "more") {
+            const ids = Array.isArray(data.children) ? data.children.filter((id) => typeof id === "string") : [];
+            const count2 = typeof data.count === "number" ? data.count : ids.length;
+            nodes.push({ more: true, parent: typeof data.parent_id === "string" ? data.parent_id : parent, ids, count: count2 });
+          }
+        }
+        return nodes;
+      }
+      const count = (nodes) => nodes.reduce((total, node2) => total + (isMore(node2) ? 0 : 1 + count(node2.replies)), 0);
+      function stubs(nodes) {
+        const found = [];
+        const queue = [nodes];
+        while (queue.length) {
+          const list = queue.shift();
+          for (const node2 of list) {
+            if (isMore(node2)) {
+              if (!node2.reason) found.push({ list, stub: node2 });
+            } else queue.push(node2.replies);
+          }
+        }
+        return found;
+      }
+      function splice(list, stub, things, index) {
+        const placed = [];
+        for (const thing of things) {
+          const parentId = isRecord(thing.data) && typeof thing.data.parent_id === "string" ? thing.data.parent_id : stub.parent;
+          const [node2] = buildTree([thing], index, parentId);
+          if (!node2) continue;
+          const parent = parentId === stub.parent ? void 0 : index.get(parentId);
+          if (parent) parent.replies.push(node2);
+          else placed.push(node2);
+        }
+        list.splice(list.indexOf(stub), 1, ...placed);
+      }
+      function postBody(post) {
+        const media = isRecord(post.media_metadata) ? post.media_metadata : {};
+        const mediaUrl = (id) => {
+          const item = media[id];
+          if (!isRecord(item) || !isRecord(item.s)) return void 0;
+          const url22 = item.s.u ?? item.s.gif ?? item.s.mp4;
+          return typeof url22 === "string" ? url22 : void 0;
+        };
+        const parts = [];
+        if (typeof post.selftext === "string" && post.selftext.trim()) {
+          parts.push(post.selftext.replace(/!\[([^\]]*)\]\(([A-Za-z0-9_|-]+)\)/g, (whole, alt, id) => {
+            const url22 = mediaUrl(id);
+            return url22 ? `![${alt}](${url22})` : whole;
+          }).trim());
+        }
+        const gallery = isRecord(post.gallery_data) && Array.isArray(post.gallery_data.items) ? post.gallery_data.items.filter(isRecord) : [];
+        for (const item of gallery) {
+          const url22 = typeof item.media_id === "string" ? mediaUrl(item.media_id) : void 0;
+          if (url22) parts.push(`![${typeof item.caption === "string" ? item.caption.replace(/[[\]]/g, "") : ""}](${url22})`);
+        }
+        const video = isRecord(post.media) && isRecord(post.media.reddit_video) ? post.media.reddit_video.fallback_url : void 0;
+        if (typeof video === "string") parts.push(`[Video](${video})`);
+        if (isRecord(post.poll_data) && Array.isArray(post.poll_data.options)) {
+          parts.push(["**Poll:**", "", ...post.poll_data.options.filter(isRecord).map((option) => `- ${String(option.text ?? "")}${typeof option.vote_count === "number" ? ` (${option.vote_count})` : ""}`)].join("\n"));
+        }
+        const url2 = typeof post.url_overridden_by_dest === "string" ? post.url_overridden_by_dest : typeof post.url === "string" ? post.url : void 0;
+        if (!post.is_self && url2 && !gallery.length && typeof video !== "string") {
+          parts.push(post.post_hint === "image" || /\.(?:png|jpe?g|gif|webp)(?:\?|$)/i.test(url2) ? `![](${url2})` : `[${url2}](${url2})`);
+        }
+        const crosspost = Array.isArray(post.crosspost_parent_list) ? post.crosspost_parent_list.find(isRecord) : void 0;
+        if (crosspost) {
+          const from = typeof crosspost.subreddit_name_prefixed === "string" ? crosspost.subreddit_name_prefixed : "another subreddit";
+          const link = typeof crosspost.permalink === "string" ? `https://www.reddit.com${crosspost.permalink}` : "";
+          const body = postBody({ ...crosspost, crosspost_parent_list: void 0 });
+          parts.push(`> Crossposted from ${link ? `[${from}](${link})` : from}${body ? `
+>
+${body.split("\n").map((line) => line ? `> ${line}` : ">").join("\n")}` : ""}`);
+        }
+        return parts.join("\n\n");
+      }
+      function profileTags(config2) {
+        return isRecord(config2.metadata) && Array.isArray(config2.metadata.tags) ? config2.metadata.tags.filter((tag) => typeof tag === "string") : [];
+      }
+      function requirePost(response, stage) {
+        if (response.ok) return;
+        let reason;
+        try {
+          reason = JSON.parse(response.text).reason;
+        } catch {
+        }
+        const why = {
+          private: "The community is private",
+          quarantined: "The community is quarantined: open it on Reddit and opt in first",
+          banned: "The community is banned",
+          gold_only: "The community is for Reddit Premium members only"
+        };
+        if (typeof reason === "string" && why[reason]) throw new ConversionError("ACCESS_DENIED", why[reason], { stage, status: response.status });
+        requireOk(response, stage);
+      }
+      function postOf(value, stage) {
+        const listings = Array.isArray(value) ? value : [value];
+        const post = listing(listings[0]).find((thing) => thing.kind === "t3");
+        if (!post || !isRecord(post.data)) throw new ConversionError("API_REJECTED", "Post not found, removed, or in a private or quarantined community", { stage });
+        return post.data;
+      }
+      async function fetchRedditThreadState(threadId, fetcher, config2, context = {}) {
+        const api = record(config2.api, "api");
+        const response = await request(fetcher, interpolate(textField(api.json_endpoint, "api.json_endpoint"), vars(config2, threadId)), requestOptions(config2, context), { stage: "post" });
+        requirePost(response, "post");
+        const post = postOf(parseJson(response.text, "post"), "post");
+        return { replies: typeof post.num_comments === "number" ? post.num_comments : void 0 };
+      }
+      async function fetchRedditContent(threadId, fetcher, config2, context = {}) {
+        const api = record(config2.api, "api");
+        const options = requestOptions(config2, context);
+        const delimiter = typeof config2.delimiter === "string" ? config2.delimiter : "---";
+        const template2 = (key, fallback) => isRecord(config2[key]) && typeof config2[key].template === "string" ? config2[key].template : fallback;
+        const budget = typeof api.max_pages === "number" ? api.max_pages : 20;
+        context.onProgress?.("Fetching post");
+        const response = await request(fetcher, interpolate(textField(api.thread_endpoint, "api.thread_endpoint"), vars(config2, threadId)), options, { stage: "post" });
+        requirePost(response, "post");
+        const parsed = parseJson(response.text, "post");
+        if (!Array.isArray(parsed) || parsed.length < 2) throw new ConversionError("INVALID_RESPONSE", "Expected the post and its comments", { stage: "post" });
+        const post = postOf(parsed, "post");
+        const title = textField(post.title, "post.title");
+        const index = new Map();
+        const tree = buildTree(listing(parsed[1]), index, `t3_${threadId}`);
+        let requests = 0;
+        for (let pending = stubs(tree); pending.length; pending = stubs(tree)) {
+          const { list, stub } = pending[0];
+          if (requests >= budget) {
+            for (const entry of pending) entry.stub.reason = `over this export's limit of ${budget} extra requests`;
+            break;
+          }
+          assertNotAborted(context.signal);
+          await pageDelay(api, context.signal);
+          requests++;
+          try {
+            if (stub.ids.length && typeof api.posts_endpoint === "string") {
+              const ids = stub.ids.slice(0, MORE_BATCH);
+              context.onProgress?.(`Fetching more comments (${requests})`);
+              const more = await request(fetcher, interpolate(api.posts_endpoint, vars(config2, threadId, { children: ids.join(",") })), options, { stage: "comments", page: requests });
+              requireOk(more, "comments");
+              const body = parseJson(more.text, "comments");
+              const things = isRecord(body) && isRecord(body.json) && isRecord(body.json.data) && Array.isArray(body.json.data.things) ? body.json.data.things.filter(isRecord) : void 0;
+              if (!things) throw new ConversionError("INVALID_RESPONSE", 'Unexpected "more comments" response', { stage: "comments" });
+              const rest = stub.ids.length > MORE_BATCH ? { ...stub, ids: stub.ids.slice(MORE_BATCH), count: Math.max(0, stub.count - ids.length) } : void 0;
+              splice(list, stub, things, index);
+              if (rest) list.push(rest);
+            } else if (!stub.ids.length && stub.parent.startsWith("t1_") && typeof api.nested_endpoint === "string") {
+              context.onProgress?.(`Fetching a deeper thread (${requests})`);
+              const deeper = await request(fetcher, interpolate(api.nested_endpoint, vars(config2, threadId, { post_id: stub.parent.slice(3) })), options, { stage: "thread", page: requests });
+              requireOk(deeper, "thread");
+              const page = parseJson(deeper.text, "thread");
+              const root2 = Array.isArray(page) ? listing(page[1]).find((thing) => thing.kind === "t1") : void 0;
+              const replies = root2 && isRecord(root2.data) ? listing(root2.data.replies) : [];
+              list.splice(list.indexOf(stub), 1, ...buildTree(replies, index, stub.parent));
+            } else {
+              stub.reason = "not offered by Reddit";
+            }
+          } catch (error2) {
+            if (error2 instanceof ConversionError && error2.code === "ABORTED") throw error2;
+            stub.reason = error2 instanceof Error ? error2.message : String(error2);
+          }
+        }
+        assertNotAborted(context.signal);
+        const commentTemplate = template2("comment", DEFAULT_COMMENT$1);
+        const quote2 = (text2, depth) => depth ? text2.split("\n").map((line) => `${"> ".repeat(depth)}${line}`.trimEnd()).join("\n") : text2;
+        const render2 = (nodes, depth) => nodes.flatMap((node2) => {
+          if (isMore(node2)) {
+            const n2 = Math.max(node2.count, node2.ids.length, 1);
+            return [quote2(`*${n2} more ${n2 === 1 ? "reply" : "replies"} not included (${node2.reason ?? "not loaded"}).*`, depth)];
+          }
+          const data = node2.data;
+          const entry = renderTemplate(commentTemplate, {
+            author: typeof data.author === "string" ? data.author : "[deleted]",
+            score: typeof data.score === "number" ? data.score : "",
+            date: typeof data.created_utc === "number" ? dateField(data.created_utc, "comment.created_utc") : "",
+            content: typeof data.body === "string" ? data.body.trim() : "",
+            delimiter
+          }).trim();
+          return [quote2(entry, depth), ...render2(node2.replies, depth + 1)];
+        });
+        const exported = count(tree);
+        const parts = [postBody(post)];
+        if (tree.length) parts.push(renderTemplate(template2("comments_header", DEFAULT_HEADER$1), { count: exported, delimiter }).trim(), ...render2(tree, 0));
+        const markdown = parts.map((part) => part.trim()).filter(Boolean).join("\n\n");
+        const subreddit = typeof post.subreddit === "string" ? post.subreddit : void 0;
+        const flair = typeof post.link_flair_text === "string" && post.link_flair_text.trim() ? post.link_flair_text.trim() : void 0;
+        const metadata = {
+          title,
+          tags: [... new Set([...profileTags(config2), ...subreddit ? [`r/${subreddit}`] : [], ...flair ? [flair] : []])]
+        };
+        if (typeof post.author === "string") metadata.author = post.author;
+        if (typeof post.created_utc === "number") metadata.date = dateField(post.created_utc, "post.created_utc");
+        if (typeof post.score === "number") metadata.score = post.score;
+        if (typeof post.num_comments === "number") metadata.replies = post.num_comments;
+        if (post.over_18 === true) metadata.nsfw = true;
+        context.onMetadata?.(metadata);
+        return `${markdown}
+`;
+      }
+      const devtoAdapter = {
+        name: "Dev.to",
+        urlPatterns: [
+          "https://dev.to/*/*"
+        ],
+        contentSelectors: [
+          "#article-body",
+          ".crayons-article__body"
+        ],
+        removeSelectors: [
+          ".crayons-article__actions",
+          ".crayons-sponsor"
+        ],
+        extractMetadata: (doc) => {
+          const author = doc.querySelector(".crayons-article__header__author a")?.textContent?.trim();
+          const tags = Array.from(doc.querySelectorAll(".crayons-tag")).map(
+            (el) => el.textContent?.trim().replace("#", "") || ""
+          );
+          return {
+            author: author ?? void 0,
+            tags: ["dev.to", ...tags]
+          };
+        }
+      };
+      function pageTitle(doc, profile) {
+        for (const selector of profile.metadata?.title_selectors ?? []) {
+          let text2;
+          try {
+            text2 = doc.querySelector(selector)?.textContent?.replace(/\s+/g, " ").trim();
+          } catch {
+          }
+          if (text2) return text2;
+        }
+        return profile.metadata?.title_cleanup ? doc.title.replace(new RegExp(profile.metadata.title_cleanup), "").trim() : doc.title;
+      }
+      const CODE = /(^|\n)(```|~~~)[^\n]*\n[\s\S]*?\n\2[ \t]*(?=\n|$)|`[^`\n]+`/g;
+      function outsideCode(text2, transform2) {
+        const codes = [];
+        const hidden = text2.replace(CODE, (match2, lead) => `${lead ?? ""}${codes.push(match2.slice((lead ?? "").length)) - 1}`);
+        return transform2(hidden).replace(/\uE000(\d+)\uE001/g, (_, index, offset, whole) => {
+          const code = codes[Number(index)];
+          const prefix = whole.slice(whole.lastIndexOf("\n", offset - 1) + 1, offset);
+          return /^(?:> ?)+$/.test(prefix) ? code.replace(/\n/g, `
+${prefix}`) : code;
+        });
+      }
+      const quoteLines = (body) => body.trim().split("\n").map((line) => line ? `> ${line}` : ">").join("\n");
+      function quoteHeader(attributes, baseUrl) {
+        if (!attributes) return "";
+        const [name, ...rest] = attributes.split(",").map((part) => part.trim());
+        const fields = Object.fromEntries(rest.map((part) => part.split(":").map((value) => value.trim())).filter((pair) => pair.length === 2));
+        const link = fields.topic && /^\d+$/.test(fields.topic) ? ` [#${fields.post ?? 1}](${baseUrl}/t/${fields.topic}${fields.post && /^\d+$/.test(fields.post) ? `/${fields.post}` : ""})` : "";
+        return name ? `**${name}**${link}:
+
+` : "";
+      }
+      function discourseToMarkdown(raw, baseUrl) {
+        return outsideCode(raw, (text2) => {
+          let out = text2.replace(/\]\(upload:\/\/([A-Za-z0-9]+(?:\.[A-Za-z0-9]+)?)\)/g, `](${baseUrl}/uploads/short-url/$1)`).replace(/\[([^\]\n|]+)\|attachment\]\(/g, "[$1](");
+          const quote2 = /\[quote(?:="([^"\]]*)")?\]\s*\n?((?:(?!\[quote[=\]])[\s\S])*?)\n?\s*\[\/quote\]/i;
+          for (let match2 = out.match(quote2); match2; match2 = out.match(quote2)) {
+            const block = `
+${quoteLines(quoteHeader(match2[1], baseUrl) + match2[2])}
+`;
+            out = out.replace(match2[0], () => block);
+          }
+          return out.replace(
+            /\[details(?:=(?:"([^"\]]*)"|([^\]]*)))?\]\s*\n?([\s\S]*?)\n?\s*\[\/details\]/gi,
+            (_, quoted, bare, body) => `<details>
+<summary>${(quoted ?? bare ?? "Details").trim() || "Details"}</summary>
+
+${body.trim()}
+
+</details>`
+          ).replace(/\[spoiler\]\s*\n([\s\S]*?)\n\s*\[\/spoiler\]/gi, (_, body) => `<details>
+<summary>Spoiler</summary>
+
+${body.trim()}
+
+</details>`).replace(/\[spoiler\]([\s\S]*?)\[\/spoiler\]/gi, "$1").replace(/\[poll\b[^\]]*\]\s*\n?/gi, "**Poll:**\n\n").replace(/\n?\s*\[\/poll\]/gi, "").replace(/\n{3,}/g, "\n\n");
+        });
+      }
+      async function topicMetadata(topicId, fetcher, config2, options) {
+        const api = record(config2.api, "api");
+        const site = record(config2.site, "site");
+        if (typeof api.json_endpoint !== "string") return {};
+        try {
+          const url2 = interpolate(api.json_endpoint, { base_url: String(site.base_url), topic_id: topicId });
+          const response = await request(fetcher, url2, { ...options, headers: { ...options.headers, Accept: "application/json" } }, { stage: "topic-json" });
+          if (!response.ok) return {};
+          const topic = JSON.parse(response.text);
+          const metadata = {};
+          if (typeof topic.title === "string" && topic.title.trim()) metadata.title = topic.title;
+          const creator = isRecord(topic.details) && isRecord(topic.details.created_by) ? topic.details.created_by.username : void 0;
+          if (typeof creator === "string") metadata.author = creator;
+          if (typeof topic.created_at === "string") metadata.date = topic.created_at;
+          const tags = Array.isArray(topic.tags) ? topic.tags.map((tag) => isRecord(tag) ? tag.name : tag).filter((tag) => typeof tag === "string" && !!tag) : [];
+          const profileTags2 = isRecord(config2.metadata) && Array.isArray(config2.metadata.tags) ? config2.metadata.tags.filter((tag) => typeof tag === "string") : [];
+          if (tags.length || profileTags2.length) metadata.tags = [... new Set([...profileTags2, ...tags])];
+          if (typeof topic.views === "number") metadata.views = topic.views;
+          if (typeof topic.posts_count === "number") metadata.replies = Math.max(0, topic.posts_count - 1);
+          if (typeof topic.like_count === "number") metadata.likes = topic.like_count;
+          if (typeof topic.last_posted_at === "string") metadata.updated = topic.last_posted_at;
+          return metadata;
+        } catch (error2) {
+          if (error2?.name === "AbortError" || error2?.code === "ABORTED") throw error2;
+          return {};
+        }
+      }
+      async function fetchDiscourseThreadState(topicId, fetcher, config2, context = {}) {
+        const api = record(config2.api, "api");
+        const site = record(config2.site, "site");
+        const options = requestOptions(config2, context);
+        const url2 = interpolate(textField(api.json_endpoint, "api.json_endpoint"), { base_url: String(site.base_url), topic_id: topicId });
+        const response = await request(fetcher, url2, { ...options, headers: { ...options.headers, Accept: "application/json" } }, { stage: "topic-json" });
+        requireOk(response, "topic");
+        let topic;
+        try {
+          topic = JSON.parse(response.text);
+        } catch {
+          throw new ConversionError("INVALID_RESPONSE", "Topic JSON is not valid JSON", { stage: "topic-json" });
+        }
+        if (!isRecord(topic)) throw new ConversionError("INVALID_RESPONSE", "Topic JSON is not an object", { stage: "topic-json" });
+        return {
+          replies: typeof topic.posts_count === "number" ? Math.max(0, topic.posts_count - 1) : void 0,
+          updated: typeof topic.last_posted_at === "string" ? topic.last_posted_at : void 0
+        };
+      }
+      async function fetchDiscourseRawContent(topicId, fetcher, config2, context = {}) {
+        const api = record(config2.api, "api");
+        const site = record(config2.site, "site");
+        const rawEndpoint = textField(api.raw_endpoint, "api.raw_endpoint");
+        const maxPages = numberField(api.max_pages, "api.max_pages");
+        const options = requestOptions(config2, context);
+        const separator = typeof config2.page_separator === "string" ? config2.page_separator : "\n\n---\n\n";
+        const pages = [];
+        const seen2 = new Set();
+        const baseUrl = String(site.base_url);
+        if (context.onMetadata) {
+          context.onProgress?.("Fetching topic details");
+          const metadata = await topicMetadata(topicId, fetcher ?? fetchHttpFetcher, config2, options);
+          if (Object.keys(metadata).length) context.onMetadata(metadata);
+        }
+        for (let page = 1; page <= maxPages; page++) {
+          assertNotAborted(context.signal);
+          context.onProgress?.(`Fetching topic page ${page}`);
+          const url2 = interpolate(rawEndpoint, { base_url: baseUrl, topic_id: topicId, page });
+          const response = await request(fetcher ?? fetchHttpFetcher, url2, options, { stage: "topic", page });
+          requireOk(response, "topic");
+          if (!response.text.trim()) {
+            if (!pages.length) throw new ConversionError("INCOMPLETE_CONTENT", "Topic response contains no content", { stage: "topic", page });
+            return pages.map((text2) => discourseToMarkdown(text2, baseUrl)).join(separator);
+          }
+          if (seen2.has(response.text)) throw new ConversionError("REPEATED_PAGE", "Topic pagination returned a repeated page", { stage: "topic", page });
+          seen2.add(response.text);
+          pages.push(response.text);
+          if (page < maxPages) await pageDelay(api, context.signal);
+        }
+        throw new ConversionError("PAGE_LIMIT", "Topic page limit reached before an empty terminal page", { stage: "topic", page: maxPages });
+      }
+      const DEFAULT_COMMENT = "\n**#{index} {author}** · *{date}*\n\n{content}\n";
+      const DEFAULT_HEADER = "\n\n{delimiter}\n\n## Replies ({count})\n";
+      const DEFAULT_SUPPLEMENT = "\n\n### Supplement {index} · *{date}*\n\n{content}\n";
+      function endpoint(config2, key, threadId) {
+        const api = record(config2.api, "api");
+        const site = record(config2.site, "site");
+        return interpolate(textField(api[key], `api.${key}`), { base_url: String(site.base_url), thread_id: threadId, topic_id: threadId });
+      }
+      function parseList(text2, stage) {
+        let parsed;
+        try {
+          parsed = JSON.parse(text2);
+        } catch {
+          throw new ConversionError("INVALID_RESPONSE", `Malformed JSON during ${stage}`, { stage });
+        }
+        if (isRecord(parsed) && typeof parsed.message === "string") throw new ConversionError("API_REJECTED", parsed.message, { stage });
+        if (!Array.isArray(parsed)) throw new ConversionError("INVALID_RESPONSE", `Expected a list during ${stage}`, { stage });
+        return parsed;
+      }
+      async function fetchTopic(threadId, fetcher, config2, context) {
+        const response = await request(fetcher, endpoint(config2, "thread_endpoint", threadId), requestOptions(config2, context), { stage: "topic" });
+        requireOk(response, "topic");
+        const [topic] = parseList(response.text, "topic");
+        if (!isRecord(topic)) throw new ConversionError("API_REJECTED", "Topic not found, or it needs a login to view", { stage: "topic" });
+        return topic;
+      }
+      async function fetchV2exThreadState(threadId, fetcher, config2, context = {}) {
+        const topic = await fetchTopic(threadId, fetcher, config2, context);
+        return {
+          replies: typeof topic.replies === "number" ? topic.replies : void 0,
+          updated: typeof topic.last_touched === "number" ? dateField(topic.last_touched, "topic.last_touched") : void 0
+        };
+      }
+      function absolute(html2, base) {
+        return html2.replace(/(\s(?:href|src)=")(\/\/|\/)/g, (_, attr, prefix) => `${attr}${prefix === "//" ? "https://" : `${base}/`}`).replace(/<a\b[^>]*\shref="([^"]+)"[^>]*>\s*(<img\b[^>]*\ssrc="([^"]+)"[^>]*>)\s*<\/a>/gi, (whole, href, image, src) => href === src ? image : whole);
+      }
+      const html = (body, base) => bodyToMarkdown(absolute(body, base), "html").replace(/^[ \t]+$/gm, "").trim();
+      function innerDiv(source, start) {
+        const tag = /<(\/?)div\b[^>]*>/gi;
+        tag.lastIndex = start;
+        let depth = 1;
+        for (let match2 = tag.exec(source); match2; match2 = tag.exec(source)) {
+          depth += match2[1] ? -1 : 1;
+          if (!depth) return source.slice(start, match2.index);
+        }
+        return void 0;
+      }
+      const decode = (value) => {
+        try {
+          return decodeURIComponent(value);
+        } catch {
+          return value;
+        }
+      };
+      function stampDate(stamp) {
+        const time2 = stamp ? Date.parse(stamp) : NaN;
+        return Number.isFinite(time2) ? new Date(time2).toISOString() : stamp ?? "";
+      }
+      function blocks(source, opening) {
+        const found = [];
+        for (let match2 = opening.exec(source); match2; match2 = opening.exec(source)) {
+          const inner = innerDiv(source, match2.index + match2[0].length);
+          if (inner !== void 0) found.push({ match: match2, inner });
+        }
+        return found;
+      }
+      function innerOf(block, opening) {
+        const match2 = opening.exec(block);
+        return match2 ? innerDiv(block, match2.index + match2[0].length) : void 0;
+      }
+      function parseV2exPage(source) {
+        const supplements = [];
+        for (const { inner } of blocks(source, /<div class="subtle">/g)) {
+          const body = innerOf(inner, /<div class="topic_content">/);
+          if (body !== void 0) supplements.push({ date: stampDate(/<span title="([^"]+)"/.exec(inner)?.[1]), html: body });
+        }
+        const replies = [];
+        for (const { inner } of blocks(source, /<div id="r_\d+" class="[^"]*\bcell\b[^"]*">/g)) {
+          const body = innerOf(inner, /<div class="reply_content">/);
+          const floor = Number(/<span class="no">(\d+)<\/span>/.exec(inner)?.[1]);
+          if (body === void 0 || !Number.isInteger(floor)) continue;
+          const author = /<strong><a href="\/member\/([^"]+)"/.exec(inner)?.[1] ?? "";
+          replies.push({ floor, author: decode(author), date: stampDate(/<span class="ago" title="([^"]+)"/.exec(inner)?.[1]), html: body });
+        }
+        const tags = [...source.matchAll(/<a href="\/tag\/([^"]+)" class="tag">/g)].map(([, name]) => decode(name));
+        const pages = Number(/<input type="number" class="page_input"[^>]*\smax="(\d+)"/.exec(source)?.[1] ?? 1);
+        return { supplements, tags: [...new Set(tags)], replies, pages: Number.isInteger(pages) && pages > 0 ? pages : 1 };
+      }
+      async function pageReplies(threadId, fetcher, config2, context) {
+        const api = record(config2.api, "api");
+        const options = { ...requestOptions(config2, context), headers: { Accept: "text/html" } };
+        const maxPages = typeof api.max_pages === "number" ? api.max_pages : 100;
+        const load = async (page) => {
+          context.onProgress?.(`Fetching topic page ${page}`);
+          const url2 = interpolate(textField(api.html_endpoint, "api.html_endpoint"), { base_url: String(record(config2.site, "site").base_url), thread_id: threadId, topic_id: threadId, page });
+          const response = await request(fetcher, url2, options, { stage: "page", page });
+          requireOk(response, "page");
+          return parseV2exPage(response.text);
+        };
+        let first;
+        try {
+          first = await load(1);
+        } catch (error2) {
+          if (error2 instanceof ConversionError && error2.code === "ABORTED") throw error2;
+          return { error: error2 instanceof Error ? error2.message : String(error2) };
+        }
+        if (first.pages > maxPages) throw new ConversionError("PAGE_LIMIT", `Topic has ${first.pages} pages; the limit is ${maxPages}`, { stage: "page", page: maxPages });
+        const byFloor = new Map(first.replies.map((reply) => [reply.floor, reply]));
+        for (let page = 2; page <= first.pages; page++) {
+          await pageDelay(api, context.signal);
+          for (const reply of (await load(page)).replies) byFloor.set(reply.floor, reply);
+        }
+        return { first, replies: [...byFloor.values()].sort((a2, b2) => a2.floor - b2.floor) };
+      }
+      async function apiReplies(threadId, fetcher, config2, context) {
+        context.onProgress?.("Fetching replies");
+        const response = await request(fetcher, endpoint(config2, "posts_endpoint", threadId), requestOptions(config2, context), { stage: "replies" });
+        requireOk(response, "replies");
+        const replies = parseList(response.text, "replies").filter(isRecord).sort((a2, b2) => Number(a2.created) - Number(b2.created));
+        return replies.map((reply, index) => ({
+          floor: index + 1,
+          author: isRecord(reply.member) && typeof reply.member.username === "string" ? reply.member.username : "",
+          date: dateField(reply.created, "reply.created"),
+          html: typeof reply.content_rendered === "string" ? reply.content_rendered : ""
+        }));
+      }
+      async function fetchV2exContent(threadId, fetcher, config2, context = {}) {
+        const api = record(config2.api, "api");
+        const base = String(record(config2.site, "site").base_url);
+        const template2 = (key, fallback) => isRecord(config2[key]) && typeof config2[key].template === "string" ? config2[key].template : fallback;
+        const delimiter = typeof config2.delimiter === "string" ? config2.delimiter : "---";
+        context.onProgress?.("Fetching topic");
+        const topic = await fetchTopic(threadId, fetcher, config2, context);
+        const title = textField(topic.title, "topic.title");
+        const replyCount = numberField(topic.replies ?? 0, "topic.replies");
+        const notes = [];
+        let page;
+        let replies;
+        if (typeof api.html_endpoint === "string") {
+          assertNotAborted(context.signal);
+          const result = await pageReplies(threadId, fetcher, config2, context);
+          page = result.first;
+          replies = result.replies;
+          if (result.error) notes.push(`> *The topic page could not be loaded (${result.error}): supplements are missing, and replies come from the API, which can lag behind the site.*`);
+          else if (!replies?.length && replyCount > 0) {
+            replies = void 0;
+            notes.push("> *No replies were found on the topic page; they come from the API, which can lag behind the site.*");
+          }
+        }
+        if (!replies && replyCount > 0) replies = await apiReplies(threadId, fetcher, config2, context);
+        assertNotAborted(context.signal);
+        const author = isRecord(topic.member) && typeof topic.member.username === "string" ? topic.member.username : void 0;
+        const node2 = isRecord(topic.node) && typeof topic.node.title === "string" ? topic.node.title : void 0;
+        const parts = [typeof topic.content_rendered === "string" ? html(topic.content_rendered, base) : ""];
+        page?.supplements.forEach((supplement, index) => parts.push(renderTemplate(template2("supplement", DEFAULT_SUPPLEMENT), {
+          index: index + 1,
+          date: supplement.date,
+          content: html(supplement.html, base),
+          delimiter
+        })));
+        parts.push(...notes);
+        if (replies?.length) {
+          parts.push(renderTemplate(template2("comments_header", DEFAULT_HEADER), { count: replies.length, delimiter }));
+          for (const reply of replies) parts.push(renderTemplate(template2("comment", DEFAULT_COMMENT), {
+            index: reply.floor,
+            author: reply.author,
+            date: reply.date,
+            content: html(reply.html, base),
+            delimiter
+          }));
+        }
+        const markdown = parts.map((part) => part.trim()).filter(Boolean).join("\n\n");
+        const profileTags2 = isRecord(config2.metadata) && Array.isArray(config2.metadata.tags) ? config2.metadata.tags.filter((tag) => typeof tag === "string") : [];
+        const metadata = {
+          title,
+          tags: [... new Set([...profileTags2, ...node2 ? [node2] : [], ...page?.tags ?? []])],
+          replies: replyCount
+        };
+        if (author) metadata.author = author;
+        if (typeof topic.created === "number") metadata.date = dateField(topic.created, "topic.created");
+        if (typeof topic.last_touched === "number") metadata.updated = dateField(topic.last_touched, "topic.last_touched");
+        context.onMetadata?.(metadata);
+        return `${markdown}
+`;
       }
       function attachmentsOf(item, mapping, fields) {
         const shape = fields.attachment;
@@ -8575,7 +8970,7 @@ substrUntilChar(char) {
         const response = await request(fetcher, interpolate(textField(api.thread_endpoint, "api.thread_endpoint"), { thread_id: threadId }), requestOptions(config2, context), { stage: "thread" });
         requireOk(response, "thread");
         const dataPath = textField(responseConfig.data_field, "api.response.data_field");
-        const thread = record(readPath(parseJson(response.text, responseConfig, "thread"), dataPath), dataPath);
+        const thread = record(readPath(parseJson$1(response.text, responseConfig, "thread"), dataPath), dataPath);
         return {
           replies: numberField(field(thread, "replies", fields), "thread.replies"),
           updated: dateField(field(thread, "updated_at", fields), "thread.updated_at")
@@ -8591,7 +8986,7 @@ substrUntilChar(char) {
         const endpoint2 = textField(api.thread_endpoint, "api.thread_endpoint");
         const response = await request(fetcher, interpolate(endpoint2, { thread_id: threadId }), options, { stage: "thread" });
         requireOk(response, "thread");
-        const parsed = parseJson(response.text, responseConfig, "thread");
+        const parsed = parseJson$1(response.text, responseConfig, "thread");
         const dataPath = textField(responseConfig.data_field, "api.response.data_field");
         const thread = record(readPath(parsed, dataPath), dataPath);
         const title = textField(field(thread, "title", fields), "thread.title");
@@ -8632,7 +9027,7 @@ substrUntilChar(char) {
             });
             const postsResponse = await request(fetcher, url2, options, { stage: "comments", page });
             requireOk(postsResponse, "comments");
-            const pageData = parseJson(postsResponse.text, responseConfig, "comments");
+            const pageData = parseJson$1(postsResponse.text, responseConfig, "comments");
             const posts = readPath(pageData, postsPath);
             if (!Array.isArray(posts)) throw new ConversionError("INVALID_RESPONSE", `Expected array at ${postsPath}`, { stage: "comments", page });
             const ids = [];
@@ -8765,7 +9160,7 @@ title,
               }
               let pageData;
               try {
-                pageData = parseJson(response.text, context.responseConfig, "replies");
+                pageData = parseJson$1(response.text, context.responseConfig, "replies");
               } catch (error2) {
                 throw new ConversionError("API_REJECTED", typeof message === "string" && message ? message : error2.message);
               }
@@ -8821,11 +9216,15 @@ title,
       };
       const contentEngines = exports("j", {
         "forum-json": (id, fetcher, profile, context) => fetchForumApiContent(id, fetcher, profile, context?.onProgress, context),
-        "discourse-raw": fetchDiscourseRawContent
+        "discourse-raw": fetchDiscourseRawContent,
+        "v2ex-api": fetchV2exContent,
+        "reddit-json": fetchRedditContent
       });
       const stateEngines = {
         "forum-json": fetchForumThreadState,
-        "discourse-raw": fetchDiscourseThreadState
+        "discourse-raw": fetchDiscourseThreadState,
+        "v2ex-api": fetchV2exThreadState,
+        "reddit-json": fetchRedditThreadState
       };
       function fetchThreadState(id, fetcher, profile, context) {
         const engine = stateEngines[profile.engine];
@@ -8868,7 +9267,6 @@ title,
         substackAdapter,
         wikipediaAdapter,
         githubAdapter,
-        redditAdapter,
         devtoAdapter,
         defaultAdapter
 ]);
@@ -9446,260 +9844,6 @@ button.danger { border-color: #7f1d1d; background: #450a0a; }
 details summary { cursor: pointer; color: #d4d4d8; }
 @media (max-width: 560px) { label.row { grid-template-columns: 1fr; } }
 `;
-      const TEMPLATE_BLOCKS = ["document", "frontmatter", "comments_header", "comment", "reply", "replies_gap"];
-      const FILENAMES = ["single", "batch_item", "batch"];
-      const SAMPLE = { title: "示例标题 Example", id: "12345", author: "author", date: "2026-01-01", index: "001", type: "category", tagname: "tag" };
-      const L$1 = {
-        title: t$1("Markify Settings", "Markify 设置"),
-        scope: t$1("Applies to", "应用于"),
-        allSites: t$1("All sites (defaults)", "所有站点（默认）"),
-        thisSite: t$1("this page", "当前页面"),
-        enabled: t$1("Enable Markify on this site", "在此站点启用 Markify"),
-        enabledHint: t$1("Off: no buttons or checkboxes here until you turn it back on (the menu stays).", "关闭后此站点不显示按钮和复选框（菜单仍可用）。"),
-        filenames: t$1("File names", "文件名"),
-        single: t$1("Single thread", "单个帖子"),
-        batchItem: t$1("File inside a ZIP", "ZIP 内的文件"),
-        batch: t$1("ZIP archive", "ZIP 压缩包"),
-        inherit: t$1("Empty = use", "留空 = 使用"),
-        preview: t$1("Preview", "预览"),
-        placeholders: t$1("Placeholders", "可用占位符"),
-        network: t$1("Network", "网络"),
-        timeout: t$1("Request timeout (seconds)", "请求超时（秒）"),
-        templates: t$1("Templates (advanced)", "模板（高级）"),
-        templatesHint: t$1("Empty = the built-in template shown in grey.", "留空 = 使用灰色显示的内置模板。"),
-        agent: t$1("AI Console API", "AI 控制台 API"),
-        agentOn: t$1("On: agents with this site's token can export through window.markify.", "已开启：持有本站令牌的 AI 可通过 window.markify 导出。"),
-        agentOff: t$1("Off.", "已关闭。"),
-        agentCopy: t$1("Copy token (turns it on)", "复制令牌（同时开启）"),
-        agentRevoke: t$1("Turn off and revoke", "关闭并吊销令牌"),
-        history: t$1("Download history", "下载记录"),
-        historyCount: (all, site) => site === void 0 ? t$1(`${all} downloads`, `共 ${all} 条`) : t$1(`${site} on this site, ${all} in total`, `本站 ${site} 条，共 ${all} 条`),
-        clearSite: t$1("Clear this site", "清除本站记录"),
-        clearAll: t$1("Clear all", "清除全部记录"),
-        manageHistory: t$1("Manage and check for updates…", "管理与检查更新…"),
-        resetButton: t$1("Reset button position", "重置按钮位置"),
-        config: t$1("Configuration", "配置"),
-        export: t$1("Copy configuration (JSON)", "复制配置（JSON）"),
-        import: t$1("Import", "导入"),
-        importHint: t$1("Paste exported JSON here, then Import", "在此粘贴导出的 JSON，然后点导入"),
-        resetSite: t$1("Reset this site", "重置本站设置"),
-        resetAll: t$1("Reset everything", "重置全部设置"),
-        cancel: t$1("Cancel", "取消"),
-        save: t$1("Save and reload", "保存并刷新"),
-        saved: t$1("Settings saved", "设置已保存"),
-        confirmClearAll: t$1("Clear the whole download history?", "确定清除全部下载记录？"),
-        confirmResetAll: t$1("Reset every setting to the defaults?", "确定将所有设置恢复默认？"),
-        copied: t$1("Configuration copied to the clipboard", "配置已复制到剪贴板"),
-        done: t$1("Done", "完成")
-      };
-      const clone = (value) => JSON.parse(JSON.stringify(value ?? null));
-      function prune(layer) {
-        const out = {};
-        for (const [key, value] of Object.entries(layer)) {
-          if (value === void 0 || value === "" || value === null) continue;
-          if (typeof value === "object" && !Array.isArray(value)) {
-            const inner = prune(value);
-            if (Object.keys(inner).length) out[key] = inner;
-          } else out[key] = value;
-        }
-        return out;
-      }
-      async function showSettings(host) {
-        const saved = await host.loadOverrides();
-        const draft = { global: clone(saved.global), sites: clone(saved.sites) };
-        const profiles = host.profiles;
-        let scope = profiles.some((profile) => profile.site.id === host.currentSiteId) ? host.currentSiteId : "";
-        const { root: root2, close } = mountDialog("markify-settings");
-        const layerOf = (id) => id ? draft.sites[id] ??= {} : draft.global;
-        const profileOf = (id) => profiles.find((profile) => profile.site.id === id);
-        const inherited = (id, read, fromProfile) => {
-          if (id) {
-            const global = read(draft.global);
-            if (global !== void 0 && global !== "") return String(global);
-            return String(fromProfile(profileOf(id)) ?? "");
-          }
-          const values = [...new Set(profiles.map((profile) => String(fromProfile(profile) ?? "")))];
-          return values.length === 1 ? values[0] : t$1("each site's default", "各站点默认值");
-        };
-        async function render2() {
-          const layer = layerOf(scope);
-          const profile = scope ? profileOf(scope) : void 0;
-          const history = await host.history();
-          const agentOn = scope ? await host.agentEnabled(scope) : false;
-          const filenameRows = FILENAMES.map((key) => {
-            const label = { single: L$1.single, batch_item: L$1.batchItem, batch: L$1.batch }[key];
-            const fallback = inherited(scope, (l2) => l2.filename?.[key], (p2) => p2.filename[key]);
-            const keys = key === "batch" ? "site, type, id, date, tagname" : `title, author, id, date, site${key === "batch_item" ? ", index" : ""}`;
-            return `<label class="row"><span>${label}</span><span>
-                <input type="text" data-field="filename.${key}" value="${escape(layer.filename?.[key])}" placeholder="${escape(`${L$1.inherit} ${fallback}`)}">
-                <div class="hint">${L$1.placeholders}: ${keys.split(", ").map((k) => `{${k}}`).join(" ")}</div>
-                <div class="hint">${L$1.preview}: <span class="preview" data-preview="${key}"></span></div></span></label>`;
-          }).join("");
-          const blocks = profile ? TEMPLATE_BLOCKS.filter((block) => profile[block]?.template) : [];
-          const templates2 = blocks.length ? `<section><details><summary>${L$1.templates}</summary><p class="hint">${L$1.templatesHint}</p>
-            ${blocks.map((block) => `<label class="row"><span>${block}</span><textarea data-field="${block}.template" placeholder="${escape(profile[block].template)}">${escape(layer[block]?.template)}</textarea></label>`).join("")}
-            </details></section>` : "";
-          const fallbackMs = inherited(scope, (l2) => l2.runtime?.timeout_ms, (p2) => p2.runtime.timeout_ms);
-          const timeoutFallback = /^\d+$/.test(fallbackMs) ? String(Number(fallbackMs) / 1e3) : fallbackMs;
-          const siteCount = scope ? history.filter((entry) => entry.site === scope).length : void 0;
-          root2.innerHTML = `<style>${DIALOG_STYLE}</style>
-            <div class="overlay" part="overlay"><div class="panel" role="dialog" aria-modal="true" aria-label="${escape(L$1.title)}">
-            <header><h2>⚙️ ${L$1.title}</h2>
-                <label class="check">${L$1.scope}
-                <select data-action="scope">
-                    <option value="">${L$1.allSites}</option>
-                    ${profiles.map((p2) => `<option value="${escape(p2.site.id)}" ${p2.site.id === scope ? "selected" : ""}>${escape(p2.site.name)}${p2.site.id === host.currentSiteId ? ` (${L$1.thisSite})` : ""}</option>`).join("")}
-                </select></label>
-            </header>
-            <main>
-                ${scope ? `<section><label class="check"><input type="checkbox" data-field="enabled" ${layer.enabled === false ? "" : "checked"}> ${L$1.enabled}</label>
-                    <p class="hint">${L$1.enabledHint}</p></section>` : ""}
-                <section><h3>${L$1.filenames}</h3>${filenameRows}</section>
-                <section><h3>${L$1.network}</h3>
-                    <label class="row"><span>${L$1.timeout}</span><input type="number" min="1" max="120" step="1" data-field="runtime.timeout_ms"
-                        value="${layer.runtime?.timeout_ms ? layer.runtime.timeout_ms / 1e3 : ""}" placeholder="${escape(`${L$1.inherit} ${timeoutFallback}`)}"></label>
-                </section>
-                ${scope ? `<section><h3>${L$1.agent}</h3><p class="hint" data-status="agent">${agentOn ? L$1.agentOn : L$1.agentOff}</p>
-                    <div class="buttons"><button data-action="agent-copy">${L$1.agentCopy}</button>${agentOn ? `<button class="danger" data-action="agent-revoke">${L$1.agentRevoke}</button>` : ""}</div></section>` : ""}
-                <section><h3>${L$1.history}</h3><p class="hint" data-status="history">${L$1.historyCount(history.length, siteCount)}</p>
-                    <div class="buttons">${scope ? `<button data-action="clear-site">${L$1.clearSite}</button>` : ""}
-                    <button class="danger" data-action="clear-all">${L$1.clearAll}</button><button data-action="reset-button">${L$1.resetButton}</button><button class="primary" data-action="open-history">${L$1.manageHistory}</button></div></section>
-                ${templates2}
-                <section><h3>${L$1.config}</h3>
-                    <div class="buttons"><button data-action="export">${L$1.export}</button>
-                    ${scope ? `<button data-action="reset-site">${L$1.resetSite}</button>` : ""}<button class="danger" data-action="reset-all">${L$1.resetAll}</button></div>
-                    <textarea data-input="import" placeholder="${escape(L$1.importHint)}"></textarea>
-                    <div class="buttons"><button data-action="import">${L$1.import}</button></div>
-                </section>
-            </main>
-            <footer><span class="error" role="alert"></span><button data-action="cancel">${L$1.cancel}</button><button class="primary" data-action="save">${L$1.save}</button></footer>
-            </div></div>`;
-          updatePreviews();
-        }
-        function collect() {
-          const layer = layerOf(scope);
-          for (const input of Array.from(root2.querySelectorAll("[data-field]"))) {
-            const [group, key] = input.dataset.field.split(".");
-            let value = input instanceof HTMLInputElement && input.type === "checkbox" ? input.checked ? void 0 : false : input.value.trim();
-            if (group === "runtime" && value !== "") value = Math.round(Number(value) * 1e3);
-            if (key) layer[group] = { ...layer[group] ?? {}, [key]: value };
-            else layer[group] = value;
-          }
-          const pruned = prune(layer);
-          if (scope) {
-            if (Object.keys(pruned).length) draft.sites[scope] = pruned;
-            else delete draft.sites[scope];
-          } else draft.global = pruned;
-        }
-        function updatePreviews() {
-          const site = scope || profiles[0]?.site.id || "site";
-          for (const key of FILENAMES) {
-            const input = root2.querySelector(`[data-field="filename.${key}"]`);
-            const target = root2.querySelector(`[data-preview="${key}"]`);
-            if (!input || !target) continue;
-            const template2 = input.value.trim() || (scope ? draft.global.filename?.[key] || profileOf(scope).filename[key] : profileOf(site)?.filename[key] ?? "{title}");
-            try {
-              target.textContent = applyFilenameTemplate(template2, { ...SAMPLE, site }) + (key === "batch" ? ".zip" : ".md");
-            } catch (error2) {
-              target.textContent = error2 instanceof Error ? error2.message : String(error2);
-            }
-          }
-        }
-        const fail = (error2) => {
-          const box = root2.querySelector(".error");
-          if (box) box.textContent = error2 instanceof Error ? error2.message : String(error2);
-        };
-        const overrides = () => ({ schema_version: 1, global: prune(draft.global), sites: Object.fromEntries(Object.entries(draft.sites).map(([id, layer]) => [id, prune(layer)]).filter(([, layer]) => Object.keys(layer).length)) });
-        async function act(action) {
-          switch (action) {
-            case "cancel":
-              close();
-              return;
-            case "save":
-              collect();
-              await host.saveOverrides(overrides());
-              host.notify(L$1.saved);
-              close();
-              host.reload();
-              return;
-            case "agent-copy":
-              await host.agentCopyToken(scope);
-              break;
-            case "agent-revoke":
-              await host.agentRevoke(scope);
-              break;
-            case "clear-site":
-              await host.clearHistory(scope);
-              break;
-            case "clear-all":
-              if (!confirm(L$1.confirmClearAll)) return;
-              await host.clearHistory();
-              break;
-            case "reset-button":
-              await host.resetButtonPosition();
-              host.notify(L$1.done);
-              return;
-            case "open-history":
-              close();
-              host.openHistory();
-              return;
-            case "export":
-              collect();
-              await host.copy(JSON.stringify(overrides(), null, 2));
-              host.notify(L$1.copied);
-              return;
-            case "import": {
-              const text2 = root2.querySelector('[data-input="import"]').value;
-              const parsed = JSON.parse(text2);
-              await host.saveOverrides(parsed);
-              host.notify(L$1.saved);
-              close();
-              host.reload();
-              return;
-            }
-            case "reset-site":
-              await host.saveOverrides({ ...saved, sites: Object.fromEntries(Object.entries(saved.sites).filter(([id]) => id !== scope)) });
-              host.notify(L$1.saved);
-              close();
-              host.reload();
-              return;
-            case "reset-all":
-              if (!confirm(L$1.confirmResetAll)) return;
-              await host.saveOverrides({ schema_version: 1, global: {}, sites: {} });
-              host.notify(L$1.saved);
-              close();
-              host.reload();
-              return;
-            default:
-              return;
-          }
-          await render2();
-        }
-        root2.addEventListener("click", (event) => {
-          if (!event.isTrusted) return;
-          const target = event.target;
-          if (target.classList.contains("overlay")) {
-            close();
-            return;
-          }
-          const action = target.closest("[data-action]")?.dataset.action;
-          if (!action || action === "scope") return;
-          fail("");
-          void act(action).catch(fail);
-        });
-        root2.addEventListener("change", (event) => {
-          const target = event.target;
-          if (target.dataset.action !== "scope") return;
-          collect();
-          scope = target.value;
-          void render2().catch(fail);
-        });
-        root2.addEventListener("input", () => updatePreviews());
-        root2.addEventListener("keydown", (event) => {
-          if (event.key === "Escape") close();
-        });
-        await render2();
-      }
       function updateStatus(record2, latest = record2.check) {
         if (!latest) return { changed: false, checked: false };
         const newReplies = typeof latest.replies === "number" && typeof record2.replies === "number" && latest.replies > record2.replies ? latest.replies - record2.replies : void 0;
@@ -9795,21 +9939,367 @@ details summary { cursor: pointer; color: #d4d4d8; }
         const records = await getDownloadHistory();
         return { total: records.length, single: records.filter((r2) => r2.type === "single").length, batch: records.filter((r2) => r2.type === "batch").length };
       }
+      const HISTORY_BACKUP_KIND = "markify-download-history";
+      function isHistoryBackup(value) {
+        return typeof value === "object" && value !== null && value.kind === HISTORY_BACKUP_KIND;
+      }
+      async function exportHistory(store = storage) {
+        const records = (await getDownloadHistory(store)).sort((a2, b2) => a2.downloadedAt.localeCompare(b2.downloadedAt));
+        return { kind: HISTORY_BACKUP_KIND, version: 1, exportedAt: ( new Date()).toISOString(), records };
+      }
+      const isDate = (value) => typeof value === "string" && Number.isFinite(Date.parse(value));
+      const isCount = (value) => typeof value === "number" && Number.isInteger(value) && value >= 0;
+      function cleanRecord(value) {
+        if (typeof value !== "object" || value === null) return void 0;
+        const entry = value;
+        if (typeof entry.id !== "string" || !entry.id || typeof entry.site !== "string" || !entry.site || !isDate(entry.downloadedAt)) return void 0;
+        const record2 = {
+          id: entry.id,
+          site: entry.site,
+          title: typeof entry.title === "string" ? entry.title : entry.id,
+          downloadedAt: entry.downloadedAt,
+          type: entry.type === "batch" ? "batch" : "single"
+        };
+        if (isCount(entry.replies)) record2.replies = entry.replies;
+        if (isDate(entry.updated)) record2.updated = entry.updated;
+        const check = entry.check;
+        if (check && typeof check === "object" && isDate(check.at)) {
+          record2.check = { at: check.at, ...isCount(check.replies) ? { replies: check.replies } : {}, ...isDate(check.updated) ? { updated: check.updated } : {} };
+        }
+        return record2;
+      }
+      function parseHistoryBackup(text2) {
+        let value;
+        try {
+          value = JSON.parse(text2);
+        } catch {
+          throw new Error("This file is not JSON.");
+        }
+        if (!isHistoryBackup(value)) {
+          const settings = typeof value === "object" && value !== null && "schema_version" in value;
+          throw new Error(settings ? "This is a settings backup, not a download history. Import it in Settings." : "This is not a Markify download history file.");
+        }
+        const backup = value;
+        if (backup.version !== 1) throw new Error(`Unsupported download history version: ${String(backup.version)}`);
+        if (!Array.isArray(backup.records)) throw new Error("The download history file has no records.");
+        const records = backup.records.map(cleanRecord).filter((record2) => !!record2);
+        return { records, skipped: backup.records.length - records.length };
+      }
+      function mergeHistory(history, incoming) {
+        const result = { added: 0, updated: 0, unchanged: 0 };
+        const existing = new Map(Object.entries(history).filter(([, record2]) => record2 && typeof record2.id === "string").map(([key, record2]) => [keyFor(record2.id, record2.site), key]));
+        for (const record2 of incoming) {
+          const key = keyFor(record2.id, record2.site);
+          const storedKey = existing.get(key);
+          const current = storedKey ? history[storedKey] : void 0;
+          if (!current) {
+            history[key] = { ...record2, site: canonical(record2.site) };
+            existing.set(key, key);
+            result.added++;
+            continue;
+          }
+          const newer = Date.parse(record2.downloadedAt) > Date.parse(current.downloadedAt);
+          const base = newer ? { ...record2, site: canonical(record2.site) } : current;
+          const checks = [current.check, record2.check].filter((check2) => !!check2);
+          const check = checks.sort((a2, b2) => Date.parse(b2.at) - Date.parse(a2.at))[0];
+          const next2 = { ...base, ...check ? { check } : {} };
+          if (JSON.stringify(next2) === JSON.stringify(current)) {
+            result.unchanged++;
+            continue;
+          }
+          if (storedKey !== key) delete history[storedKey];
+          history[key] = next2;
+          result.updated++;
+        }
+        return result;
+      }
+      async function importHistory(text2, store = storage) {
+        const { records, skipped } = parseHistoryBackup(text2);
+        let result = { added: 0, updated: 0, unchanged: 0 };
+        await mutate((history) => {
+          result = mergeHistory(history, records);
+        }, store);
+        return { ...result, skipped };
+      }
       const downloadHistory = Object.freeze( Object.defineProperty({
         __proto__: null,
+        HISTORY_BACKUP_KIND,
         clearHistory,
         clearSiteHistory,
         configureHistoryProfiles,
+        exportHistory,
         getDownloadHistory,
         getDownloadStats,
+        importHistory,
         isDownloaded,
+        isHistoryBackup,
         markAsDownloaded,
         markManyAsDownloaded,
+        mergeHistory,
         normalizeHistory,
+        parseHistoryBackup,
         recordCheck,
         removeDownload,
         updateStatus
       }, Symbol.toStringTag, { value: "Module" }));
+      const TEMPLATE_BLOCKS = ["document", "frontmatter", "comments_header", "comment", "reply", "replies_gap", "supplement"];
+      const FILENAMES = ["single", "batch_item", "batch"];
+      const SAMPLE = { title: "示例标题 Example", id: "12345", author: "author", date: "2026-01-01", index: "001", type: "category", tagname: "tag" };
+      const L$1 = {
+        title: t$1("Markify Settings", "Markify 设置"),
+        scope: t$1("Applies to", "应用于"),
+        allSites: t$1("All sites (defaults)", "所有站点（默认）"),
+        thisSite: t$1("this page", "当前页面"),
+        enabled: t$1("Enable Markify on this site", "在此站点启用 Markify"),
+        enabledHint: t$1("Off: no buttons or checkboxes here until you turn it back on (the menu stays).", "关闭后此站点不显示按钮和复选框（菜单仍可用）。"),
+        filenames: t$1("File names", "文件名"),
+        single: t$1("Single thread", "单个帖子"),
+        batchItem: t$1("File inside a ZIP", "ZIP 内的文件"),
+        batch: t$1("ZIP archive", "ZIP 压缩包"),
+        inherit: t$1("Empty = use", "留空 = 使用"),
+        preview: t$1("Preview", "预览"),
+        placeholders: t$1("Placeholders", "可用占位符"),
+        network: t$1("Network", "网络"),
+        timeout: t$1("Request timeout (seconds)", "请求超时（秒）"),
+        templates: t$1("Templates (advanced)", "模板（高级）"),
+        templatesHint: t$1("Empty = the built-in template shown in grey.", "留空 = 使用灰色显示的内置模板。"),
+        agent: t$1("AI Console API", "AI 控制台 API"),
+        agentOn: t$1("On: agents with this site's token can export through window.markify.", "已开启：持有本站令牌的 AI 可通过 window.markify 导出。"),
+        agentOff: t$1("Off.", "已关闭。"),
+        agentCopy: t$1("Copy token (turns it on)", "复制令牌（同时开启）"),
+        agentRevoke: t$1("Turn off and revoke", "关闭并吊销令牌"),
+        history: t$1("Download history", "下载记录"),
+        historyCount: (all, site) => site === void 0 ? t$1(`${all} downloads`, `共 ${all} 条`) : t$1(`${site} on this site, ${all} in total`, `本站 ${site} 条，共 ${all} 条`),
+        clearSite: t$1("Clear this site", "清除本站记录"),
+        clearAll: t$1("Clear all", "清除全部记录"),
+        manageHistory: t$1("Manage and check for updates…", "管理与检查更新…"),
+        resetButton: t$1("Reset button position", "重置按钮位置"),
+        config: t$1("Settings backup", "设置备份"),
+        configHint: t$1("Only the settings on this page. The download history is backed up separately, on the Download History page.", "只包含本页的设置。下载记录单独备份，在“下载记录”页面导出/导入。"),
+        historyBackup: t$1("Back up download history…", "备份下载记录…"),
+        export: t$1("Copy settings (JSON)", "复制设置（JSON）"),
+        import: t$1("Import settings", "导入设置"),
+        importHint: t$1("Paste copied settings JSON here, then Import settings", "在此粘贴复制的设置 JSON，然后点“导入设置”"),
+        notSettings: t$1("This is a download history backup, not settings. Import it on the Download History page.", "这是下载记录备份，不是设置。请在“下载记录”页面导入。"),
+        resetSite: t$1("Reset this site", "重置本站设置"),
+        resetAll: t$1("Reset everything", "重置全部设置"),
+        cancel: t$1("Cancel", "取消"),
+        save: t$1("Save and reload", "保存并刷新"),
+        saved: t$1("Settings saved", "设置已保存"),
+        confirmClearAll: t$1("Clear the whole download history?", "确定清除全部下载记录？"),
+        confirmResetAll: t$1("Reset every setting to the defaults?", "确定将所有设置恢复默认？"),
+        copied: t$1("Settings copied to the clipboard (without the download history)", "设置已复制到剪贴板（不含下载记录）"),
+        done: t$1("Done", "完成")
+      };
+      const clone = (value) => JSON.parse(JSON.stringify(value ?? null));
+      function prune(layer) {
+        const out = {};
+        for (const [key, value] of Object.entries(layer)) {
+          if (value === void 0 || value === "" || value === null) continue;
+          if (typeof value === "object" && !Array.isArray(value)) {
+            const inner = prune(value);
+            if (Object.keys(inner).length) out[key] = inner;
+          } else out[key] = value;
+        }
+        return out;
+      }
+      async function showSettings(host) {
+        const saved = await host.loadOverrides();
+        const draft = { global: clone(saved.global), sites: clone(saved.sites) };
+        const profiles = host.profiles;
+        let scope = profiles.some((profile) => profile.site.id === host.currentSiteId) ? host.currentSiteId : "";
+        const { root: root2, close } = mountDialog("markify-settings");
+        const layerOf = (id) => id ? draft.sites[id] ??= {} : draft.global;
+        const profileOf = (id) => profiles.find((profile) => profile.site.id === id);
+        const inherited = (id, read, fromProfile) => {
+          if (id) {
+            const global = read(draft.global);
+            if (global !== void 0 && global !== "") return String(global);
+            return String(fromProfile(profileOf(id)) ?? "");
+          }
+          const values = [...new Set(profiles.map((profile) => String(fromProfile(profile) ?? "")))];
+          return values.length === 1 ? values[0] : t$1("each site's default", "各站点默认值");
+        };
+        async function render2() {
+          const layer = layerOf(scope);
+          const profile = scope ? profileOf(scope) : void 0;
+          const history = await host.history();
+          const agentOn = scope ? await host.agentEnabled(scope) : false;
+          const filenameRows = FILENAMES.map((key) => {
+            const label = { single: L$1.single, batch_item: L$1.batchItem, batch: L$1.batch }[key];
+            const fallback = inherited(scope, (l2) => l2.filename?.[key], (p2) => p2.filename[key]);
+            const keys = key === "batch" ? "site, type, id, date, tagname" : `title, author, id, date, site${key === "batch_item" ? ", index" : ""}`;
+            return `<label class="row"><span>${label}</span><span>
+                <input type="text" data-field="filename.${key}" value="${escape(layer.filename?.[key])}" placeholder="${escape(`${L$1.inherit} ${fallback}`)}">
+                <div class="hint">${L$1.placeholders}: ${keys.split(", ").map((k) => `{${k}}`).join(" ")}</div>
+                <div class="hint">${L$1.preview}: <span class="preview" data-preview="${key}"></span></div></span></label>`;
+          }).join("");
+          const blocks2 = profile ? TEMPLATE_BLOCKS.filter((block) => profile[block]?.template) : [];
+          const templates2 = blocks2.length ? `<section><details><summary>${L$1.templates}</summary><p class="hint">${L$1.templatesHint}</p>
+            ${blocks2.map((block) => `<label class="row"><span>${block}</span><textarea data-field="${block}.template" placeholder="${escape(profile[block].template)}">${escape(layer[block]?.template)}</textarea></label>`).join("")}
+            </details></section>` : "";
+          const fallbackMs = inherited(scope, (l2) => l2.runtime?.timeout_ms, (p2) => p2.runtime.timeout_ms);
+          const timeoutFallback = /^\d+$/.test(fallbackMs) ? String(Number(fallbackMs) / 1e3) : fallbackMs;
+          const siteCount = scope ? history.filter((entry) => entry.site === scope).length : void 0;
+          root2.innerHTML = `<style>${DIALOG_STYLE}</style>
+            <div class="overlay" part="overlay"><div class="panel" role="dialog" aria-modal="true" aria-label="${escape(L$1.title)}">
+            <header><h2>⚙️ ${L$1.title}</h2>
+                <label class="check">${L$1.scope}
+                <select data-action="scope">
+                    <option value="">${L$1.allSites}</option>
+                    ${profiles.map((p2) => `<option value="${escape(p2.site.id)}" ${p2.site.id === scope ? "selected" : ""}>${escape(p2.site.name)}${p2.site.id === host.currentSiteId ? ` (${L$1.thisSite})` : ""}</option>`).join("")}
+                </select></label>
+            </header>
+            <main>
+                ${scope ? `<section><label class="check"><input type="checkbox" data-field="enabled" ${layer.enabled === false ? "" : "checked"}> ${L$1.enabled}</label>
+                    <p class="hint">${L$1.enabledHint}</p></section>` : ""}
+                <section><h3>${L$1.filenames}</h3>${filenameRows}</section>
+                <section><h3>${L$1.network}</h3>
+                    <label class="row"><span>${L$1.timeout}</span><input type="number" min="1" max="120" step="1" data-field="runtime.timeout_ms"
+                        value="${layer.runtime?.timeout_ms ? layer.runtime.timeout_ms / 1e3 : ""}" placeholder="${escape(`${L$1.inherit} ${timeoutFallback}`)}"></label>
+                </section>
+                ${scope ? `<section><h3>${L$1.agent}</h3><p class="hint" data-status="agent">${agentOn ? L$1.agentOn : L$1.agentOff}</p>
+                    <div class="buttons"><button data-action="agent-copy">${L$1.agentCopy}</button>${agentOn ? `<button class="danger" data-action="agent-revoke">${L$1.agentRevoke}</button>` : ""}</div></section>` : ""}
+                <section><h3>${L$1.history}</h3><p class="hint" data-status="history">${L$1.historyCount(history.length, siteCount)}</p>
+                    <div class="buttons">${scope ? `<button data-action="clear-site">${L$1.clearSite}</button>` : ""}
+                    <button class="danger" data-action="clear-all">${L$1.clearAll}</button><button data-action="reset-button">${L$1.resetButton}</button><button class="primary" data-action="open-history">${L$1.manageHistory}</button></div></section>
+                ${templates2}
+                <section><h3>${L$1.config}</h3><p class="hint">${L$1.configHint}</p>
+                    <div class="buttons"><button data-action="export">${L$1.export}</button>
+                    ${scope ? `<button data-action="reset-site">${L$1.resetSite}</button>` : ""}<button class="danger" data-action="reset-all">${L$1.resetAll}</button></div>
+                    <textarea data-input="import" placeholder="${escape(L$1.importHint)}"></textarea>
+                    <div class="buttons"><button data-action="import">${L$1.import}</button><button data-action="open-history">${L$1.historyBackup}</button></div>
+                </section>
+            </main>
+            <footer><span class="error" role="alert"></span><button data-action="cancel">${L$1.cancel}</button><button class="primary" data-action="save">${L$1.save}</button></footer>
+            </div></div>`;
+          updatePreviews();
+        }
+        function collect() {
+          const layer = layerOf(scope);
+          for (const input of Array.from(root2.querySelectorAll("[data-field]"))) {
+            const [group, key] = input.dataset.field.split(".");
+            let value = input instanceof HTMLInputElement && input.type === "checkbox" ? input.checked ? void 0 : false : input.value.trim();
+            if (group === "runtime" && value !== "") value = Math.round(Number(value) * 1e3);
+            if (key) layer[group] = { ...layer[group] ?? {}, [key]: value };
+            else layer[group] = value;
+          }
+          const pruned = prune(layer);
+          if (scope) {
+            if (Object.keys(pruned).length) draft.sites[scope] = pruned;
+            else delete draft.sites[scope];
+          } else draft.global = pruned;
+        }
+        function updatePreviews() {
+          const site = scope || profiles[0]?.site.id || "site";
+          for (const key of FILENAMES) {
+            const input = root2.querySelector(`[data-field="filename.${key}"]`);
+            const target = root2.querySelector(`[data-preview="${key}"]`);
+            if (!input || !target) continue;
+            const template2 = input.value.trim() || (scope ? draft.global.filename?.[key] || profileOf(scope).filename[key] : profileOf(site)?.filename[key] ?? "{title}");
+            try {
+              target.textContent = applyFilenameTemplate(template2, { ...SAMPLE, site }) + (key === "batch" ? ".zip" : ".md");
+            } catch (error2) {
+              target.textContent = error2 instanceof Error ? error2.message : String(error2);
+            }
+          }
+        }
+        const fail = (error2) => {
+          const box = root2.querySelector(".error");
+          if (box) box.textContent = error2 instanceof Error ? error2.message : String(error2);
+        };
+        const overrides = () => ({ schema_version: 1, global: prune(draft.global), sites: Object.fromEntries(Object.entries(draft.sites).map(([id, layer]) => [id, prune(layer)]).filter(([, layer]) => Object.keys(layer).length)) });
+        async function act(action) {
+          switch (action) {
+            case "cancel":
+              close();
+              return;
+            case "save":
+              collect();
+              await host.saveOverrides(overrides());
+              host.notify(L$1.saved);
+              close();
+              host.reload();
+              return;
+            case "agent-copy":
+              await host.agentCopyToken(scope);
+              break;
+            case "agent-revoke":
+              await host.agentRevoke(scope);
+              break;
+            case "clear-site":
+              await host.clearHistory(scope);
+              break;
+            case "clear-all":
+              if (!confirm(L$1.confirmClearAll)) return;
+              await host.clearHistory();
+              break;
+            case "reset-button":
+              await host.resetButtonPosition();
+              host.notify(L$1.done);
+              return;
+            case "open-history":
+              close();
+              host.openHistory();
+              return;
+            case "export":
+              collect();
+              await host.copy(JSON.stringify(overrides(), null, 2));
+              host.notify(L$1.copied);
+              return;
+            case "import": {
+              const text2 = root2.querySelector('[data-input="import"]').value;
+              const parsed = JSON.parse(text2);
+              if (isHistoryBackup(parsed)) throw new Error(L$1.notSettings);
+              await host.saveOverrides(parsed);
+              host.notify(L$1.saved);
+              close();
+              host.reload();
+              return;
+            }
+            case "reset-site":
+              await host.saveOverrides({ ...saved, sites: Object.fromEntries(Object.entries(saved.sites).filter(([id]) => id !== scope)) });
+              host.notify(L$1.saved);
+              close();
+              host.reload();
+              return;
+            case "reset-all":
+              if (!confirm(L$1.confirmResetAll)) return;
+              await host.saveOverrides({ schema_version: 1, global: {}, sites: {} });
+              host.notify(L$1.saved);
+              close();
+              host.reload();
+              return;
+            default:
+              return;
+          }
+          await render2();
+        }
+        root2.addEventListener("click", (event) => {
+          if (!event.isTrusted) return;
+          const target = event.target;
+          if (target.classList.contains("overlay")) {
+            close();
+            return;
+          }
+          const action = target.closest("[data-action]")?.dataset.action;
+          if (!action || action === "scope") return;
+          fail("");
+          void act(action).catch(fail);
+        });
+        root2.addEventListener("change", (event) => {
+          const target = event.target;
+          if (target.dataset.action !== "scope") return;
+          collect();
+          scope = target.value;
+          void render2().catch(fail);
+        });
+        root2.addEventListener("input", () => updatePreviews());
+        root2.addEventListener("keydown", (event) => {
+          if (event.key === "Escape") close();
+        });
+        await render2();
+      }
       const L = {
         title: t$1("Download history", "下载记录"),
         site: t$1("Site", "站点"),
@@ -9831,7 +10321,19 @@ details summary { cursor: pointer; color: #d4d4d8; }
         empty: t$1("Nothing here yet.", "还没有记录。"),
         close: t$1("Close", "关闭"),
         downloaded: t$1("Downloaded", "下载于"),
-        checkedAt: t$1("checked", "检查于")
+        checkedAt: t$1("checked", "检查于"),
+        backup: t$1("Backup", "备份"),
+        backupHint: t$1(
+          "The download history is not part of the settings backup. Export it to a file to move it to another browser or computer; importing adds to the history here and never deletes.",
+          "下载记录不在“设置”的配置备份里。导出成文件，就能搬到别的浏览器或电脑；导入只会合并进现有记录，不会删除。"
+        ),
+        exportFile: t$1("Export history (file)", "导出下载记录（文件）"),
+        importFile: t$1("Import history…", "导入下载记录…"),
+        exported: (count2) => t$1(`Exported ${count2} threads`, `已导出 ${count2} 条`),
+        imported: (r2) => t$1(
+          `Imported: ${r2.added} new, ${r2.updated} updated, ${r2.unchanged} already here${r2.skipped ? `, ${r2.skipped} invalid skipped` : ""}`,
+          `已导入：新增 ${r2.added} 条，更新 ${r2.updated} 条，${r2.unchanged} 条已存在${r2.skipped ? `，跳过 ${r2.skipped} 条无效记录` : ""}`
+        )
       };
       const when = (iso) => iso ? new Date(iso).toLocaleString(void 0, { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }) : "";
       const EXTRA_STYLE = `
@@ -9850,6 +10352,7 @@ td.actions button { padding: 4px 10px; font-size: 12px; }
 .chip.fresh { background: #052e16; color: #86efac; }
 .chip.unknown { background: #27272a; color: #a1a1aa; }
 .chip.failed { background: #450a0a; color: #fca5a5; }
+.backup { margin-top: 16px; border-top: 1px solid #27272a; padding-top: 4px; }
 `;
       async function showHistory(host) {
         const { root: root2, close: unmount } = mountDialog("markify-history");
@@ -9858,6 +10361,7 @@ td.actions button { padding: 4px 10px; font-size: 12px; }
         let records = [];
         const failures = new Map();
         let checking;
+        let lastBackup = "";
         const close = () => {
           checking?.abort();
           unmount();
@@ -9904,6 +10408,10 @@ td.actions button { padding: 4px 10px; font-size: 12px; }
                 <p class="hint" data-status="summary">${L.summary(ofSite.length, changed, unchecked)}</p>
                 ${site && !canCheck ? `<p class="hint">${escape(L.checkHere(nameOf(site)))}</p>` : ""}
                 ${list.length ? `<table><tbody>${list.map(row).join("")}</tbody></table>` : `<p class="hint">${L.empty}</p>`}
+                <section class="backup"><h3>${L.backup}</h3><p class="hint">${L.backupHint}</p>
+                    <div class="buttons"><button data-action="export-file">${L.exportFile}</button><button data-action="import-file">${L.importFile}</button>
+                    <input type="file" accept=".json,application/json" data-input="import-file" hidden></div>
+                    <p class="hint" role="status" data-status="backup">${escape(lastBackup)}</p></section>
             </main>
             <footer><span class="error" role="alert"></span><button data-action="close">${L.close}</button></footer>
             </div></div>`;
@@ -9961,10 +10469,30 @@ td.actions button { padding: 4px 10px; font-size: 12px; }
             case "remove":
               if (record2) await host.remove(record2.site, record2.id);
               break;
+            case "export-file":
+              backupStatus(L.exported(await host.exportHistory()));
+              return;
+case "import-file":
+              root2.querySelector('[data-input="import-file"]').click();
+              return;
             default:
               return;
           }
           await render2();
+        }
+        const backupStatus = (text2) => {
+          lastBackup = text2;
+          const status = root2.querySelector('[data-status="backup"]');
+          if (status) status.textContent = text2;
+        };
+        async function importFile(input) {
+          const file = input.files?.[0];
+          input.value = "";
+          if (!file) return;
+          const result = await host.importHistory(await file.text());
+          await render2();
+          backupStatus(L.imported(result));
+          host.notify(L.imported(result));
         }
         const fail = (error2) => {
           const box = root2.querySelector(".error");
@@ -9982,6 +10510,10 @@ td.actions button { padding: 4px 10px; font-size: 12px; }
         });
         root2.addEventListener("change", (event) => {
           const target = event.target;
+          if (target.dataset.input === "import-file") {
+            void importFile(target).catch(fail);
+            return;
+          }
           if (target.dataset.action === "site") site = target.value;
           else if (target.dataset.action === "filter") filter = target.value;
           else return;
@@ -9993,9 +10525,9 @@ td.actions button { padding: 4px 10px; font-size: 12px; }
         });
         await render2();
       }
-      var define_MARKIFY_CONFIG_default = { adapters: { "1point3acres": { schema_version: 1, engine: "forum-json", transport: "gm", enabled: true, site: { id: "1point3acres", name: "1Point3Acres", base_url: "https://www.1point3acres.com", origins: ["https://www.1point3acres.com", "https://instant.1point3acres.com"], aliases: ["1point3acres"] }, activation: { matches: ["https://www.1point3acres.com/home/*", "https://www.1point3acres.com/bbs/thread-*", "https://instant.1point3acres.com/thread/*"], connect: ["api.1point3acres.com"] }, routes: [{ name: "discover", kind: "listing", pattern: "^/home/discover/([^/]+)/?$", id_group: 1, origins: ["https://www.1point3acres.com"], query_keys: ["page", "sort", "order", "tab", "type"] }, { name: "forum", kind: "listing", pattern: "^/home/forum/([^/]+)/?$", id_group: 1, origins: ["https://www.1point3acres.com"], query_keys: ["page", "sort", "order", "tab", "type"] }, { name: "tag", kind: "listing", pattern: "^/home/tag/([^/]+)/?$", id_group: 1, origins: ["https://www.1point3acres.com"], query_keys: ["page", "sort", "order", "tab", "type"] }, { name: "thread", kind: "thread", pattern: "^/home/thread/(\\d+)/?$", id_group: 1, origins: ["https://www.1point3acres.com"] }, { name: "pins", kind: "thread", pattern: "^/home/pins/(\\d+)/?$", id_group: 1, origins: ["https://www.1point3acres.com"] }, { name: "bbs-thread", kind: "thread", pattern: "^/bbs/thread-(\\d+)-\\d+-\\d+\\.html$", id_group: 1, origins: ["https://www.1point3acres.com"] }, { name: "instant-thread", kind: "thread", pattern: "^/thread/(\\d+)/?$", id_group: 1, origins: ["https://instant.1point3acres.com"] }, { name: "home", kind: "entry", pattern: "^/home/?$", origins: ["https://www.1point3acres.com"] }], batch: { layouts: [{ name: "forum-thread-items", route_names: ["discover", "forum", "tag"], root_selector: "main", row_selector: '[data-sentry-component="ForumThreadItem"]', link_selector: 'a[href*="/home/thread/"]:has(h3), a[href*="/home/pins/"]:has(h3)', title_selector: "h3", title_attribute: "title", exclude_selectors: ["aside", "[data-ad]"] }, { name: "legacy-home-thread-items", route_names: ["forum", "tag"], root_selector: "main", row_selector: '[data-sentry-component="HomeThreadItem"]', link_selector: 'a[href*="/home/pins/"]', title_selector: "h3", exclude_selectors: ["aside", "[data-ad]"] }], label_selector: "main h1" }, runtime: { poll_ms: 500, debounce_ms: 100, timeout_ms: 3e4 }, api: { thread_endpoint: "https://api.1point3acres.com/api/v3/home-threads/{thread_id}", posts_endpoint: "https://api.1point3acres.com/api/threads/{thread_id}/nested-posts?ps={page_size}&order={order}&pg={page}", nested_endpoint: "https://api.1point3acres.com/api/posts/{post_id}/nested-posts?ps={page_size}&pg={page}", max_pages: 100, page_size: 20, order: "time_asc", content_format: "bbcode", id_extraction: { patterns: ["thread-(\\d+)", "/pins/(\\d+)", "/thread/(\\d+)"] }, response: { success_field: "errno", success_value: 0, data_field: "thread", posts_field: "posts" }, fields: { title: "subject", author: "author", content: "message_bbcode", posted_at: "dateline", updated_at: "lastpost", views: "views", replies: "replies", favorites: "favtimes", attachments: "attachment_list", post: { id: "pid", author: "author", content: "message_bbcode", posted_at: "dateline", children: "replies.data", children_count: "replies.count", attachments: "attachment_list" }, attachment: { id: "aid", url: "url", name: "filename", image: "isimage" } } }, metadata: { tags: ["1point3acres", "forum"], source_url: "https://www.1point3acres.com/bbs/thread-{thread_id}-1-1.html" }, delimiter: "---", frontmatter: { template: '---\ntitle: "{title}"\nauthor: {author}\nposted_at: {posted_at}\nupdated_at: {updated_at}\ndownloaded_at: {downloaded_at}\nsource: {url}\nviews: {views}\nreplies: {replies}\nfavorites: {favorites}\ntags:\n  - 1point3acres\n  - forum\n---\n' }, document: { template: "{frontmatter}\n# {title}\n\n**Author:** {author} | **Date:** {date}\n\n---\n\n{content}\n\n---\n\n**Views:** {views} | **Replies:** {replies} | **Favorites:** {favorites}\n\n{comments}" }, comment: { template: "**{author}** - *{date}*\n\n{content}\n\n{nested}{delimiter}\n" }, comments_header: { template: "\n{delimiter}\n\n## Comments ({count})\n" }, reply: { template: "> **{author}** - *{date}*\n>\n{content}\n" }, replies_gap: { template: "> *{missing} more replies are not included ({reason}).*\n" }, filename: { single: "{title}", batch_item: "{id} - {title}", batch: "{site}-{type}-{tagname}-{date}" } }, linuxdo: { schema_version: 1, engine: "discourse-raw", transport: "fetch", enabled: true, site: { id: "linuxdo", name: "LINUX DO", base_url: "https://linux.do", origins: ["https://linux.do"], aliases: ["linux.do", "LinuxDo"] }, activation: { matches: ["https://linux.do/*"], connect: ["self"] }, routes: [{ name: "thread", kind: "thread", pattern: "^/t/(?:[^/]+/)?(\\d+)(?:/\\d+)?/?$", id_group: 1 }, { name: "category", kind: "listing", pattern: "^/c/([^/]+)(?:/[^/]+)*/?$", id_group: 1, query_keys: ["page", "order", "ascending", "status", "q"] }, { name: "tag", kind: "listing", pattern: "^/tags?/([^/]+)/?$", id_group: 1, query_keys: ["page", "order", "ascending"] }, { name: "search", kind: "listing", pattern: "^/search/?$", query_keys: ["q", "page", "expanded"] }, { name: "latest", kind: "listing", pattern: "^/(latest|new|top|hot)/?$", id_group: 1, query_keys: ["order", "ascending", "period", "page"] }, { name: "home", kind: "entry", pattern: "^/(?:categories)?/?$" }], batch: { layouts: [{ name: "topic-list", route_names: ["category", "tag", "latest"], root_selector: "#main-outlet", row_selector: "tr.topic-list-item", link_selector: 'a.title[href*="/t/"], a.raw-topic-link[href*="/t/"]', exclude_selectors: ["aside"], activity_selector: ".activity .relative-date, .age .relative-date", activity_attribute: "data-time" }, { name: "search-results", route_names: ["search"], root_selector: "#main-outlet", row_selector: ".fps-result", link_selector: 'a.search-link[href*="/t/"]', title_selector: ".topic-title", exclude_selectors: ["aside"] }], label_selector: "h1" }, runtime: { poll_ms: 500, debounce_ms: 100, timeout_ms: 3e4 }, api: { raw_endpoint: "{base_url}/raw/{topic_id}?page={page}", json_endpoint: "{base_url}/t/{topic_id}.json", max_pages: 100, page_size: 20, page_delay: { min_ms: 200, max_ms: 200, jitter: 0 }, request: { credentials: true, accept: "text/plain" } }, metadata: { title_cleanup: "[\\s\\-]+LINUX DO$", title_selectors: ["#topic-title .fancy-title", "#topic-title h1"], tags: ["linuxdo", "forum"], source_url: "{base_url}/t/{topic_id}" }, page_separator: "\n\n---\n\n", delimiter: "---", filename: { single: "{title}", batch_item: "{id} - {title}", batch: "{site}-{type}-{tagname}-{date}" } }, uscardforum: { schema_version: 1, engine: "discourse-raw", transport: "fetch", enabled: true, site: { id: "uscardforum", name: "US Card Forum", base_url: "https://www.uscardforum.com", origins: ["https://www.uscardforum.com"], aliases: ["USCardForum"] }, activation: { matches: ["https://www.uscardforum.com/*"], connect: ["self"] }, routes: [{ name: "thread", kind: "thread", pattern: "^/t/(?:[^/]+/)?(\\d+)(?:/\\d+)?/?$", id_group: 1 }, { name: "category", kind: "listing", pattern: "^/c/([^/]+)(?:/[^/]+)*/?$", id_group: 1, query_keys: ["page", "order", "ascending", "status", "q"] }, { name: "tag", kind: "listing", pattern: "^/tags?/([^/]+)/?$", id_group: 1, query_keys: ["page", "order", "ascending"] }, { name: "search", kind: "listing", pattern: "^/search/?$", query_keys: ["q", "page", "expanded"] }, { name: "latest", kind: "listing", pattern: "^/(latest|new|top|hot)/?$", id_group: 1, query_keys: ["order", "ascending", "period", "page"] }, { name: "home", kind: "entry", pattern: "^/(?:categories)?/?$" }], batch: { layouts: [{ name: "topic-list", route_names: ["category", "tag", "latest"], root_selector: "#main-outlet", row_selector: "tr.topic-list-item", link_selector: 'a.title[href*="/t/"], a.raw-topic-link[href*="/t/"]', exclude_selectors: ["aside"], activity_selector: ".activity .relative-date, .age .relative-date", activity_attribute: "data-time" }, { name: "search-results", route_names: ["search"], root_selector: "#main-outlet", row_selector: ".fps-result", link_selector: 'a.search-link[href*="/t/"]', title_selector: ".topic-title", exclude_selectors: ["aside"] }], label_selector: "h1" }, runtime: { poll_ms: 500, debounce_ms: 100, timeout_ms: 3e4 }, api: { raw_endpoint: "{base_url}/raw/{topic_id}?page={page}", json_endpoint: "{base_url}/t/{topic_id}.json", max_pages: 100, page_size: 20, page_delay: { min_ms: 100, max_ms: 100, jitter: 0 }, request: { credentials: true, accept: "text/plain" }, id_extraction: { patterns: ["/t/[^/]+/(\\d+)", "/t/(\\d+)"] } }, metadata: { title_cleanup: "[\\s\\-]+(美国信用卡指南|US Card Forum)$", title_selectors: ["#topic-title .fancy-title", "#topic-title h1"], tags: ["uscardforum", "forum", "credit-cards"], source_url: "{base_url}/t/{topic_id}" }, page_separator: "\n\n---\n\n", delimiter: "---", filename: { single: "{title}", batch_item: "{id} - {title}", batch: "{site}-{type}-{tagname}-{date}" } } }, templates: { document: { enabled: true, template: "{frontmatter}\n\n{content}\n" }, frontmatter: { enabled: true, fields: ["author", "date", "description", "downloaded", "source", "tags", "title"] }, content: { separator: "\n\n---\n\n" }, comment: { enabled: true, template: "## Comment {index} - {author}\n**Posted:** {date}\n\n{content}\n" }, filename: { single: "[{id}] {title}", batch_item: "{index} - [{id}] {title}", batch: "[{date}] [{site}] [{type}] [{id}] {tagname}" } } };
+      var define_MARKIFY_CONFIG_default = { adapters: { "1point3acres": { schema_version: 1, engine: "forum-json", transport: "gm", enabled: true, site: { id: "1point3acres", name: "1Point3Acres", base_url: "https://www.1point3acres.com", origins: ["https://www.1point3acres.com", "https://instant.1point3acres.com"], aliases: ["1point3acres"] }, activation: { matches: ["https://www.1point3acres.com/home/*", "https://www.1point3acres.com/bbs/thread-*", "https://instant.1point3acres.com/thread/*"], connect: ["api.1point3acres.com"] }, routes: [{ name: "discover", kind: "listing", pattern: "^/home/discover/([^/]+)/?$", id_group: 1, origins: ["https://www.1point3acres.com"], query_keys: ["page", "sort", "order", "tab", "type"] }, { name: "forum", kind: "listing", pattern: "^/home/forum/([^/]+)/?$", id_group: 1, origins: ["https://www.1point3acres.com"], query_keys: ["page", "sort", "order", "tab", "type"] }, { name: "tag", kind: "listing", pattern: "^/home/tag/([^/]+)/?$", id_group: 1, origins: ["https://www.1point3acres.com"], query_keys: ["page", "sort", "order", "tab", "type"] }, { name: "thread", kind: "thread", pattern: "^/home/thread/(\\d+)/?$", id_group: 1, origins: ["https://www.1point3acres.com"] }, { name: "pins", kind: "thread", pattern: "^/home/pins/(\\d+)/?$", id_group: 1, origins: ["https://www.1point3acres.com"] }, { name: "bbs-thread", kind: "thread", pattern: "^/bbs/thread-(\\d+)-\\d+-\\d+\\.html$", id_group: 1, origins: ["https://www.1point3acres.com"] }, { name: "instant-thread", kind: "thread", pattern: "^/thread/(\\d+)/?$", id_group: 1, origins: ["https://instant.1point3acres.com"] }, { name: "home", kind: "entry", pattern: "^/home/?$", origins: ["https://www.1point3acres.com"] }], batch: { layouts: [{ name: "forum-thread-items", route_names: ["discover", "forum", "tag"], root_selector: "main", row_selector: '[data-sentry-component="ForumThreadItem"]', link_selector: 'a[href*="/home/thread/"]:has(h3), a[href*="/home/pins/"]:has(h3)', title_selector: "h3", title_attribute: "title", exclude_selectors: ["aside", "[data-ad]"] }, { name: "legacy-home-thread-items", route_names: ["forum", "tag"], root_selector: "main", row_selector: '[data-sentry-component="HomeThreadItem"]', link_selector: 'a[href*="/home/pins/"]', title_selector: "h3", exclude_selectors: ["aside", "[data-ad]"] }], label_selector: "main h1" }, runtime: { poll_ms: 500, debounce_ms: 100, timeout_ms: 3e4 }, api: { thread_endpoint: "https://api.1point3acres.com/api/v3/home-threads/{thread_id}", posts_endpoint: "https://api.1point3acres.com/api/threads/{thread_id}/nested-posts?ps={page_size}&order={order}&pg={page}", nested_endpoint: "https://api.1point3acres.com/api/posts/{post_id}/nested-posts?ps={page_size}&pg={page}", max_pages: 100, page_size: 20, order: "time_asc", content_format: "bbcode", id_extraction: { patterns: ["thread-(\\d+)", "/pins/(\\d+)", "/thread/(\\d+)"] }, response: { success_field: "errno", success_value: 0, data_field: "thread", posts_field: "posts" }, fields: { title: "subject", author: "author", content: "message_bbcode", posted_at: "dateline", updated_at: "lastpost", views: "views", replies: "replies", favorites: "favtimes", attachments: "attachment_list", post: { id: "pid", author: "author", content: "message_bbcode", posted_at: "dateline", children: "replies.data", children_count: "replies.count", attachments: "attachment_list" }, attachment: { id: "aid", url: "url", name: "filename", image: "isimage" } } }, metadata: { tags: ["1point3acres", "forum"], source_url: "https://www.1point3acres.com/bbs/thread-{thread_id}-1-1.html" }, delimiter: "---", frontmatter: { template: '---\ntitle: "{title}"\nauthor: {author}\nposted_at: {posted_at}\nupdated_at: {updated_at}\ndownloaded_at: {downloaded_at}\nsource: {url}\nviews: {views}\nreplies: {replies}\nfavorites: {favorites}\ntags:\n  - 1point3acres\n  - forum\n---\n' }, document: { template: "{frontmatter}\n# {title}\n\n**Author:** {author} | **Date:** {date}\n\n---\n\n{content}\n\n---\n\n**Views:** {views} | **Replies:** {replies} | **Favorites:** {favorites}\n\n{comments}" }, comment: { template: "**{author}** - *{date}*\n\n{content}\n\n{nested}{delimiter}\n" }, comments_header: { template: "\n{delimiter}\n\n## Comments ({count})\n" }, reply: { template: "> **{author}** - *{date}*\n>\n{content}\n" }, replies_gap: { template: "> *{missing} more replies are not included ({reason}).*\n" }, filename: { single: "{title}", batch_item: "{id} - {title}", batch: "{site}-{type}-{tagname}-{date}" } }, linuxdo: { schema_version: 1, engine: "discourse-raw", transport: "fetch", enabled: true, site: { id: "linuxdo", name: "LINUX DO", base_url: "https://linux.do", origins: ["https://linux.do"], aliases: ["linux.do", "LinuxDo"] }, activation: { matches: ["https://linux.do/*"], connect: ["self"] }, routes: [{ name: "thread", kind: "thread", pattern: "^/t/(?:[^/]+/)?(\\d+)(?:/\\d+)?/?$", id_group: 1 }, { name: "category", kind: "listing", pattern: "^/c/([^/]+)(?:/[^/]+)*/?$", id_group: 1, query_keys: ["page", "order", "ascending", "status", "q"] }, { name: "tag", kind: "listing", pattern: "^/tags?/([^/]+)/?$", id_group: 1, query_keys: ["page", "order", "ascending"] }, { name: "search", kind: "listing", pattern: "^/search/?$", query_keys: ["q", "page", "expanded"] }, { name: "latest", kind: "listing", pattern: "^/(latest|new|top|hot)/?$", id_group: 1, query_keys: ["order", "ascending", "period", "page"] }, { name: "home", kind: "entry", pattern: "^/(?:categories)?/?$" }], batch: { layouts: [{ name: "topic-list", route_names: ["category", "tag", "latest"], root_selector: "#main-outlet", row_selector: "tr.topic-list-item", link_selector: 'a.title[href*="/t/"], a.raw-topic-link[href*="/t/"]', exclude_selectors: ["aside"], activity_selector: ".activity .relative-date, .age .relative-date", activity_attribute: "data-time" }, { name: "search-results", route_names: ["search"], root_selector: "#main-outlet", row_selector: ".fps-result", link_selector: 'a.search-link[href*="/t/"]', title_selector: ".topic-title", exclude_selectors: ["aside"] }], label_selector: "h1" }, runtime: { poll_ms: 500, debounce_ms: 100, timeout_ms: 3e4 }, api: { raw_endpoint: "{base_url}/raw/{topic_id}?page={page}", json_endpoint: "{base_url}/t/{topic_id}.json", max_pages: 100, page_size: 20, page_delay: { min_ms: 200, max_ms: 200, jitter: 0 }, request: { credentials: true, accept: "text/plain" } }, metadata: { title_cleanup: "[\\s\\-]+LINUX DO$", title_selectors: ["#topic-title .fancy-title", "#topic-title h1"], tags: ["linuxdo", "forum"], source_url: "{base_url}/t/{topic_id}" }, page_separator: "\n\n---\n\n", delimiter: "---", filename: { single: "{title}", batch_item: "{id} - {title}", batch: "{site}-{type}-{tagname}-{date}" } }, reddit: { schema_version: 1, engine: "reddit-json", transport: "gm", enabled: true, site: { id: "reddit", name: "Reddit", base_url: "https://www.reddit.com", origins: ["https://www.reddit.com", "https://old.reddit.com"], aliases: ["reddit.com"] }, activation: { matches: ["https://www.reddit.com/*", "https://old.reddit.com/*"], connect: ["www.reddit.com"] }, routes: [{ name: "thread", kind: "thread", pattern: "^/(?:r|u|user)/[^/]+/comments/([a-z0-9]+)(?:/[^/]*(?:/[a-z0-9]+)?)?/?$", id_group: 1 }, { name: "short-thread", kind: "thread", pattern: "^/comments/([a-z0-9]+)(?:/[^/]*)?/?$", id_group: 1 }, { name: "subreddit", kind: "listing", pattern: "^/r/([^/]+)(?:/(?:hot|new|top|rising|controversial|best))?/?$", id_group: 1, query_keys: ["t", "after", "count"] }, { name: "user", kind: "listing", pattern: "^/(?:u|user)/([^/]+)(?:/submitted)?/?$", id_group: 1, query_keys: ["sort", "t", "after", "count"] }, { name: "home", kind: "listing", pattern: "^/(?:(?:hot|new|top|rising|best)/?)?$", query_keys: ["t", "after", "count"] }], batch: { layouts: [{ name: "shreddit-feed", route_names: ["subreddit", "user", "home"], root_selector: "main", row_selector: "article:has(shreddit-post)", link_selector: 'shreddit-post a[slot="full-post-link"], shreddit-post a[slot="title"]', title_selector: "shreddit-post", title_attribute: "post-title", exclude_selectors: ["#right-sidebar-container", "aside"] }, { name: "old-sitetable", route_names: ["subreddit", "user", "home"], root_selector: "#siteTable", row_selector: ".thing.link", link_selector: "a.comments", title_selector: "a.title", exclude_selectors: [".promoted", ".side"] }] }, runtime: { poll_ms: 500, debounce_ms: 100, timeout_ms: 3e4 }, api: { json_endpoint: "{base_url}/by_id/t3_{thread_id}.json?raw_json=1", thread_endpoint: "{base_url}/comments/{thread_id}.json?raw_json=1&limit=500", posts_endpoint: "{base_url}/api/morechildren.json?api_type=json&raw_json=1&link_id=t3_{thread_id}&children={children}", nested_endpoint: "{base_url}/comments/{thread_id}/_/{post_id}.json?raw_json=1&limit=500", max_pages: 20, page_size: 20, page_delay: { min_ms: 1e3, max_ms: 2e3, jitter: 0 }, request: { credentials: true, accept: "application/json" } }, metadata: { title_cleanup: "\\s:\\s(?:r/)?[\\w-]+$", title_selectors: ['h1[slot="title"]', ".top-matter a.title"], tags: ["reddit"], source_url: "{base_url}/comments/{thread_id}" }, delimiter: "---", comment: { template: "**u/{author}** · {score} points · *{date}*\n\n{content}\n" }, comments_header: { template: "\n{delimiter}\n\n## Comments ({count})\n" }, filename: { single: "{title}", batch_item: "{id} - {title}", batch: "{site}-{type}-{tagname}-{date}" } }, uscardforum: { schema_version: 1, engine: "discourse-raw", transport: "fetch", enabled: true, site: { id: "uscardforum", name: "US Card Forum", base_url: "https://www.uscardforum.com", origins: ["https://www.uscardforum.com"], aliases: ["USCardForum"] }, activation: { matches: ["https://www.uscardforum.com/*"], connect: ["self"] }, routes: [{ name: "thread", kind: "thread", pattern: "^/t/(?:[^/]+/)?(\\d+)(?:/\\d+)?/?$", id_group: 1 }, { name: "category", kind: "listing", pattern: "^/c/([^/]+)(?:/[^/]+)*/?$", id_group: 1, query_keys: ["page", "order", "ascending", "status", "q"] }, { name: "tag", kind: "listing", pattern: "^/tags?/([^/]+)/?$", id_group: 1, query_keys: ["page", "order", "ascending"] }, { name: "search", kind: "listing", pattern: "^/search/?$", query_keys: ["q", "page", "expanded"] }, { name: "latest", kind: "listing", pattern: "^/(latest|new|top|hot)/?$", id_group: 1, query_keys: ["order", "ascending", "period", "page"] }, { name: "home", kind: "entry", pattern: "^/(?:categories)?/?$" }], batch: { layouts: [{ name: "topic-list", route_names: ["category", "tag", "latest"], root_selector: "#main-outlet", row_selector: "tr.topic-list-item", link_selector: 'a.title[href*="/t/"], a.raw-topic-link[href*="/t/"]', exclude_selectors: ["aside"], activity_selector: ".activity .relative-date, .age .relative-date", activity_attribute: "data-time" }, { name: "search-results", route_names: ["search"], root_selector: "#main-outlet", row_selector: ".fps-result", link_selector: 'a.search-link[href*="/t/"]', title_selector: ".topic-title", exclude_selectors: ["aside"] }], label_selector: "h1" }, runtime: { poll_ms: 500, debounce_ms: 100, timeout_ms: 3e4 }, api: { raw_endpoint: "{base_url}/raw/{topic_id}?page={page}", json_endpoint: "{base_url}/t/{topic_id}.json", max_pages: 100, page_size: 20, page_delay: { min_ms: 100, max_ms: 100, jitter: 0 }, request: { credentials: true, accept: "text/plain" }, id_extraction: { patterns: ["/t/[^/]+/(\\d+)", "/t/(\\d+)"] } }, metadata: { title_cleanup: "[\\s\\-]+(美国信用卡指南|US Card Forum)$", title_selectors: ["#topic-title .fancy-title", "#topic-title h1"], tags: ["uscardforum", "forum", "credit-cards"], source_url: "{base_url}/t/{topic_id}" }, page_separator: "\n\n---\n\n", delimiter: "---", filename: { single: "{title}", batch_item: "{id} - {title}", batch: "{site}-{type}-{tagname}-{date}" } }, v2ex: { schema_version: 1, engine: "v2ex-api", transport: "gm", enabled: true, site: { id: "v2ex", name: "V2EX", base_url: "https://www.v2ex.com", origins: ["https://www.v2ex.com", "https://v2ex.com"], aliases: ["v2ex.com"] }, activation: { matches: ["https://www.v2ex.com/*", "https://v2ex.com/*"], connect: ["www.v2ex.com"] }, routes: [{ name: "thread", kind: "thread", pattern: "^/t/(\\d+)/?$", id_group: 1 }, { name: "node", kind: "listing", pattern: "^/go/([^/]+)/?$", id_group: 1, query_keys: ["p"] }, { name: "tag", kind: "listing", pattern: "^/tag/([^/]+)/?$", id_group: 1, query_keys: ["p"] }, { name: "recent", kind: "listing", pattern: "^/(recent)/?$", id_group: 1, query_keys: ["p"] }, { name: "member", kind: "listing", pattern: "^/member/([^/]+)/topics/?$", id_group: 1, query_keys: ["p"] }, { name: "home", kind: "listing", pattern: "^/$", query_keys: ["tab"] }], batch: { layouts: [{ name: "topic-list", route_names: ["node", "tag", "recent", "member", "home"], root_selector: "#Main", row_selector: ".cell.item, #TopicsNode > .cell", link_selector: 'a.topic-link[href^="/t/"]', exclude_selectors: ["#Rightbar"], activity_selector: ".topic_info span[title]", activity_attribute: "title" }] }, runtime: { poll_ms: 500, debounce_ms: 100, timeout_ms: 3e4 }, api: { thread_endpoint: "{base_url}/api/topics/show.json?id={thread_id}", posts_endpoint: "{base_url}/api/replies/show.json?topic_id={thread_id}", html_endpoint: "{base_url}/t/{thread_id}?p={page}", max_pages: 50, page_size: 20, page_delay: { min_ms: 300, max_ms: 600, jitter: 0 }, request: { credentials: true, accept: "application/json" } }, metadata: { title_cleanup: "\\s+-\\s+V2EX$", title_selectors: ["#Main .header h1"], tags: ["v2ex", "forum"], source_url: "{base_url}/t/{thread_id}" }, delimiter: "---", comment: { template: "**#{index} {author}** · *{date}*\n\n{content}\n" }, comments_header: { template: "\n{delimiter}\n\n## Replies ({count})\n" }, supplement: { template: "\n### Supplement {index} · *{date}*\n\n{content}\n" }, filename: { single: "{title}", batch_item: "{id} - {title}", batch: "{site}-{type}-{tagname}-{date}" } } }, templates: { document: { enabled: true, template: "{frontmatter}\n\n{content}\n" }, frontmatter: { enabled: true, fields: ["author", "date", "description", "downloaded", "source", "tags", "title"] }, content: { separator: "\n\n---\n\n" }, comment: { enabled: true, template: "## Comment {index} - {author}\n**Posted:** {date}\n\n{content}\n" }, filename: { single: "[{id}] {title}", batch_item: "{index} - [{id}] {title}", batch: "[{date}] [{site}] [{type}] [{id}] {tagname}" } } };
       var define_MARKIFY_NOTIFICATIONS_default = { messages: { clipboard_success: "Copied to clipboard!", download_success: "Downloaded as {filename}", history_cleared: "Download history cleared", settings_reset: "Settings reset to defaults", settings_saved: "Settings saved successfully!", stats_reset: "Stats reset successfully", api_fetching: "Fetching forum content via API...", downloading: "Downloading {current}/{total}...", processing: "Processing {item}...", conversion_failed: "Failed to convert page. Check console for details.", download_failed: "Failed to create ZIP: {error}", no_files: "No files were successfully downloaded", batch_complete: "Successfully downloaded all {total} items!", batch_partial: "Downloaded {success}/{total} items. {failed} failed.", stats_summary: "Downloaded: {total} total\n{single} single | {batch} batch\nHistory: {tracked} tracked", clear_history_confirm: "Clear all download history? This cannot be undone." }, timeouts: { long: 5e3, medium: 3e3, short: 2e3 }, delays: { cleanup: 100, dom_stabilize: 1e3, batch_item: { min_ms: 1e3, max_ms: 3e3, jitter: 0.25 }, api_page: { min_ms: 500, max_ms: 1500, jitter: 0.2 } }, http: { user_agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36" } };
-      var define_MARKIFY_PACKAGE_default = { author: "isandrel", description: "Convert web pages to Obsidian-formatted Markdown with YAML frontmatter", name: "Markify", repository: "https://github.com/isandrel/Markify", version: "0.0.5", strings: { app_title: "Markify", app_title_batch: "Markify Batch Download", app_title_error: "Markify Batch Download Error", app_title_stats: "Markify Stats" }, menu: { clear_history: "🗑️ Clear History", history: "📜 Download History", reset_stats: "🔄 Reset Stats", settings: "⚙️ Settings", stats: "📊 View Stats" } };
+      var define_MARKIFY_PACKAGE_default = { author: "isandrel", description: "Convert web pages to Obsidian-formatted Markdown with YAML frontmatter", name: "Markify", repository: "https://github.com/isandrel/Markify", version: "0.0.6", strings: { app_title: "Markify", app_title_batch: "Markify Batch Download", app_title_error: "Markify Batch Download Error", app_title_stats: "Markify Stats" }, menu: { clear_history: "🗑️ Clear History", history: "📜 Download History", reset_stats: "🔄 Reset Stats", settings: "⚙️ Settings", stats: "📊 View Stats" } };
       var define_MARKIFY_TEMPLATES_default = { document: { enabled: true, template: "{frontmatter}\n\n{content}\n" }, frontmatter: { enabled: true, fields: ["author", "date", "description", "downloaded", "source", "tags", "title"] }, content: { separator: "\n\n---\n\n" }, comment: { enabled: true, template: "## Comment {index} - {author}\n**Posted:** {date}\n\n{content}\n" }, filename: { single: "[{id}] {title}", batch_item: "{index} - [{id}] {title}", batch: "[{date}] [{site}] [{type}] [{id}] {tagname}" } };
       var define_MARKIFY_THEME_default = { colors: { primary: "#7c3aed", primary_hover: "#6d28d9", primary_active: "#5b21b6", secondary: "#059669", secondary_hover: "#047857", secondary_active: "#065f46", success: "#22c55e", error: "#ef4444", warning: "#f59e0b", info: "#3b82f6", background: "#1a1a1a", surface: "#2a2a2a", text_primary: "#e5e7eb", text_secondary: "#a78bfa", text_muted: "#cdd6f4", overlay_alpha: 0.7, shadow_alpha: 0.4, shadow_alpha_hover: 0.5 } };
       var define_MARKIFY_UI_default = { ui: { buttons: { copy_text: "📋 Copy", download_text: "📥 Download", gap: "10px" }, indicators: { downloaded_icon: "✓ ", downloaded_tooltip: "Already downloaded", font_size_title: "1.2em" }, position: { default_right: "20px", default_top: "25%", z_index: 1e4 }, style: { border_radius: "8px", font_family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', font_size: "14px", font_weight: "600", padding: "12px 20px" }, shadows: { button_default: "0 4px 12px rgba(124, 58, 237, 0.4)", button_hover: "0 6px 16px rgba(124, 58, 237, 0.5)", copy_default: "0 4px 12px rgba(5, 150, 105, 0.4)", copy_hover: "0 6px 16px rgba(5, 150, 105, 0.5)" }, animations: { hover_transform: "translateY(-2px)", transition: "all 0.2s ease" } }, conversion: { code_block_style: "fenced", em_delimiter: "*", heading_style: "atx", link_style: "inlined", strong_delimiter: "**", remove_elements: { tags: ["aside", "footer", "header", "iframe", "nav", "script", "style"] } } };
@@ -11167,7 +11699,7 @@ root: {
           const adapter = captured.adapter;
           const filenameTemplate = profile?.filename.single ?? templates?.filename?.single ?? "{title}";
           const { applyFilenameTemplate: applyFilenameTemplate2 } = await __vitePreload(async () => {
-            const { applyFilenameTemplate: applyFilenameTemplate22 } = await module.import('./index-CSOeiHu3-COwhfQWm.js');
+            const { applyFilenameTemplate: applyFilenameTemplate22 } = await module.import('./index-DE1cYdu8-DOdOpOXZ.js');
             return { applyFilenameTemplate: applyFilenameTemplate22 };
           }, true ? void 0 : void 0);
           const filename = applyFilenameTemplate2(filenameTemplate, {
@@ -11496,8 +12028,19 @@ root: {
           delay: checkDelay,
           notify: (text2) => {
             GM.notification({ text: text2, title: "Markify", timeout: 3e3 });
-          }
+          },
+          async exportHistory() {
+            const backup = await exportHistory();
+            initiateDownload(new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" }), `markify-download-history-${backup.exportedAt.slice(0, 10)}.json`);
+            return backup.records.length;
+          },
+          importHistory: (text2) => importHistory(text2)
         });
+      }
+      function parseSettingsBackup(text2) {
+        const value = JSON.parse(text2);
+        if (isHistoryBackup(value)) throw new Error(t$1("This is a download history backup, not settings. Import it on the 📜 Download History page.", "这是下载记录备份，不是设置。请在“📜 下载记录”页面导入。"));
+        return value;
       }
       function openSettings() {
         const builtIn = Object.values(compiledConfig.adapters);
@@ -11539,7 +12082,7 @@ currentSiteId: builtIn.find((profile) => profile.site.origins.includes(window.lo
           void openSettings().catch((error2) => console.error("[Markify] Settings failed to open", error2));
         });
         GM.registerMenuCommand(pkg?.package?.menu?.stats, async () => {
-          const count = await GM.getValue("markify_stats", 0);
+          const count2 = await GM.getValue("markify_stats", 0);
           const { getDownloadStats: getDownloadStats2 } = await __vitePreload(async () => {
             const { getDownloadStats: getDownloadStats3 } = await Promise.resolve().then(() => downloadHistory);
             return { getDownloadStats: getDownloadStats3 };
@@ -11547,7 +12090,7 @@ currentSiteId: builtIn.find((profile) => profile.site.origins.includes(window.lo
           const stats = await getDownloadStats2();
           GM.notification({
             text: formatMessage(notifications?.messages?.stats_summary, {
-              total: count,
+              total: count2,
               single: stats.single,
               batch: stats.batch,
               tracked: stats.total
@@ -11581,13 +12124,13 @@ currentSiteId: builtIn.find((profile) => profile.site.origins.includes(window.lo
         });
         GM.registerMenuCommand("📤 Export Configuration", async () => {
           await GM.setClipboard(JSON.stringify(await loadOverrides(), null, 2), "text");
-          GM.notification({ text: "Configuration copied to clipboard.", title: "Markify", timeout: 2e3 });
+          GM.notification({ text: "Settings copied to the clipboard. The download history is not included: export it on the Download History page.", title: "Markify", timeout: 4e3 });
         });
         GM.registerMenuCommand("📥 Import Configuration", async () => {
           const value = prompt("Paste exported Markify configuration JSON:");
           if (!value) return;
           try {
-            await saveOverrides(JSON.parse(value));
+            await saveOverrides(parseSettingsBackup(value));
             GM.notification({ text: "Configuration saved. Reloading the page.", title: "Markify", timeout: 2e3 });
             window.location.reload();
           } catch (error2) {
@@ -11627,7 +12170,7 @@ currentSiteId: builtIn.find((profile) => profile.site.origins.includes(window.lo
   };
 }));
 
-System.register("./index-CSOeiHu3-COwhfQWm.js", ['./__monkey.entry-oE3Twt20.js'], (function (exports, module) {
+System.register("./index-DE1cYdu8-DOdOpOXZ.js", ['./__monkey.entry-y49y_XGs.js'], (function (exports, module) {
   'use strict';
   var applyFilenameTemplate;
   return {
