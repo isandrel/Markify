@@ -387,3 +387,44 @@ describe('Reddit', () => {
         expect(await fetchThreadState('p1', site(), reddit())).toEqual({ replies: 153 });
     });
 });
+
+describe('Discuz!', () => {
+    test('forum times in the forum\'s zone; anything else kept as shown', async () => {
+        const { parseForumDate } = await import('../src/adapters/discuz');
+        expect(parseForumDate('2026-10-15 12:58')).toBe('2026-10-15T04:58:00.000Z');
+        expect(parseForumDate('发表于 2022-5-5 21:44:42')).toBe('2022-05-05T13:44:42.000Z');
+        expect(parseForumDate('2026-10-15', '+00:00')).toBe('2026-10-15T00:00:00.000Z');
+        expect(parseForumDate('昨天 12:58')).toBe('昨天 12:58');
+    });
+
+    test('GBK pages decode by their declared charset', async () => {
+        const { responseText } = await import('../src/utils/http');
+        // "论坛" in GBK.
+        const gbk = new Uint8Array([0xc2, 0xdb, 0xcc, 0xb3]);
+        expect(await responseText(new Response(gbk, { headers: { 'content-type': 'text/html; charset=gbk' } }))).toBe('论坛');
+        const meta = new Uint8Array([...new TextEncoder().encode('<meta charset="gb2312">'), ...gbk]);
+        expect(await responseText(new Response(meta, { headers: { 'content-type': 'text/html' } }))).toBe('<meta charset="gb2312">论坛');
+        expect(await responseText(new Response('论坛', { headers: { 'content-type': 'text/plain' } }))).toBe('论坛');
+    });
+
+    test('query routes: the id from a parameter, only when the other parameters match', async () => {
+        const { classifyRoute } = await import('../src/adapters/routes');
+        const right = profiles.right;
+        expect(classifyRoute('https://www.right.com.cn/forum/forum.php?mod=viewthread&tid=42&extra=page%3D1', right)).toMatchObject({ name: 'viewthread', kind: 'thread', id: '42' });
+        expect(classifyRoute('https://www.right.com.cn/forum/forum.php?mod=forumdisplay&fid=49', right)).toMatchObject({ name: 'forumdisplay', id: '49' });
+        for (const url of ['https://www.right.com.cn/forum/forum.php', 'https://www.right.com.cn/forum/forum.php?mod=viewthread', 'https://www.right.com.cn/forum/forum.php?mod=viewthread&tid=abc', 'https://www.right.com.cn/thread-1-1-1.html'])
+            expect(classifyRoute(url, right)).toBeNull();
+        expect(() => normalizeProfile({ ...structuredClone(right), routes: [{ name: 't', kind: 'thread', pattern: '^/x$' }] })).toThrow('Thread route requires an ID capture or id_param');
+    });
+
+    test('a notice instead of the thread is the forum\'s refusal; posts without floors keep page order', async () => {
+        const { parseDiscuzPage } = await import('../src/adapters/discuz');
+        expect(() => parseDiscuzPage('<div id="messagetext" class="alert_info"><p>休息下，一会见</p></div>', 'https://x.test/')).toThrow('休息下，一会见');
+        const page = parseDiscuzPage('<div id="post_1"><div id="favatar1"><div class="pi"><div class="authi">anon</div></div></div><em id="authorposton1">发表于 3 天前</em>'
+            + '<div class="locked">提示: <em>该帖被管理员或版主屏蔽</em></div></div><div id="post_2"><td class="t_f" id="postmessage_2">hi <a href="space-uid-1.html">u</a></td></div>', 'https://x.test/bbs/thread-1-1-1.html');
+        expect(page.posts.map(post => [post.floor, post.author, post.date])).toEqual([[0, 'anon', '3 天前'], [0, '', '']]);
+        expect(page.posts[0].html).toContain('该帖被管理员或版主屏蔽');
+        expect(page.posts[1].html).toBe('hi <a href="https://x.test/bbs/space-uid-1.html">u</a>');
+        expect(page.pages).toBe(1);
+    });
+});

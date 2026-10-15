@@ -220,6 +220,13 @@ See [DEVELOPMENT.md](DEVELOPMENT.md) for:
   - the topic, its supplements (附言) and every reply, numbered by floor (#1, #2, …);
   - author, node and topic tags;
   - batch downloads from node, recent, tag, member and home lists
+- Discuz! X forums: 恩山无线论坛 (right.com.cn), 卡饭论坛 (kafan.cn), 全球主机交流论坛 (Hostloc):
+  - every page of a thread, read from the thread's own pages; replies numbered by floor;
+  - quotes, code blocks, lazy-loaded images and attachments as plain Markdown, without smilies or anti-copy filler;
+  - author, board and thread tags, views and replies; times in the forum's time zone;
+  - GBK forums decode correctly;
+  - batch downloads from board lists and the guide (导读), sticky threads left out;
+  - another Discuz! forum is one profile: copy `config/adapters/right.toml` and change the host, path and names
 - Reddit (www.reddit.com and old.reddit.com):
   - the post (text, images, galleries, video and link posts, polls, crossposts) and its comments, with replies quoted one level deeper than their parent;
   - comments Reddit holds back ("load more comments", "continue this thread") are fetched too, up to 20 extra requests per post; anything left is noted where it belongs;

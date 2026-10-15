@@ -21,7 +21,10 @@ export function classifyRoute(input: string, profile: AdapterConfig): RouteMatch
         if (route.origins && !route.origins.includes(url.origin)) continue;
         const match = regex.exec(url.pathname);
         if (!match) continue;
-        const id = route.id_group ? match[route.id_group] : undefined;
+        if (route.query && Object.entries(route.query).some(([key, value]) => url.searchParams.get(key) !== value)) continue;
+        const id = route.id_param ? url.searchParams.get(route.id_param) || undefined : route.id_group ? match[route.id_group] : undefined;
+        // A query id can be missing or malformed in a real link: not this route, rather than an error.
+        if (route.kind === 'thread' && route.id_param && !(id && /^\d+$/.test(id))) continue;
         if (route.kind === 'thread' && !id) throw new Error(`INVALID_ROUTE_CAPTURE: ${profile.site.id}/${route.name}`);
         const query = new URLSearchParams();
         for (const key of [...new Set(route.query_keys ?? url.searchParams.keys())].sort()) for (const value of url.searchParams.getAll(key)) query.append(key, value);

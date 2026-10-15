@@ -29,6 +29,10 @@ export const runtimeOverrideSchema = z.strictObject({
 export const routeSchema = z.strictObject({
     name: text, kind: z.enum(['listing', 'thread', 'entry']), pattern,
     id_group: z.number().int().min(1).max(20).optional(),
+    /** The id from a query parameter instead (`forum.php?mod=viewthread&tid=123`). */
+    id_param: text.optional(),
+    /** Query parameters that must have exactly these values (`{ mod = "viewthread" }`). */
+    query: z.record(z.string(), z.string()).optional(),
     origins: z.array(origin).min(1).optional(), query_keys: z.array(text).optional(),
 });
 export const layoutSchema = z.strictObject({
@@ -44,7 +48,7 @@ export const templateBlockSchema = z.strictObject({ template: template(bodyVars)
 const endpoint = template(['base_url', 'topic_id', 'thread_id', 'post_id', 'page', 'page_size', 'order', 'children']);
 export const profileSchema = z.strictObject({
     schema_version: z.literal(1),
-    engine: z.enum(['forum-json', 'discourse-raw', 'v2ex-api', 'reddit-json']), transport: z.enum(['gm', 'fetch']), enabled: z.boolean().default(true),
+    engine: z.enum(['forum-json', 'discourse-raw', 'v2ex-api', 'reddit-json', 'discuz-html']), transport: z.enum(['gm', 'fetch']), enabled: z.boolean().default(true),
     site: z.strictObject({ id: text.regex(/^[a-z0-9][a-z0-9-]*$/), name: text, base_url: origin, origins: z.array(origin).min(1), aliases: z.array(text).default([]) }),
     activation: z.strictObject({ matches: z.array(text).min(1), connect: z.array(text).default([]) }),
     routes: z.array(routeSchema).min(1),
@@ -69,6 +73,8 @@ export const profileSchema = z.strictObject({
         /** Elements holding the clean title, tried in order before document.title + title_cleanup. */
         title_selectors: z.array(text).optional(),
         tags: z.array(text).optional(), source_url: endpoint.optional(),
+        /** The forum's time zone, for times it shows without one ("2026-10-15 12:58"). */
+        utc_offset: z.string().regex(/^[+-]\d{2}:\d{2}$/, 'Expected an offset like +08:00').optional(),
     }).optional(),
     http: z.strictObject({ user_agent: text.optional() }).optional(),
     page_separator: z.string().optional(), delimiter: z.string().default('---'),
@@ -84,11 +90,11 @@ export const profileSchema = z.strictObject({
     for (const [i, route] of p.routes.entries()) {
         if (names.has(route.name)) fail(['routes', i, 'name'], 'Duplicate route name');
         names.add(route.name);
-        if (route.kind === 'thread' && !route.id_group) fail(['routes', i, 'id_group'], 'Thread route requires an ID capture');
+        if (route.kind === 'thread' && !route.id_group && !route.id_param) fail(['routes', i, 'id_group'], 'Thread route requires an ID capture or id_param');
         if (route.origins?.some(o => !p.site.origins.includes(o))) fail(['routes', i, 'origins'], 'Route origins must belong to site.origins');
     }
     for (const [i, layout] of p.batch.layouts.entries()) if (layout.route_names.some(n => !names.has(n))) fail(['batch', 'layouts', i, 'route_names'], 'Unknown route name');
-    const required = p.engine === 'discourse-raw' ? ['raw_endpoint'] as const : p.engine === 'reddit-json' ? ['thread_endpoint', 'json_endpoint'] as const : ['thread_endpoint', 'posts_endpoint'] as const;
+    const required = p.engine === 'discourse-raw' ? ['raw_endpoint'] as const : p.engine === 'reddit-json' ? ['thread_endpoint', 'json_endpoint'] as const : p.engine === 'discuz-html' ? ['html_endpoint'] as const : ['thread_endpoint', 'posts_endpoint'] as const;
     for (const key of required) if (!p.api[key]) fail(['api', key], `Required for ${p.engine}`);
     if (p.engine === 'forum-json') {
         for (const key of ['success_field', 'success_value', 'data_field', 'posts_field'] as const) if (p.api.response?.[key] === undefined) fail(['api', 'response', key], 'Required for forum-json');
@@ -99,7 +105,8 @@ export const profileSchema = z.strictObject({
         if (!p.metadata?.source_url) fail(['metadata', 'source_url'], 'Required for forum-json');
         for (const key of ['frontmatter', 'document', 'comment', 'comments_header'] as const) if (!p[key]) fail([key], 'Required for forum-json');
     }
-    if (p.engine !== 'discourse-raw' && !p.api.thread_endpoint?.includes('{thread_id}')) fail(['api', 'thread_endpoint'], 'Must include {thread_id}');
+    if (p.engine !== 'discourse-raw' && p.engine !== 'discuz-html' && !p.api.thread_endpoint?.includes('{thread_id}')) fail(['api', 'thread_endpoint'], 'Must include {thread_id}');
+    if (p.engine === 'discuz-html' && !(p.api.html_endpoint?.includes('{thread_id}') && p.api.html_endpoint.includes('{page}'))) fail(['api', 'html_endpoint'], 'Must include {thread_id} and {page}');
     if (p.engine === 'v2ex-api' && !p.api.posts_endpoint?.includes('{thread_id}')) fail(['api', 'posts_endpoint'], 'Must include {thread_id}');
     if (p.engine === 'reddit-json' && p.api.posts_endpoint && !p.api.posts_endpoint.includes('{children}')) fail(['api', 'posts_endpoint'], 'Must include {children}');
     if (p.engine === 'discourse-raw' && !p.api.raw_endpoint?.includes('{topic_id}')) fail(['api', 'raw_endpoint'], 'Must include {topic_id}');

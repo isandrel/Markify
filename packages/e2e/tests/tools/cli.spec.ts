@@ -25,21 +25,21 @@ test.describe('markify CLI', () => {
 
     test('adapters and config are listed from the profile registry', async () => {
         const adapters = JSON.parse((await runCli(['adapters', '--json'])).stdout) as { name: string; hasApi: boolean; patterns: string[] }[];
-        expect(adapters.filter(a => a.hasApi).map(a => a.name)).toEqual(['1Point3Acres', 'LINUX DO', 'Reddit', 'US Card Forum', 'V2EX']);
+        expect(adapters.filter(a => a.hasApi).map(a => a.name)).toEqual(['1Point3Acres', '全球主机交流论坛', '卡饭论坛', 'LINUX DO', 'Reddit', '恩山无线论坛', 'US Card Forum', 'V2EX']);
         expect(adapters.map(a => a.name)).toEqual(expect.arrayContaining(['Medium', 'Substack', 'Wikipedia', 'GitHub', 'Reddit', 'Dev.to']));
         expect(adapters.map(a => a.name)).not.toContain('Default');
 
         const profiles = JSON.parse((await runCli(['config', '--adapters', '--json'])).stdout);
-        expect(Object.keys(profiles).sort()).toEqual(['1point3acres', 'linuxdo', 'reddit', 'uscardforum', 'v2ex']);
+        expect(Object.keys(profiles).sort()).toEqual(['1point3acres', 'hostloc', 'kafan', 'linuxdo', 'reddit', 'right', 'uscardforum', 'v2ex']);
         const config = JSON.parse((await runCli(['config', '--json'])).stdout);
         expect(Object.keys(config)).toEqual(expect.arrayContaining(['adapters', 'package', 'templates', 'ui', 'notifications']));
-        expect((await runCli(['config'])).stdout).toContain('Adapters loaded: 5');
+        expect((await runCli(['config'])).stdout).toContain('Adapters loaded: 8');
     });
 
     test('config is found when run from outside the repository', async () => {
         const result = await runCli(['config', '--adapters', '--json'], { cwd: tempDir() });
         expect(result.status).toBe(0);
-        expect(Object.keys(JSON.parse(result.stdout))).toHaveLength(5);
+        expect(Object.keys(JSON.parse(result.stdout))).toHaveLength(8);
     });
 
     test('convert: 1Point3Acres thread through the forum JSON API', async () => {

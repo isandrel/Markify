@@ -13,7 +13,7 @@
 
 import { convert, listAdapters, hasSiteApi, getConfig, setConfig, routeLogsToStderr } from '@markify/core';
 import type { HttpFetcher, ConvertStrategy } from '@markify/core';
-import { buildHeaders } from '@markify/core/utils/http';
+import { buildHeaders, responseText } from '@markify/core/utils/http';
 import { loadConfigFromDisk } from '@markify/core/config/disk';
 
 routeLogsToStderr();
@@ -27,7 +27,7 @@ const cliFetcher: HttpFetcher = {
     get: async (url: string, opts?: { headers?: Record<string, string> }) => {
         const headers = buildHeaders(opts?.headers);
         const res = await fetch(url, { headers });
-        return { status: res.status, ok: res.ok, text: await res.text() };
+        return { status: res.status, ok: res.ok, text: await responseText(res) };
     },
 };
 
@@ -171,7 +171,7 @@ async function runConvert(args: string[]): Promise<void> {
         if (strategy === 'dom-only') stderr(dim('Fetching HTML for DOM parsing...'));
         const { parseHTML } = await import('linkedom');
         const response = await fetch(url);
-        const html = await response.text();
+        const html = await responseText(response);
         const parsed = parseHTML(html);
         document = parsed.document;
     }
@@ -279,7 +279,7 @@ async function runBatch(args: string[]): Promise<void> {
             if (strategy === 'dom-only' || strategy === 'api-first') {
                 const { parseHTML } = await import('linkedom');
                 const response = await fetch(url);
-                const html = await response.text();
+                const html = await responseText(response);
                 document = parseHTML(html).document;
             }
 

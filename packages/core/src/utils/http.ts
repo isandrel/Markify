@@ -115,3 +115,18 @@ export function buildHeaders(
         ...(existing ?? {}),
     };
 }
+
+/**
+ * A response body as text, in the charset the site declared. `Response.text()`
+ * always decodes UTF-8, which garbles GBK/GB18030 pages (many Discuz! forums):
+ * the Content-Type header decides, then a <meta charset> near the top.
+ */
+export async function responseText(response: { headers: { get(name: string): string | null }; arrayBuffer(): Promise<ArrayBuffer> }): Promise<string> {
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    const declared = /charset=["']?([\w-]+)/i.exec(response.headers.get('content-type') ?? '')?.[1]
+        ?? /<meta[^>]+charset=["']?([\w-]+)/i.exec(new TextDecoder('latin1').decode(bytes.subarray(0, 2048)))?.[1];
+    let charset = (declared ?? 'utf-8').toLowerCase();
+    // GB2312 and GBK pages often use characters only GB18030 names.
+    if (charset === 'gb2312' || charset === 'gbk') charset = 'gb18030';
+    try { return new TextDecoder(charset).decode(bytes); } catch { return new TextDecoder('utf-8').decode(bytes); }
+}

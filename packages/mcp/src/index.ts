@@ -25,7 +25,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod';
 import { convert, listAdapters, hasSiteApi, getConfig, setConfig, routeLogsToStderr } from '@markify/core';
 import type { HttpFetcher, MinimalDocument } from '@markify/core';
-import { buildHeaders, humanDelay } from '@markify/core/utils/http';
+import { buildHeaders, humanDelay, responseText } from '@markify/core/utils/http';
 import { loadConfigFromDisk } from '@markify/core/config/disk';
 import type { AdapterConfig } from '@markify/core';
 import { BrowserBridge, BrowserError, parseTokens } from './browser';
@@ -39,7 +39,7 @@ const mcpFetcher: HttpFetcher = {
     get: async (url: string, opts?: { headers?: Record<string, string> }) => {
         const headers = buildHeaders(opts?.headers);
         const res = await fetch(url, { headers });
-        return { status: res.status, ok: res.ok, text: await res.text() };
+        return { status: res.status, ok: res.ok, text: await responseText(res) };
     },
 };
 
@@ -61,7 +61,7 @@ async function parseUrl(url: string): Promise<MinimalDocument | undefined> {
     const { parseHTML } = await import('linkedom');
     const headers = buildHeaders();
     const response = await fetch(url, { headers });
-    const html = await response.text();
+    const html = await responseText(response);
     const parsed = parseHTML(html);
     return parsed.document as unknown as MinimalDocument;
 }

@@ -10,6 +10,7 @@
     "test:e2e:discourse": "playwright test --project=uscardforum --project=linuxdo",
     "test:e2e:v2ex": "playwright test --project=v2ex",
     "test:e2e:reddit": "playwright test --project=reddit",
+    "test:e2e:discuz": "playwright test --project=discuz",
     "test:e2e:live": "MARKIFY_E2E_LIVE=1 NODE_USE_ENV_PROXY=1 playwright test --project=live",
     "typecheck": "tsc --noEmit"
   },
