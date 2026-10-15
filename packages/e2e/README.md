@@ -24,6 +24,7 @@ Use the local `./node_modules/.bin/playwright`, not a global `npx playwright`. T
 | `linuxdo` | `tests/linuxdo/` | The same Discourse suite for LINUX DO |
 | `v2ex` | `tests/v2ex/` | V2EX: topic from the API, supplements, tags and every reply from the topic pages (several pages, a lagging replies API), www and bare host, node/recent/tag/member/home batches, history markers |
 | `reddit` | `tests/reddit/` | Reddit: post and comment tree from the JSON API, "load more comments" and "continue this thread", galleries and link posts, private communities, www and old Reddit, feeds in both layouts, update checks from the comment count |
+| `discuz` | `tests/discuz/` | Discuz! forums (恩山 under `/forum`, 卡饭 at the root): every page of a thread, both URL styles, quotes/code/lazy images/attachments, anti-copy filler and smilies removed, the forum's refusal notice, board and guide lists without sticky threads, last-reply times in the forum's time zone |
 | `userscript` | `tests/userscript/` | Site-independent behaviour: metadata, toolbar, drag, menus, settings, config import/export/migration, and the token-gated `window.markify` console API |
 | `tools` | `tests/tools/` | CLI subcommands and MCP tools |
 | `live-dryrun` | `tests/live/` | The real-site specs run against the fixtures, which keeps them correct in every run |
@@ -42,6 +43,7 @@ The Discourse suite covers raw-page joining, Discourse-only syntax (uploads, quo
 - **US Card Forum, LINUX DO:** every userscript feature in the browser, finding topics on the real `/latest` page and reading data from inside the page, the way the userscript does:
   - checks that need only the page: list checkboxes, "updated since download" markers from the list's activity times, list → topic navigation, the console API's `status`/`list`, settings;
   - checks that need data (`/raw/`, `*.json`): batch ZIP with frontmatter, topic export (title, author, tags, every raw page, portable Markdown, upload links), Copy, thread-page update check, history-page checks, console API export, the CLI.
+- **Discuz! (恩山, 卡饭):** threads found on the guide page; the CLI exports one, and in the browser a thread page and the guide list. 卡饭 rate-limits guests now and then; its notice or HTTP 403 makes the checks skip.
 - **Reddit:** posts found through the subreddit's JSON; the CLI exports one, and in the browser a post page and a subreddit feed. Reddit blocks many data-centre IPs outright (HTTP 403, "blocked by network security"), so from GitHub-hosted runners these skip.
 - **V2EX:** topics found through the public API; the CLI exports one end to end. In the browser: `/recent` checkboxes and "updated" markers, topic export (every reply from its pages, supplements, tags) and Copy, a node-page ZIP, the thread-page update check. V2EX challenges the headless browser (its user agent says HeadlessChrome) from data-centre IPs, so those checks skip there.
 
@@ -65,7 +67,7 @@ Results:
 2. Add `fixtures/sites/<site>.ts` with one `discourseSite({...})` call describing a few topics, a category, a tag, the latest list and a search, and register it in `fixtures/index.ts`.
 3. Add `tests/<site>/<site>.spec.ts` with one line: `discourseSuite({ id, spec, tags })`. Then add a project in `playwright.config.ts` and an entry in `tests/live/discourse.spec.ts`.
 
-**A site on another protocol** (`forum-json`, `v2ex-api`, `reddit-json`, or a new engine) also needs no harness changes:
+**A site on another protocol** (`forum-json`, `v2ex-api`, `reddit-json`, `discuz-html`, or a new engine) also needs no harness changes:
 
 1. Add the profile in `config/adapters/<site>.toml`, as described in `DEVELOPMENT.md`.
 2. Add `fixtures/sites/<site>.ts`. It exports a `FakeSite` (`origins` plus `respond(url)`) serving the pages, listings and API responses the profile uses. `1point3acres.ts` is the example for SPA navigation and failure modes.

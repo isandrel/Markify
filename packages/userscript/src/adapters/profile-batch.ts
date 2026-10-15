@@ -1,4 +1,4 @@
-import { classifyRoute } from '@markify/core';
+import { classifyRoute, parseForumDate } from '@markify/core';
 import type { AdapterConfig, FilenameContext } from '@markify/core';
 import type { BatchCapability, BatchRow, BatchItem } from '../batch/BatchDownloadManager';
 
@@ -12,15 +12,26 @@ export interface ExtractionDiagnostic {
     count: number;
 }
 
-/** A row's last activity as ISO time: epoch milliseconds or seconds in an attribute, or a date string. */
-function activityOf(element: HTMLElement, layout: AdapterConfig['batch']['layouts'][number]): string | undefined {
+/**
+ * A row's last activity as ISO time: epoch milliseconds or seconds, or a date the
+ * forum shows in its own time zone. The first match that reads as a time wins;
+ * a match without the attribute is read by its text ("2026-10-15 12:58" in a link).
+ */
+function activityOf(element: HTMLElement, layout: AdapterConfig['batch']['layouts'][number], utcOffset?: string): string | undefined {
     if (!layout.activity_selector) return undefined;
-    const node = element.querySelector(layout.activity_selector);
-    const raw = (layout.activity_attribute ? node?.getAttribute(layout.activity_attribute) : node?.textContent)?.trim();
-    if (!raw) return undefined;
-    const number = /^\d+$/.test(raw) ? Number(raw) : NaN;
-    const time = Number.isFinite(number) ? (number < 1e12 ? number * 1000 : number) : Date.parse(raw);
-    return Number.isFinite(time) ? new Date(time).toISOString() : undefined;
+    for (const node of Array.from(element.querySelectorAll(layout.activity_selector))) {
+        const raw = ((layout.activity_attribute && node.getAttribute(layout.activity_attribute)) || node.textContent)?.trim();
+        if (!raw) continue;
+        if (/^\d+$/.test(raw)) { const number = Number(raw); return new Date(number < 1e12 ? number * 1000 : number).toISOString(); }
+        // A time without a zone is in the forum's own, when the profile names it.
+        if (utcOffset && !/T|[zZ]$|[+-]\d{2}:?\d{2}$/.test(raw)) {
+            const forum = parseForumDate(raw, utcOffset);
+            if (/^\d{4}-\d{2}-\d{2}T/.test(forum)) return forum;
+        }
+        const time = Date.parse(raw);
+        if (Number.isFinite(time)) return new Date(time).toISOString();
+    }
+    return undefined;
 }
 
 /** DOM behavior is selected by a validated profile; protocols remain injected. */
@@ -73,7 +84,7 @@ export class ProfileBatchCapability implements BatchCapability {
                             // Reject structural fallback rows without a verified title node.
                             if (!title) continue;
                             seen.add(thread.id);
-                            rows.push({ id: thread.id, title, url: url.href, element, link, activity: activityOf(element, layout) });
+                            rows.push({ id: thread.id, title, url: url.href, element, link, activity: activityOf(element, layout, this.profile.metadata?.utc_offset) });
                             break;
                         }
                     }

@@ -30,9 +30,9 @@ Rebuild after source or profile changes, then reload the target page. The `@matc
 Each `config/adapters/*.toml` file is a validated profile. It declares:
 
 - stable identity and aliases used by history;
-- HTTPS origins, activation matches, and route patterns;
+- HTTPS origins, activation matches, and route patterns (a route can also require query parameters and take its id from one, e.g. `forum.php?mod=viewthread&tid=…`);
 - named listing layouts with feed roots, row/link/title selectors, and exclusions;
-- a typed protocol engine (`forum-json`, `discourse-raw`, `v2ex-api` or `reddit-json`);
+- a typed protocol engine (`forum-json`, `discourse-raw`, `v2ex-api`, `reddit-json` or `discuz-html`);
 - endpoint templates, field paths, response checks, pagination, and delays;
 - runtime polling/debounce/timeout values and export filename templates.
 

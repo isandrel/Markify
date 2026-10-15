@@ -7,6 +7,7 @@ export { substackAdapter } from './substack';
 export { wikipediaAdapter } from './wikipedia';
 export { githubAdapter } from './github';
 export { fetchRedditContent } from './reddit';
+export { fetchDiscuzContent, parseDiscuzPage, parseForumDate } from './discuz';
 export { devtoAdapter } from './devto';
 export { usCardForumAdapter, fetchDiscourseRawContent, fetchDiscourseRawContent as fetchUSCardForumContent } from './uscardforum';
 export { fetchV2exContent, parseV2exPage } from './v2ex';

@@ -9,6 +9,8 @@ test.describe('userscript metadata', () => {
 
     test('activation, connect hosts and grants are generated from the profiles', () => {
         expect(metadata.matches).toEqual([
+            'https://bbs.kafan.cn/*',
+            'https://hostloc.com/*',
             'https://instant.1point3acres.com/thread/*',
             'https://linux.do/*',
             'https://old.reddit.com/*',
@@ -16,6 +18,7 @@ test.describe('userscript metadata', () => {
             'https://www.1point3acres.com/bbs/thread-*',
             'https://www.1point3acres.com/home/*',
             'https://www.reddit.com/*',
+            'https://www.right.com.cn/forum/*',
             'https://www.uscardforum.com/*',
             'https://www.v2ex.com/*',
         ]);

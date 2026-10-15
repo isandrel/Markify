@@ -51,6 +51,7 @@ export {
     fetchDiscourseRawContent,
     fetch1Point3AcresContent,
     fetchForumApiContent,
+    parseForumDate,
 } from './adapters';
 export { createProfileAdapter, getProfileAdapters, findProfileAdapter, contentEngines, fetchThreadState } from './adapters/engines';
 export { classifyRoute, classifyRegistryRoute } from './adapters/routes';
@@ -81,5 +82,5 @@ export type { FilenameContext } from './utils/filename';
 
 export { Logger, LogLevel, logger, batchLogger, adapterLogger, routeLogsToStderr } from './utils/logger';
 
-export { getUserAgent, humanDelay, sleep, buildHeaders } from './utils/http';
+export { getUserAgent, humanDelay, sleep, buildHeaders, responseText } from './utils/http';
 export type { DelayConfig } from './utils/http';

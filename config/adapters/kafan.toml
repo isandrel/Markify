@@ -1,0 +1,105 @@
+# Validated site profile for 卡饭论坛, a Discuz! X forum. Threads are read from
+# their own pages (every Discuz! site serves them), 1–2 s apart.
+schema_version = 1
+engine = "discuz-html"
+transport = "gm"
+delimiter = "---"
+
+[site]
+id = "kafan"
+name = "卡饭论坛"
+base_url = "https://bbs.kafan.cn"
+origins = ["https://bbs.kafan.cn"]
+aliases = ["卡饭", "kafan.cn"]
+
+[activation]
+matches = ["https://bbs.kafan.cn/*"]
+connect = ["self"]
+
+# Rewritten and dynamic URLs both work.
+[[routes]]
+name = "thread"
+kind = "thread"
+pattern = '^/thread-(\d+)-\d+-\d+\.html$'
+id_group = 1
+
+[[routes]]
+name = "viewthread"
+kind = "thread"
+pattern = '^/forum\.php$'
+query = { mod = "viewthread" }
+id_param = "tid"
+
+[[routes]]
+name = "forum"
+kind = "listing"
+pattern = '^/forum-(\d+)-\d+\.html$'
+id_group = 1
+
+[[routes]]
+name = "forumdisplay"
+kind = "listing"
+pattern = '^/forum\.php$'
+query = { mod = "forumdisplay" }
+id_param = "fid"
+query_keys = ["fid", "page", "filter", "typeid", "orderby"]
+
+[[routes]]
+name = "guide"
+kind = "listing"
+pattern = '^/forum\.php$'
+query = { mod = "guide" }
+id_param = "view"
+query_keys = ["view", "page"]
+
+[runtime]
+poll_ms = 500
+debounce_ms = 100
+timeout_ms = 30000
+
+# Board and guide lists: one <tbody id="normalthread_…"> per thread; sticky threads are left out.
+[[batch.layouts]]
+name = "threadlist"
+route_names = ["forum", "forumdisplay", "guide"]
+root_selector = "#threadlist, #threadlisttableid"
+row_selector = 'tbody[id^="normalthread_"]'
+link_selector = "a.xst"
+# Last reply time: a <span title="2026-10-15 12:58"> when recent, else the link text.
+activity_selector  = "td.by:last-of-type em span[title], td.by:last-of-type em a"
+activity_attribute = "title"
+
+[api]
+html_endpoint = "https://bbs.kafan.cn/thread-{thread_id}-{page}-1.html"
+max_pages     = 50
+page_delay    = { min_ms = 1000, max_ms = 2000, jitter = 0 }
+
+[api.request]
+credentials = true                # The logged-in session sees boards that need a login
+accept      = "text/html"
+
+[metadata]
+title_selectors = ["#thread_subject"]
+title_cleanup   = '\s+-\s+.*$'
+tags            = ["kafan", "forum"]
+source_url      = "https://bbs.kafan.cn/thread-{thread_id}-1-1.html"
+utc_offset      = "+08:00"
+
+# One reply. Variables: {index} (floor), {author}, {date}, {content}
+[comment]
+template = """
+**#{index} {author}** · *{date}*
+
+{content}
+"""
+
+[comments_header]
+template = """
+{delimiter}
+
+## Replies ({count})
+"""
+
+[filename]
+single     = "{title}"
+batch_item = "{id} - {title}"
+batch      = "{site}-{type}-{tagname}-{date}"

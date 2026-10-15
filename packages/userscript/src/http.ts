@@ -1,4 +1,5 @@
 import type { FetchOptions, FetchResponse, HttpFetcher } from '@markify/core';
+import { responseText } from '@markify/core';
 
 export interface RequestDetails {
     method: 'GET';
@@ -74,7 +75,7 @@ export function createFetchFetcher(timeoutMs: number, fetchImpl: typeof fetch = 
                     credentials: options.credentials === true ? 'include' : options.credentials === false ? 'omit' : 'same-origin',
                     signal: controller.signal,
                 });
-                return { status: response.status, ok: response.ok, text: await response.text() };
+                return { status: response.status, ok: response.ok, text: await responseText(response) };
             } finally {
                 clearTimeout(timer);
                 options.signal?.removeEventListener('abort', cancel);

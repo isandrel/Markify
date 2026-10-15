@@ -1,5 +1,6 @@
 import { ConversionError, assertNotAborted } from '../errors';
 import type { ApiConversionContext, FetchOptions, FetchResponse, HttpFetcher } from '../types';
+import { responseText } from '../utils/http';
 
 export type JsonRecord = Record<string, unknown>;
 
@@ -74,7 +75,7 @@ export const fetchHttpFetcher: HttpFetcher = {
             credentials: options?.credentials ? 'include' : 'same-origin',
             headers: options?.headers, signal: options?.signal,
         });
-        return { ok: response.ok, status: response.status, text: await response.text() };
+        return { ok: response.ok, status: response.status, text: await responseText(response) };
     },
 };
 
